@@ -1,0 +1,4 @@
+interface:
+  display_name: "KMP Project Scaffold"
+  short_description: "Initialize or repair Kotlin Multiplatform project structure."
+  default_prompt: "Initialize or repair this Kotlin Multiplatform project structure, Gradle setup, modules, and test wiring."

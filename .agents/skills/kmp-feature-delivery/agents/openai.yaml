@@ -1,0 +1,4 @@
+interface:
+  display_name: "KMP Feature Delivery"
+  short_description: "Deliver test-backed KMP features."
+  default_prompt: "Implement this Kotlin Multiplatform feature using a small approved scenario, tests first, and the existing Gradle module boundaries."
