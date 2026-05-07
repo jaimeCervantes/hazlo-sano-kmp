@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review PR"
+  short_description: "Review pull requests, branches, commits, and local diffs."
+  default_prompt: "Review this pull request, branch, commit range, or local diff and report findings first with file and line references."
