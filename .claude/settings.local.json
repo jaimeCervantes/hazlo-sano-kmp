@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\S2G52\\\\AndroidStudioProjects\\\\HazloSano\" -Directory)",
+      "Bash(Select-Object Name)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebSearch",
+      "Bash(curl -s \"https://repo1.maven.org/maven2/com/android/tools/build/gradle/maven-metadata.xml\")",
+      "Bash(Get-ChildItem *)",
+      "PowerShell(Get-ChildItem -Recurse -File \"C:\\\\Users\\\\S2G52\\\\AndroidStudioProjects\\\\HazloSano\\\\app\\\\src\\\\main\\\\java\\\\com\\\\hazlosano\\\\feature\\\\sleep\\\\ui\\\\\" | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Recurse -File \"C:\\\\Users\\\\S2G52\\\\Desktop\\\\jaimito\\\\dev\\\\HazloSano\\\\kmp\\\\composeApp\\\\src\\\\\" | ForEach-Object { $_.FullName })",
+      "PowerShell(if \\(Test-Path \"C:\\\\Users\\\\S2G52\\\\Desktop\\\\jaimito\\\\dev\\\\HazloSano\\\\kmp\\\\shared\\\\src\"\\) { Get-ChildItem -Recurse -File \"C:\\\\Users\\\\S2G52\\\\Desktop\\\\jaimito\\\\dev\\\\HazloSano\\\\kmp\\\\shared\\\\src\" | ForEach-Object { $_.FullName } } else { Write-Output \"shared/src does not exist\" })",
+      "PowerShell(Get-ChildItem -Recurse -File \"C:\\\\Users\\\\S2G52\\\\Desktop\\\\jaimito\\\\dev\\\\HazloSano\\\\kmp\\\\.agents\\\\\" | ForEach-Object { $_.FullName })",
+      "Bash(dir C:\\\\Users\\\\S2G52\\\\AndroidStudioProjects\\\\HazloSano\\\\sharedUi\\\\src\\\\commonMain\\\\kotlin\\\\com\\\\hazlosano\\\\core\\\\ui\\\\components\\\\sections\\\\ *)",
+      "PowerShell(Get-ChildItem -File \"C:\\\\Users\\\\S2G52\\\\AndroidStudioProjects\\\\HazloSano\\\\sharedUi\\\\src\\\\commonMain\\\\kotlin\\\\com\\\\hazlosano\\\\core\\\\ui\\\\components\\\\sections\\\\\" | ForEach-Object { $_.Name })"
+    ]
+  }
+}

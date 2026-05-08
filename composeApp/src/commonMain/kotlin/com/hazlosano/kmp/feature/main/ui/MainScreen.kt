@@ -38,7 +38,9 @@ import com.hazlosano.kmp.core.ui.theme.PillarMovement
 import com.hazlosano.kmp.core.ui.theme.PillarNutrition
 import com.hazlosano.kmp.core.ui.theme.PillarSleep
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
+import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.feature.home.ui.HomeScreen
+import com.hazlosano.kmp.feature.sleep.ui.SleepScreen
 
 enum class BottomTab(val label: String, val icon: ImageVector, val color: Color) {
     Inicio("Inicio", Icons.Filled.Home, HazloSanoGreen),
@@ -49,7 +51,7 @@ enum class BottomTab(val label: String, val icon: ImageVector, val color: Color)
 }
 
 @Composable
-fun MainScreen(homeViewModel: HomeViewModel) {
+fun MainScreen(homeViewModel: HomeViewModel, sleepViewModel: SleepViewModel) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
 
     Scaffold(
@@ -85,6 +87,7 @@ fun MainScreen(homeViewModel: HomeViewModel) {
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             when (selectedTab) {
                 BottomTab.Inicio -> HomeScreen(viewModel = homeViewModel)
+                BottomTab.Sueno -> SleepScreen(viewModel = sleepViewModel)
                 else -> PlaceholderScreen(tab = selectedTab)
             }
         }
