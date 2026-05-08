@@ -6,6 +6,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.hazlosano.kmp.core.ui.theme.HazloSanoTheme
 import com.hazlosano.kmp.data.repository.MockHomeRepository
 import com.hazlosano.kmp.domain.usecase.GetHomeContentUseCase
+import com.hazlosano.kmp.domain.usecase.GetSleepContentUseCase
+import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
+import com.hazlosano.kmp.data.repository.MockSleepRepository
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 import com.hazlosano.kmp.feature.main.ui.MainScreen
 
@@ -15,8 +18,11 @@ fun App() {
     val viewModel = remember {
         HomeViewModel(GetHomeContentUseCase(MockHomeRepository()))
     }
+    val sleepViewModel = remember {
+        SleepViewModel(GetSleepContentUseCase(MockSleepRepository()))
+    }
 
     HazloSanoTheme {
-        MainScreen(homeViewModel = viewModel)
+        MainScreen(homeViewModel = viewModel, sleepViewModel = sleepViewModel)
     }
 }
