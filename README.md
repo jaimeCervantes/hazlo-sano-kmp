@@ -22,41 +22,33 @@ This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM
 
 Run lint checks, type checks, and tests across all modules:
 
-- on macOS/Linux
   ```shell
   ./gradlew check
   ```
-- on Windows
-  ```shell
-  .\gradlew.bat check
-  ```
+
 
 To validate a single module only:
 
-- on macOS/Linux
   ```shell
   ./gradlew :composeApp:check
   ./gradlew :shared:check
   ./gradlew :server:check
   ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:check
-  .\gradlew.bat :shared:check
-  .\gradlew.bat :server:check
-  ```
+
+## Debug
+
+Remember to add adb or android tools to the system path.
+
+```shell
+adb devices
+```
 
 ## Testing
 
 Run all tests across every module:
 
-- on macOS/Linux
   ```shell
   ./gradlew allTests
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat allTests
   ```
 
 Run tests for a specific module or platform:
@@ -78,16 +70,7 @@ Run tests for a specific module or platform:
   ./gradlew :composeApp:wasmJsTest
   ./gradlew :composeApp:testDebugUnitTest
   ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:allTests
-  .\gradlew.bat :shared:allTests
-  .\gradlew.bat :server:test
-  .\gradlew.bat :composeApp:jvmTest
-  .\gradlew.bat :composeApp:jsTest
-  .\gradlew.bat :composeApp:wasmJsTest
-  .\gradlew.bat :composeApp:testDebugUnitTest
-  ```
+
 
 ## Running (Debug / Development)
 
@@ -120,11 +103,6 @@ To build and install in one step (device/emulator required):
 
 The server starts in development mode with hot reload. Set the `development` project property to `false` to disable:
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :server:run -Pdevelopment=false
-  ```
-- on Windows
   ```shell
   .\gradlew.bat :server:run "-Pdevelopment=false"
   ```

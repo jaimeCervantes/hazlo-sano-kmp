@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.hazlosano.kmp.core.ui.components.atomic.AsyncImageBackground
-import com.hazlosano.kmp.core.ui.components.atomic.HazloHeader
 import com.hazlosano.kmp.core.ui.components.atomic.LeafCard
 import com.hazlosano.kmp.core.ui.components.sections.HazloChallengesSection
 import com.hazlosano.kmp.core.ui.components.sections.HazloChampionsSection
@@ -70,10 +69,6 @@ private fun SleepDashboardContent(content: SleepContent) {
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(top = HazloSpaces.lg, bottom = HazloSpaces.xl),
     ) {
-        item {
-            HazloHeader(modifier = Modifier.padding(horizontal = HazloSpaces.unit))
-        }
-
         item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
 
         item {
