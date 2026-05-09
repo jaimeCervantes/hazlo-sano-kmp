@@ -42,7 +42,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hazlosano.kmp.core.ui.components.atomic.AsyncImageBackground
 import com.hazlosano.kmp.core.ui.components.atomic.HazloAsyncImage
-import com.hazlosano.kmp.core.ui.components.atomic.HazloHeader
 import com.hazlosano.kmp.core.ui.components.atomic.LeafCard
 import com.hazlosano.kmp.core.ui.components.atomic.PillarBadge
 import com.hazlosano.kmp.core.ui.components.atomic.SectionHeader
@@ -97,7 +96,7 @@ private fun HomeContent(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(top = HazloSpaces.lg, bottom = HazloSpaces.xl),
     ) {
-        item { HazloHeader(modifier = Modifier.padding(horizontal = HazloSpaces.unit)) }
+        item { Spacer(modifier = Modifier.height(HazloSpaces.unit)) }
         item { HeaderSection(content.headerTitle, content.headerSubtitle) }
         item { PillarsOverviewSection(content.pillars, onNavigateToTracker) }
         item {

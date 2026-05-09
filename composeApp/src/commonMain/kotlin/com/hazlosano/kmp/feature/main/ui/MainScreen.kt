@@ -14,7 +14,11 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hazlosano.kmp.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.kmp.core.ui.theme.HazloSanoGreen
 import com.hazlosano.kmp.core.ui.theme.PillarMind
 import com.hazlosano.kmp.core.ui.theme.PillarMovement
@@ -50,45 +55,53 @@ enum class BottomTab(val label: String, val icon: ImageVector, val color: Color)
     Mente("Mente", Icons.Filled.SelfImprovement, PillarMind),
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainScreen(homeViewModel: HomeViewModel, sleepViewModel: SleepViewModel) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ) {
-                BottomTab.entries.forEach { tab ->
-                    val selected = selectedTab == tab
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = tab.label,
-                            )
-                        },
-                        label = { Text(tab.label) },
-                        selected = selected,
-                        onClick = { selectedTab = tab },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = tab.color,
-                            indicatorColor = tab.color,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    )
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        HazloTopAppBar(scrollBehavior = scrollBehavior)
+        Scaffold(
+            modifier = Modifier
+                .weight(1f)
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            bottomBar = {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ) {
+                    BottomTab.entries.forEach { tab ->
+                        val selected = selectedTab == tab
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    imageVector = tab.icon,
+                                    contentDescription = tab.label,
+                                )
+                            },
+                            label = { Text(tab.label) },
+                            selected = selected,
+                            onClick = { selectedTab = tab },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Color.White,
+                                selectedTextColor = tab.color,
+                                indicatorColor = tab.color,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                        )
+                    }
                 }
-            }
-        },
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-            when (selectedTab) {
-                BottomTab.Inicio -> HomeScreen(viewModel = homeViewModel)
-                BottomTab.Sueno -> SleepScreen(viewModel = sleepViewModel)
-                else -> PlaceholderScreen(tab = selectedTab)
+            },
+        ) { innerPadding ->
+            Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                when (selectedTab) {
+                    BottomTab.Inicio -> HomeScreen(viewModel = homeViewModel)
+                    BottomTab.Sueno -> SleepScreen(viewModel = sleepViewModel)
+                    else -> PlaceholderScreen(tab = selectedTab)
+                }
             }
         }
     }
