@@ -23,14 +23,17 @@ fun App() {
     val viewModel = remember {
         HomeViewModel(GetHomeContentUseCase(MockHomeRepository()))
     }
-    val sleepViewModel = remember {
-        SleepViewModel(GetSleepContentUseCase(MockSleepRepository()))
-    }
     val sleepSessionRepository: SleepSessionRepository = remember {
         SleepSessionRepositoryImpl(createSleepDataSource())
     }
     val getSleepAnalysisUseCase = remember {
         GetSleepAnalysisUseCase(sleepSessionRepository)
+    }
+    val sleepViewModel = remember {
+        SleepViewModel(
+            GetSleepContentUseCase(MockSleepRepository()),
+            getSleepAnalysisUseCase,
+        )
     }
 
     HazloSanoTheme {
