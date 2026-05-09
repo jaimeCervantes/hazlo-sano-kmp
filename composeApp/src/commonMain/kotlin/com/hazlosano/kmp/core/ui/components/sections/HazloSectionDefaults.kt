@@ -9,6 +9,6 @@ object HazloSectionDefaults {
     const val productSearchTitle: String = "Buscar productos y servicios"
     const val productSearchPlaceholder: String = "Buscar productos cercanos..."
     const val productSearchEmptyText: String = "No se encontraron productos."
-    const val viewAllActionText: String = "Ver Todos >"
+    const val viewAllActionText: String = "Ver Todos ->"
     val challengeCardWidth: Dp = 280.dp
 }
