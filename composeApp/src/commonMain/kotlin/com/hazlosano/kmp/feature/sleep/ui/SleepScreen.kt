@@ -67,10 +67,8 @@ private fun ErrorContent(message: String) {
 private fun SleepDashboardContent(content: SleepContent) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(top = HazloSpaces.lg, bottom = HazloSpaces.xl),
+        contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
     ) {
-        item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
-
         item {
             HazloChampionsSection(
                 champions = content.weeklyChampions,

@@ -94,10 +94,8 @@ private fun HomeContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(top = HazloSpaces.lg, bottom = HazloSpaces.xl),
+        contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
     ) {
-        item { Spacer(modifier = Modifier.height(HazloSpaces.unit)) }
-        item { HeaderSection(content.headerTitle, content.headerSubtitle) }
         item { PillarsOverviewSection(content.pillars, onNavigateToTracker) }
         item {
             HazloChampionsSection(
@@ -123,7 +121,7 @@ private fun HomeContent(
 @Composable
 private fun HeaderSection(title: String, subtitle: String) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.lg),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.gutter),
     ) {
         Text(
             text = title,

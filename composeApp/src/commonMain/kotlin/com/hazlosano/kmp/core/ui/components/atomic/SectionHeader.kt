@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
-    actionText: String? = "Ver Todos >",
+    actionText: String? = "Ver Todos ->",
     onActionClick: (() -> Unit)? = null,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     textColor: Color = MaterialTheme.colorScheme.onBackground,
