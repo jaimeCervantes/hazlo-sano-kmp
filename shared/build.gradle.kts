@@ -1,9 +1,17 @@
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("HazloSanoDatabase") {
+            packageName.set("com.hazlosano.kmp.data.db")
+        }
+    }
 }
 
 kotlin {
@@ -22,17 +30,30 @@ kotlin {
         browser()
     }
 
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-    }
+    // wasmJs omitted: sqldelight-runtime has no wasmJs artifact (SQLite not available on WASM)
 
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        androidMain.dependencies {
+            implementation(libs.sqldelight.android.driver)
+            implementation(libs.play.services.location)
+        }
+        iosMain.dependencies {
+            implementation(libs.sqldelight.native.driver)
+        }
+        jvmMain.dependencies {
+        }
+        jvmTest.dependencies {
+        }
+        jsMain.dependencies {
         }
     }
 }

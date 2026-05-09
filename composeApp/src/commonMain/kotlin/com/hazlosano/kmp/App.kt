@@ -12,6 +12,10 @@ import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.data.repository.MockHomeRepository
 import com.hazlosano.kmp.data.repository.MockSleepRepository
+import com.hazlosano.kmp.data.sleep.SleepSessionRepositoryImpl
+import com.hazlosano.kmp.data.sleep.createSleepDataSource
+import com.hazlosano.kmp.domain.usecase.GetSleepAnalysisUseCase
+import com.hazlosano.kmp.domain.repository.SleepSessionRepository
 
 @Composable
 @Preview
@@ -21,6 +25,12 @@ fun App() {
     }
     val sleepViewModel = remember {
         SleepViewModel(GetSleepContentUseCase(MockSleepRepository()))
+    }
+    val sleepSessionRepository: SleepSessionRepository = remember {
+        SleepSessionRepositoryImpl(createSleepDataSource())
+    }
+    val getSleepAnalysisUseCase = remember {
+        GetSleepAnalysisUseCase(sleepSessionRepository)
     }
 
     HazloSanoTheme {

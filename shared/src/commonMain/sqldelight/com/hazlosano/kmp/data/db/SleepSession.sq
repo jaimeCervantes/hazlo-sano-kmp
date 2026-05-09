@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS SleepSessionEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    startTime INTEGER NOT NULL,
+    endTime INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 1.0
+);
+
+selectByRange:
+SELECT *
+FROM SleepSessionEntity
+WHERE endTime > ? AND startTime < ?
+ORDER BY startTime DESC;
+
+insertOrReplace:
+INSERT OR REPLACE INTO SleepSessionEntity(id, startTime, endTime, source, confidence)
+VALUES (?, ?, ?, ?, ?);
+
+deleteAll:
+DELETE FROM SleepSessionEntity;
