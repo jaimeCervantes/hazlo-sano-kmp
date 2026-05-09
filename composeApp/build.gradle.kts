@@ -34,11 +34,7 @@ kotlin {
         binaries.executable()
     }
 
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-        binaries.executable()
-    }
+    // wasmJs omitted: SQLDelight runtime has no wasmJs artifact
 
     sourceSets {
         androidMain.dependencies {
