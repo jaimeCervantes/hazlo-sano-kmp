@@ -23,11 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.hazlosano.kmp.core.ui.components.atomic.AsyncImageBackground
 import com.hazlosano.kmp.core.ui.components.atomic.LeafCard
+import com.hazlosano.kmp.core.ui.components.atomic.SleepSummaryCard
 import com.hazlosano.kmp.core.ui.components.sections.HazloChallengesSection
 import com.hazlosano.kmp.core.ui.components.sections.HazloChampionsSection
 import com.hazlosano.kmp.core.ui.components.sections.HazloExploreProductsSection
 import com.hazlosano.kmp.core.ui.theme.HazloSpaces
 import com.hazlosano.kmp.core.ui.theme.PillarSleep
+import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.domain.model.SleepContent
 import com.hazlosano.kmp.feature.sleep.presentation.SleepUiState
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
@@ -39,7 +41,7 @@ fun SleepScreen(viewModel: SleepViewModel) {
     when (val state = uiState) {
         is SleepUiState.Loading -> LoadingContent()
         is SleepUiState.Error -> ErrorContent(state.message)
-        is SleepUiState.Success -> SleepDashboardContent(state.content)
+        is SleepUiState.Success -> SleepDashboardContent(state.content, state.sleepAnalysis)
     }
 }
 
@@ -64,11 +66,25 @@ private fun ErrorContent(message: String) {
 }
 
 @Composable
-private fun SleepDashboardContent(content: SleepContent) {
+private fun SleepDashboardContent(
+    content: SleepContent,
+    sleepAnalysis: SleepAnalysis?,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
     ) {
+        if (sleepAnalysis != null) {
+            item {
+                SleepSummaryCard(
+                    analysis = sleepAnalysis,
+                    accentColor = PillarSleep,
+                    modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
+                )
+            }
+            item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
+        }
+
         item {
             HazloChampionsSection(
                 champions = content.weeklyChampions,

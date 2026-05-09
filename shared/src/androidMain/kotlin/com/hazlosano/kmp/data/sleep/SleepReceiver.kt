@@ -22,6 +22,12 @@ class SleepReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!SleepSegmentEvent.hasEvents(intent)) return
 
+        if (!SleepContextProvider.isInitialized()) {
+            SleepContextProvider.initialize(context)
+        }
+
+        val ds = dataSource ?: createSleepDataSource().also { dataSource = it }
+
         val events: List<SleepSegmentEvent> = SleepSegmentEvent.extractEvents(intent)
         val sessions = events.mapIndexed { index, event ->
             SleepSession(
@@ -33,7 +39,6 @@ class SleepReceiver : BroadcastReceiver() {
             )
         }
 
-        val ds = dataSource ?: return
         if (sessions.isNotEmpty()) {
             scope.launch {
                 sessions.forEach { session -> ds.saveSleepSession(session) }
