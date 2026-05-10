@@ -15,13 +15,6 @@ class MockHomeRepository : HomeRepository {
         headerSubtitle = "Cultiva tus 4 pilares hoy",
         pillars = listOf(
             PillarOverview(
-                pillarType = PillarType.SLEEP,
-                title = "Sueño",
-                stat = "8h 15m",
-                subtitle = "Calidad: 92%",
-                imageUrl = "https://images.unsplash.com/photo-1517869665242-491c13d80a1c?q=80&w=800",
-            ),
-            PillarOverview(
                 pillarType = PillarType.MOVEMENT,
                 title = "Movimiento",
                 stat = "Recorrer Rutas",

@@ -20,7 +20,7 @@ internal class SqlDelightSleepDataSource(
                     id = entity.id,
                     startTime = entity.startTime,
                     endTime = entity.endTime,
-                    source = SleepSource.valueOf(entity.source),
+                    source = parseSleepSource(entity.source),
                     confidence = entity.confidence.toFloat(),
                 )
             }
@@ -35,5 +35,12 @@ internal class SqlDelightSleepDataSource(
                 source = session.source.name,
                 confidence = session.confidence.toDouble(),
             )
+        }
+
+    private fun parseSleepSource(raw: String): SleepSource =
+        try {
+            SleepSource.valueOf(raw)
+        } catch (_: IllegalArgumentException) {
+            SleepSource.MANUAL
         }
 }
