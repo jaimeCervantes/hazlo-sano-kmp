@@ -1,8 +1,11 @@
 package com.hazlosano.kmp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.rememberCoroutineScope
 import com.hazlosano.kmp.core.ui.image.HazloImageLoader
 import com.hazlosano.kmp.core.ui.theme.HazloSanoTheme
 import com.hazlosano.kmp.domain.usecase.GetHomeContentUseCase
@@ -16,9 +19,10 @@ import com.hazlosano.kmp.data.sleep.SleepSessionRepositoryImpl
 import com.hazlosano.kmp.data.sleep.createSleepDataSource
 import com.hazlosano.kmp.domain.usecase.GetSleepAnalysisUseCase
 import com.hazlosano.kmp.domain.repository.SleepSessionRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-@Preview
 fun App() {
     val viewModel = remember {
         HomeViewModel(GetHomeContentUseCase(MockHomeRepository()))
@@ -33,12 +37,31 @@ fun App() {
         SleepViewModel(
             GetSleepContentUseCase(MockSleepRepository()),
             getSleepAnalysisUseCase,
+            sleepSessionRepository,
         )
+    }
+    val sleepAnalysis by sleepViewModel.sleepAnalysis.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        delay(3000L)
+        sleepViewModel.refresh()
+        delay(5000L)
+        sleepViewModel.refresh()
+    }
+
+    val onRefreshSleep: () -> Unit = {
+        scope.launch { sleepViewModel.refresh() }
     }
 
     HazloSanoTheme {
         HazloImageLoader {
-            MainScreen(homeViewModel = viewModel, sleepViewModel = sleepViewModel)
+            MainScreen(
+                homeViewModel = viewModel,
+                sleepViewModel = sleepViewModel,
+                sleepAnalysis = sleepAnalysis,
+                onRefreshSleep = onRefreshSleep,
+            )
         }
     }
 }

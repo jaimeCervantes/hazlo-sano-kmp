@@ -3,37 +3,87 @@ package com.hazlosano.kmp.data.sleep
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
+import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.SleepSegmentRequest
-import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 object SleepMonitor {
 
     private const val TAG = "SleepMonitor"
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val mutex = Mutex()
+
+    @Volatile
+    private var started = false
     private var pendingIntent: PendingIntent? = null
 
+    val isStarted: Boolean get() = started
+
     fun start(context: Context) {
-        val intent = Intent(context, SleepReceiver::class.java)
-        pendingIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        ActivityRecognition.getClient(context)
-            .requestSleepSegmentUpdates(
-                pendingIntent!!,
-                SleepSegmentRequest.getDefaultSleepSegmentRequest(),
-            )
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Failed to request sleep segment updates", e)
+        val ctx = context.applicationContext
+        scope.launch {
+            mutex.withLock {
+                try {
+                    val intent = Intent(ctx, SleepReceiver::class.java)
+                    pendingIntent = PendingIntent.getBroadcast(
+                        ctx,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+
+                    ActivityRecognition.getClient(ctx)
+                        .requestSleepSegmentUpdates(
+                            pendingIntent!!,
+                            SleepSegmentRequest.getDefaultSleepSegmentRequest(),
+                        )
+                        .addOnSuccessListener {
+                            started = true
+                            Log.i(TAG, "Sleep monitoring started successfully")
+                        }
+                        .addOnFailureListener { e ->
+                            started = false
+                            when (e) {
+                                is SecurityException ->
+                                    Log.e(TAG, "Permission denied: ACTIVITY_RECOGNITION not granted", e)
+                                is ApiException ->
+                                    Log.e(TAG, "Google Play Services error: code=${e.statusCode}", e)
+                                else ->
+                                    Log.e(TAG, "Failed to start sleep monitoring", e)
+                            }
+                        }
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Permission denied", e)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Unexpected error starting sleep monitor", e)
+                }
             }
+        }
     }
 
     fun stop(context: Context) {
-        pendingIntent?.let {
-            ActivityRecognition.getClient(context).removeSleepSegmentUpdates(it)
+        scope.launch {
+            mutex.withLock {
+                pendingIntent?.let { pi ->
+                    try {
+                        ActivityRecognition.getClient(context).removeSleepSegmentUpdates(pi)
+                        started = false
+                        Log.i(TAG, "Sleep monitoring stopped")
+                    } catch (e: SecurityException) {
+                        Log.e(TAG, "Permission denied while stopping", e)
+                    } catch (e: ApiException) {
+                        Log.e(TAG, "Play Services error while stopping: code=${e.statusCode}", e)
+                    }
+                }
+                pendingIntent = null
+            }
         }
-        pendingIntent = null
     }
 }

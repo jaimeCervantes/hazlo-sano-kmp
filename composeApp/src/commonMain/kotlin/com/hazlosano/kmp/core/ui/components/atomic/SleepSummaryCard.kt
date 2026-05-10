@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,23 +29,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hazlosano.kmp.core.ui.theme.HazloSpaces
+import com.hazlosano.kmp.core.ui.util.formatClockTime
 import com.hazlosano.kmp.domain.model.SleepAnalysis
+import com.hazlosano.kmp.domain.model.SleepPhase
 
 @Composable
 fun SleepSummaryCard(
     analysis: SleepAnalysis,
     accentColor: Color,
     modifier: Modifier = Modifier,
+    onRefresh: (() -> Unit)? = null,
 ) {
-    LeafCard(modifier = modifier.fillMaxWidth()) {
-        Box {
+    val darkOverlay = Color.Black.copy(alpha = 0.6f)
+
+    LeafCard(
+        modifier = modifier.fillMaxWidth(),
+        containerColor = darkOverlay,
+    ) {
+        Box(modifier = Modifier.background(darkOverlay)) {
             Column(modifier = Modifier.padding(HazloSpaces.md)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.12f)),
+                            .background(accentColor.copy(alpha = 0.25f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -58,8 +68,19 @@ fun SleepSummaryCard(
                         text = "Resumen de sueño",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f),
                     )
+                    if (onRefresh != null) {
+                        IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = "Actualizar",
+                                tint = accentColor,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(HazloSpaces.md))
@@ -85,6 +106,19 @@ fun SleepSummaryCard(
                     )
                 }
 
+                val sleepStart = analysis.firstSleepStart
+                val sleepEnd = analysis.lastSleepEnd
+                if (sleepStart != null && sleepEnd != null) {
+                    Spacer(modifier = Modifier.height(HazloSpaces.sm))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        TimeLabel("Te dormiste", sleepStart, accentColor)
+                        TimeLabel("Despertaste", sleepEnd, accentColor)
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(HazloSpaces.sm))
 
                 Text(
@@ -93,16 +127,38 @@ fun SleepSummaryCard(
                     color = accentColor,
                     fontWeight = FontWeight.SemiBold,
                 )
+
+                if (analysis.averageConfidence < 1.0f) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Precisión: ${(analysis.averageConfidence * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.5f),
+                    )
+                }
+
+                val phases = analysis.phaseBreakdown
+                if (phases.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(HazloSpaces.sm))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        PhaseLabel(SleepPhase.LIGHT, phases[SleepPhase.LIGHT], accentColor)
+                        PhaseLabel(SleepPhase.DEEP, phases[SleepPhase.DEEP], accentColor)
+                        PhaseLabel(SleepPhase.REM, phases[SleepPhase.REM], accentColor)
+                    }
+                }
             }
 
             Icon(
                 imageVector = Icons.Filled.Bedtime,
                 contentDescription = null,
-                tint = accentColor.copy(alpha = 0.08f),
+                tint = accentColor.copy(alpha = 0.10f),
                 modifier = Modifier
-                    .size(120.dp)
+                    .size(130.dp)
                     .align(Alignment.TopEnd)
-                    .offset(x = 20.dp, y = (-20).dp),
+                    .offset(x = 25.dp, y = (-25).dp),
             )
         }
     }
@@ -123,13 +179,30 @@ private fun SummaryMetric(
             text = value,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = accentColor,
+            color = Color.White,
             fontSize = 28.sp,
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+    }
+}
+
+@Composable
+private fun PhaseLabel(phase: SleepPhase, duration: Long?, accentColor: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = phase.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = accentColor.copy(alpha = 0.9f),
+        )
+        Text(
+            text = if (duration != null) formatDuration(duration) else "—",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
         )
     }
 }
@@ -141,10 +214,27 @@ private fun formatDuration(millis: Long): String {
     return "${hours}h ${minutes}m"
 }
 
+@Composable
+private fun TimeLabel(label: String, epochMillis: Long, accentColor: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = formatClockTime(epochMillis),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+    }
+}
+
 private fun sleepQualityLabel(efficiency: Float): String = when {
     efficiency >= 0.85f -> "Excelente descanso"
     efficiency >= 0.70f -> "Buen descanso"
     efficiency >= 0.50f -> "Descanso regular"
     efficiency > 0f -> "Descanso insuficiente"
-    else -> "Sin datos de sueño"
+    else -> "Aún sin datos"
 }

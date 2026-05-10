@@ -6,6 +6,9 @@ CREATE TABLE IF NOT EXISTS SleepSessionEntity (
     confidence REAL NOT NULL DEFAULT 1.0
 );
 
+CREATE INDEX IF NOT EXISTS idx_sleep_start ON SleepSessionEntity(startTime);
+CREATE INDEX IF NOT EXISTS idx_sleep_end ON SleepSessionEntity(endTime);
+
 selectByRange:
 SELECT *
 FROM SleepSessionEntity

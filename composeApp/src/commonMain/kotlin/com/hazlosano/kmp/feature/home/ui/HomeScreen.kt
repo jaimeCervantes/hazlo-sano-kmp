@@ -45,30 +45,41 @@ import com.hazlosano.kmp.core.ui.components.atomic.HazloAsyncImage
 import com.hazlosano.kmp.core.ui.components.atomic.LeafCard
 import com.hazlosano.kmp.core.ui.components.atomic.PillarBadge
 import com.hazlosano.kmp.core.ui.components.atomic.SectionHeader
+import com.hazlosano.kmp.core.ui.components.atomic.SleepSummaryCard
 import com.hazlosano.kmp.core.ui.components.sections.HazloChampionsSection
 import com.hazlosano.kmp.core.ui.model.toColor
 import com.hazlosano.kmp.core.ui.theme.HazloShapes
 import com.hazlosano.kmp.core.ui.theme.HazloSpaces
+import com.hazlosano.kmp.core.ui.theme.PillarSleep
 import com.hazlosano.kmp.domain.model.FeedPost
 import com.hazlosano.kmp.domain.model.HomeContent
 import com.hazlosano.kmp.domain.model.PillarAction
 import com.hazlosano.kmp.domain.model.PillarOverview
 import com.hazlosano.kmp.domain.model.PillarType
+import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.feature.home.presentation.HomeUiState
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    sleepAnalysis: SleepAnalysis? = null,
     onNavigateToMovement: () -> Unit = {},
     onNavigateToTracker: () -> Unit = {},
+    onRefreshSleep: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     when (val state = uiState) {
         is HomeUiState.Loading -> LoadingContent()
         is HomeUiState.Error -> ErrorContent(state.message)
-        is HomeUiState.Success -> HomeContent(state.content, onNavigateToMovement, onNavigateToTracker)
+        is HomeUiState.Success -> HomeContent(
+            content = state.content,
+            sleepAnalysis = sleepAnalysis,
+            onNavigateToMovement = onNavigateToMovement,
+            onNavigateToTracker = onNavigateToTracker,
+            onRefreshSleep = onRefreshSleep,
+        )
     }
 }
 
@@ -89,13 +100,27 @@ private fun ErrorContent(message: String) {
 @Composable
 private fun HomeContent(
     content: HomeContent,
+    sleepAnalysis: SleepAnalysis?,
     onNavigateToMovement: () -> Unit,
     onNavigateToTracker: () -> Unit,
+    onRefreshSleep: (() -> Unit)?,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
     ) {
+        if (sleepAnalysis != null) {
+            item {
+                SleepSummaryCard(
+                    analysis = sleepAnalysis,
+                    accentColor = PillarSleep,
+                    modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
+                    onRefresh = onRefreshSleep,
+                )
+            }
+            item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
+        }
+
         item { PillarsOverviewSection(content.pillars, onNavigateToTracker) }
         item {
             HazloChampionsSection(

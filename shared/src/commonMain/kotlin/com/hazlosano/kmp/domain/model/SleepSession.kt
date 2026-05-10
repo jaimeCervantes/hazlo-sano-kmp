@@ -6,6 +6,7 @@ data class SleepSession(
     val endTime: Long,
     val source: SleepSource,
     val confidence: Float = 1.0f,
+    val phase: SleepPhase = SleepPhase.UNKNOWN,
 ) {
-    val duration: Long get() = endTime - startTime
+    val duration: Long get() = maxOf(0L, endTime - startTime)
 }

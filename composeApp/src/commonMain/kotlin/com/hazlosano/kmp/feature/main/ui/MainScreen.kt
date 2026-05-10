@@ -38,6 +38,7 @@ import com.hazlosano.kmp.core.ui.theme.PillarMind
 import com.hazlosano.kmp.core.ui.theme.PillarMovement
 import com.hazlosano.kmp.core.ui.theme.PillarNutrition
 import com.hazlosano.kmp.core.ui.theme.PillarSleep
+import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.feature.home.ui.HomeScreen
@@ -52,7 +53,12 @@ enum class BottomTab(val label: String, val icon: ImageVector, val color: Color)
 }
 
 @Composable
-fun MainScreen(homeViewModel: HomeViewModel, sleepViewModel: SleepViewModel) {
+fun MainScreen(
+    homeViewModel: HomeViewModel,
+    sleepViewModel: SleepViewModel,
+    sleepAnalysis: SleepAnalysis? = null,
+    onRefreshSleep: (() -> Unit)? = null,
+) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -90,8 +96,15 @@ fun MainScreen(homeViewModel: HomeViewModel, sleepViewModel: SleepViewModel) {
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                 when (selectedTab) {
-                    BottomTab.Inicio -> HomeScreen(viewModel = homeViewModel)
-                    BottomTab.Sueno -> SleepScreen(viewModel = sleepViewModel)
+                    BottomTab.Inicio -> HomeScreen(
+                        viewModel = homeViewModel,
+                        sleepAnalysis = sleepAnalysis,
+                        onRefreshSleep = onRefreshSleep,
+                    )
+                    BottomTab.Sueno -> SleepScreen(
+                        viewModel = sleepViewModel,
+                        onRefresh = onRefreshSleep,
+                    )
                     else -> PlaceholderScreen(tab = selectedTab)
                 }
             }
