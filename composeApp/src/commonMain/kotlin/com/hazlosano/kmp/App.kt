@@ -61,6 +61,7 @@ fun App() {
                 sleepViewModel = sleepViewModel,
                 sleepAnalysis = sleepAnalysis,
                 onRefreshSleep = onRefreshSleep,
+                sleepSessionRepository = sleepSessionRepository,
             )
         }
     }

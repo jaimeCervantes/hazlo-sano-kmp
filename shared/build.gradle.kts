@@ -37,10 +37,12 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
+            implementation(libs.kotlinx.datetime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.kotlinx.datetime)
         }
         androidMain.dependencies {
             implementation(libs.sqldelight.android.driver)

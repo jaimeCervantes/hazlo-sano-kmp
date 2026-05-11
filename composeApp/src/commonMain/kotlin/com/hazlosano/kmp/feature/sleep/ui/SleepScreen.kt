@@ -18,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -34,26 +37,45 @@ import com.hazlosano.kmp.core.ui.util.formatClockTime
 import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.domain.model.SleepContent
 import com.hazlosano.kmp.domain.model.SleepSession
+import com.hazlosano.kmp.domain.usecase.GetSleepHistoryUseCase
+import com.hazlosano.kmp.domain.repository.SleepSessionRepository
+import com.hazlosano.kmp.feature.sleep.presentation.SleepHistoryViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepUiState
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 
 @Composable
 fun SleepScreen(
     viewModel: SleepViewModel,
+    sleepSessionRepository: SleepSessionRepository? = null,
     onRefresh: (() -> Unit)? = null,
+    initialShowHistory: Boolean = false,
+    onHistoryDismissed: (() -> Unit)? = null,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val sessions by viewModel.sessions.collectAsState()
+    var showHistory by remember { mutableStateOf(initialShowHistory) }
 
-    when (val state = uiState) {
-        is SleepUiState.Loading -> LoadingContent()
-        is SleepUiState.Error -> ErrorContent(state.message)
-        is SleepUiState.Success -> SleepDashboardContent(
-            content = state.content,
-            sleepAnalysis = state.sleepAnalysis,
-            sessions = sessions,
-            onRefresh = onRefresh,
-        )
+    val dismissHistory: () -> Unit = {
+        showHistory = false
+        onHistoryDismissed?.invoke()
+    }
+
+    if (showHistory && sleepSessionRepository != null) {
+        val historyViewModel = remember {
+            SleepHistoryViewModel(GetSleepHistoryUseCase(sleepSessionRepository))
+        }
+        SleepHistoryScreen(viewModel = historyViewModel, onBack = dismissHistory)
+    } else {
+        val uiState by viewModel.uiState.collectAsState()
+
+        when (val state = uiState) {
+            is SleepUiState.Loading -> LoadingContent()
+            is SleepUiState.Error -> ErrorContent(state.message)
+            is SleepUiState.Success -> SleepDashboardContent(
+                content = state.content,
+                sleepAnalysis = state.sleepAnalysis,
+                onRefresh = onRefresh,
+                onCardClick = { showHistory = true },
+            )
+        }
     }
 }
 
@@ -81,8 +103,8 @@ private fun ErrorContent(message: String) {
 private fun SleepDashboardContent(
     content: SleepContent,
     sleepAnalysis: SleepAnalysis?,
-    sessions: List<SleepSession>,
     onRefresh: (() -> Unit)?,
+    onCardClick: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -95,50 +117,8 @@ private fun SleepDashboardContent(
                     accentColor = PillarSleep,
                     modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
                     onRefresh = onRefresh,
+                    onClick = onCardClick,
                 )
-            }
-            item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
-        }
-
-        if (sessions.isNotEmpty()) {
-            item {
-                SectionHeader(
-                    title = "Segmentos detectados",
-                    modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
-                    accentColor = PillarSleep,
-                    actionText = null,
-                )
-            }
-            items(sessions.size) { index ->
-                val session = sessions[index]
-                LeafCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = HazloSpaces.gutter, vertical = 4.dp),
-                ) {
-                    Column(modifier = Modifier.padding(HazloSpaces.sm)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text = "${formatClockTime(session.startTime)} → ${formatClockTime(session.endTime)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text = session.phase.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = PillarSleep,
-                            )
-                        }
-                        Text(
-                            text = "Duración: ${session.duration / 60_000} min",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
             }
             item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
         }
