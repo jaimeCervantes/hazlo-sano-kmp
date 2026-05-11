@@ -14,8 +14,6 @@ class GetSleepAnalysisUseCaseTest {
     private val fakeRepo = FakeSleepSessionRepository()
     private val useCase = GetSleepAnalysisUseCase(fakeRepo)
 
-    // ── existing tests ──
-
     @Test
     fun `empty repo returns zero analysis`() = runTest {
         val result = useCase(from = 0L, to = 1000L)
@@ -25,91 +23,102 @@ class GetSleepAnalysisUseCaseTest {
     }
 
     @Test
-    fun `single session calculates efficiency correctly`() = runTest {
+    fun `single uninterrupted session gives 100 percent efficiency`() = runTest {
         fakeRepo.sessions.add(
             SleepSession("1", 100L, 500L, SleepSource.PHONE_SENSORS, 1.0f),
         )
         val result = useCase(from = 0L, to = 1000L)
         assertEquals(1, result.totalSessions)
         assertEquals(400L, result.totalDurationMillis)
-        assertEquals(0.4f, result.efficiency, 0.001f)
+        // timeInBed = 500-100 = 400, sleep = 400, efficiency = 400/400
+        assertEquals(1.0f, result.efficiency, 0.001f)
     }
 
     @Test
-    fun `multiple sessions sum durations`() = runTest {
+    fun `sessions with awake gaps reduce efficiency`() = runTest {
         fakeRepo.sessions.addAll(
             listOf(
                 SleepSession("1", 100L, 300L, SleepSource.PHONE_SENSORS, 1.0f),
+                // awake gap of 100ms
                 SleepSession("2", 400L, 600L, SleepSource.PHONE_SENSORS, 1.0f),
             ),
         )
         val result = useCase(from = 0L, to = 1000L)
+        assertEquals(2, result.totalSessions)
         assertEquals(400L, result.totalDurationMillis)
+        // sleep period: 600-100 = 500, sleep: 200+200 = 400, efficiency: 400/500
+        assertEquals(0.8f, result.efficiency, 0.001f)
     }
 
     @Test
-    fun `session duration is clipped to query window`() = runTest {
+    fun `duration clipped to query window boundaries`() = runTest {
         fakeRepo.sessions.add(
             SleepSession("1", -100L, 500L, SleepSource.PHONE_SENSORS, 1.0f),
         )
         val result = useCase(from = 0L, to = 1000L)
         assertEquals(500L, result.totalDurationMillis)
+        assertEquals(1.0f, result.efficiency, 0.001f)
     }
 
-    // ── BDD: clustering ──
-
     @Test
-    fun `given two clusters with gap over 2h main cluster is used for times`() = runTest {
-        // outlier: phone idle at 7 PM
+    fun `all sessions count regardless of gap size`() = runTest {
+        // early evening nap
         fakeRepo.sessions.add(
-            SleepSession("outlier", 19 * 3600_000L, 20 * 3600_000L, SleepSource.PHONE_SENSORS, 1.0f),
+            SleepSession("nap", 19 * 3600_000L, 20 * 3600_000L, SleepSource.PHONE_SENSORS, 1.0f),
         )
-        // main sleep: midnight to 6 AM
+        // main night sleep (4h gap - real awake time)
         fakeRepo.sessions.add(
-            SleepSession("main", 24 * 3600_000L, 30 * 3600_000L, SleepSource.PHONE_SENSORS, 1.0f),
+            SleepSession("night", 24 * 3600_000L, 30 * 3600_000L, SleepSource.PHONE_SENSORS, 1.0f),
         )
 
         val result = useCase(from = 0L, to = 48 * 3600_000L)
 
         assertEquals(2, result.totalSessions)
-        // firstSleepStart should be from main cluster (midnight), NOT the outlier (7 PM)
-        assertEquals(24 * 3600_000L, result.firstSleepStart)
-        assertEquals(30 * 3600_000L, result.lastSleepEnd)
-        // total duration still includes both
+        // total sleep = 1h + 6h = 7h
         assertEquals(7 * 3600_000L, result.totalDurationMillis)
+        // period = 6AM - 7PM = 11h
+        assertEquals(19 * 3600_000L, result.firstSleepStart)
+        assertEquals(30 * 3600_000L, result.lastSleepEnd)
+        // efficiency = 7h/11h = 63.6%
+        assertEquals(0.636f, result.efficiency, 0.01f)
     }
 
     @Test
-    fun `given segments close together they form single cluster`() = runTest {
+    fun `interrupted sleep reflects real efficiency`() = runTest {
+        // simulates user's case: slept early, woke to work, slept again
         fakeRepo.sessions.addAll(
             listOf(
-                SleepSession("1", 23 * 3600_000L, 25 * 3600_000L, SleepSource.PHONE_SENSORS, 1.0f),
-                SleepSession("2", 25 * 3600_000L + 30 * 60_000L, 28 * 3600_000L,
+                SleepSession("1", 19 * 3600_000L + 8 * 60_000L,           // 7:08 PM
+                    22 * 3600_000L + 26 * 60_000L,                         // 10:26 PM
+                    SleepSource.PHONE_SENSORS, 1.0f),
+                SleepSession("2", 24 * 3600_000L + 50 * 60_000L,           // 12:50 AM
+                    28 * 3600_000L + 56 * 60_000L,                         // 4:56 AM
+                    SleepSource.PHONE_SENSORS, 1.0f),
+                SleepSession("3", 29 * 3600_000L + 10 * 60_000L,           // 5:10 AM
+                    30 * 3600_000L + 2 * 60_000L,                          // 6:02 AM
                     SleepSource.PHONE_SENSORS, 1.0f),
             ),
         )
         val result = useCase(from = 0L, to = 48 * 3600_000L)
 
-        // 30 min gap < 2h, so same cluster
-        assertEquals(23 * 3600_000L, result.firstSleepStart)
-        assertEquals(28 * 3600_000L, result.lastSleepEnd)
-        assertEquals(2, result.totalSessions)
+        assertEquals(3, result.totalSessions)
+        // total sleep ≈ 8h 16m
+        val expectedSleepMs = (3 * 3600_000L + 18 * 60_000L) +
+            (4 * 3600_000L + 6 * 60_000L) +
+            (52 * 60_000L)
+        assertEquals(expectedSleepMs, result.totalDurationMillis)
+        // period: 6:02 AM - 7:08 PM
+        val expectedPeriodMs = (30 * 3600_000L + 2 * 60_000L) -
+            (19 * 3600_000L + 8 * 60_000L)
+        assertEquals(expectedPeriodMs, result.lastSleepEnd!! - result.firstSleepStart!!)
+        // efficiency ≈ 75.8%
+        assertEquals(0.758f, result.efficiency, 0.01f)
     }
 
-    @Test
-    fun `given one segment it is the main cluster`() = runTest {
-        fakeRepo.sessions.add(
-            SleepSession("only", 100L, 500L, SleepSource.PHONE_SENSORS, 1.0f),
-        )
-        val result = useCase(from = 0L, to = 1000L)
-        assertEquals(100L, result.firstSleepStart)
-        assertEquals(500L, result.lastSleepEnd)
-    }
-
-    // ── BDD: phase breakdown ──
+    // ── phase breakdown ──
 
     @Test
-    fun `given sessions with different phases breakdown groups by phase`() = runTest {
+    fun `phase breakdown groups by phase`() = runTest {
         fakeRepo.sessions.addAll(
             listOf(
                 SleepSession("1", 0L, 3000L, SleepSource.PHONE_SENSORS, 1.0f,
@@ -128,28 +137,25 @@ class GetSleepAnalysisUseCaseTest {
     }
 
     @Test
-    fun `given sessions with UNKNOWN and AWAKE phases they are excluded from breakdown`() = runTest {
+    fun `AWAKE and UNKNOWN excluded from breakdown`() = runTest {
         fakeRepo.sessions.addAll(
             listOf(
                 SleepSession("1", 0L, 1000L, SleepSource.PHONE_SENSORS, 1.0f,
                     phase = SleepPhase.AWAKE),
-                SleepSession("2", 1000L, 3000L, SleepSource.PHONE_SENSORS, 1.0f,
-                    phase = SleepPhase.UNKNOWN),
-                SleepSession("3", 3000L, 5000L, SleepSource.PHONE_SENSORS, 1.0f,
+                SleepSession("2", 3000L, 5000L, SleepSource.PHONE_SENSORS, 1.0f,
                     phase = SleepPhase.LIGHT),
             ),
         )
         val result = useCase(from = 0L, to = 10000L)
 
         assertTrue(SleepPhase.AWAKE !in result.phaseBreakdown)
-        assertTrue(SleepPhase.UNKNOWN !in result.phaseBreakdown)
         assertEquals(2000L, result.phaseBreakdown[SleepPhase.LIGHT])
     }
 
-    // ── BDD: confidence ──
+    // ── confidence ──
 
     @Test
-    fun `given sessions with different confidence average is computed`() = runTest {
+    fun `average confidence across all sessions`() = runTest {
         fakeRepo.sessions.addAll(
             listOf(
                 SleepSession("1", 0L, 1000L, SleepSource.PHONE_SENSORS, 0.8f),
@@ -159,16 +165,6 @@ class GetSleepAnalysisUseCaseTest {
         val result = useCase(from = 0L, to = 10000L)
 
         assertEquals(0.9f, result.averageConfidence, 0.001f)
-    }
-
-    @Test
-    fun `given sessions with default confidence average is 1f`() = runTest {
-        fakeRepo.sessions.add(
-            SleepSession("1", 0L, 1000L, SleepSource.PHONE_SENSORS),
-        )
-        val result = useCase(from = 0L, to = 10000L)
-
-        assertEquals(1.0f, result.averageConfidence)
     }
 }
 

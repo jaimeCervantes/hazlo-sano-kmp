@@ -39,6 +39,7 @@ import com.hazlosano.kmp.core.ui.theme.PillarMovement
 import com.hazlosano.kmp.core.ui.theme.PillarNutrition
 import com.hazlosano.kmp.core.ui.theme.PillarSleep
 import com.hazlosano.kmp.domain.model.SleepAnalysis
+import com.hazlosano.kmp.domain.repository.SleepSessionRepository
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.feature.home.ui.HomeScreen
@@ -58,8 +59,15 @@ fun MainScreen(
     sleepViewModel: SleepViewModel,
     sleepAnalysis: SleepAnalysis? = null,
     onRefreshSleep: (() -> Unit)? = null,
+    sleepSessionRepository: SleepSessionRepository? = null,
 ) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
+    var showSleepHistory by remember { mutableStateOf(false) }
+
+    val navigateToSleepHistory: () -> Unit = {
+        selectedTab = BottomTab.Sueno
+        showSleepHistory = true
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar()
@@ -100,10 +108,14 @@ fun MainScreen(
                         viewModel = homeViewModel,
                         sleepAnalysis = sleepAnalysis,
                         onRefreshSleep = onRefreshSleep,
+                        onSleepCardClick = navigateToSleepHistory,
                     )
                     BottomTab.Sueno -> SleepScreen(
                         viewModel = sleepViewModel,
+                        sleepSessionRepository = sleepSessionRepository,
                         onRefresh = onRefreshSleep,
+                        initialShowHistory = showSleepHistory,
+                        onHistoryDismissed = { showSleepHistory = false },
                     )
                     else -> PlaceholderScreen(tab = selectedTab)
                 }

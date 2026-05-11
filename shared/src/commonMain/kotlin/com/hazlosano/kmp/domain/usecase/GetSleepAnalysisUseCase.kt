@@ -24,20 +24,23 @@ class GetSleepAnalysisUseCase(
         }
 
         val totalDurationMillis = sessions.sumOf { session ->
-            val clippedStart = max(session.startTime, from)
-            val clippedEnd = min(session.endTime, to)
-            maxOf(0L, clippedEnd - clippedStart)
+            val cs = max(session.startTime, from)
+            val ce = min(session.endTime, to)
+            maxOf(0L, ce - cs)
         }
-        val totalTimeSpanMillis = to - from
-        val efficiency = if (totalTimeSpanMillis > 0) {
-            (totalDurationMillis.toFloat() / totalTimeSpanMillis.toFloat()).coerceIn(0f, 1f)
+
+        val firstSleepStart = sessions.minOf { it.startTime }
+        val lastSleepEnd = sessions.maxOf { it.endTime }
+        val sleepPeriodStart = max(firstSleepStart, from)
+        val sleepPeriodEnd = min(lastSleepEnd, to)
+        val sleepPeriodMillis = sleepPeriodEnd - sleepPeriodStart
+
+        val efficiency = if (sleepPeriodMillis > 0) {
+            (totalDurationMillis.toFloat() / sleepPeriodMillis.toFloat()).coerceIn(0f, 1f)
         } else {
             0f
         }
 
-        val mainCluster = findMainSleepCluster(sessions)
-        val firstSleepStart = mainCluster.minOf { it.startTime }
-        val lastSleepEnd = mainCluster.maxOf { it.endTime }
         val averageConfidence = sessions.map { it.confidence }.average().toFloat()
         val phaseBreakdown = sessions
             .filter { it.phase != SleepPhase.UNKNOWN && it.phase != SleepPhase.AWAKE }
@@ -56,31 +59,10 @@ class GetSleepAnalysisUseCase(
             efficiency = efficiency,
             periodStart = from,
             periodEnd = to,
-            firstSleepStart = firstSleepStart,
-            lastSleepEnd = lastSleepEnd,
+            firstSleepStart = sleepPeriodStart,
+            lastSleepEnd = sleepPeriodEnd,
             averageConfidence = averageConfidence,
             phaseBreakdown = phaseBreakdown,
         )
-    }
-
-    private fun findMainSleepCluster(sessions: List<SleepSession>): List<SleepSession> {
-        if (sessions.size <= 1) return sessions
-
-        val sorted = sessions.sortedBy { it.startTime }
-        val clusters = mutableListOf<MutableList<SleepSession>>()
-        clusters.add(mutableListOf(sorted.first()))
-
-        for (i in 1 until sorted.size) {
-            val gap = sorted[i].startTime - sorted[i - 1].endTime
-            if (gap < 2 * 60 * 60 * 1000L) {
-                clusters.last().add(sorted[i])
-            } else {
-                clusters.add(mutableListOf(sorted[i]))
-            }
-        }
-
-        return clusters.maxByOrNull { cluster ->
-            cluster.sumOf { it.duration }
-        } ?: sessions
     }
 }

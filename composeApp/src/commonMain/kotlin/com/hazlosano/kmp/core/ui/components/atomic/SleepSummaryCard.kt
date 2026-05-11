@@ -1,6 +1,7 @@
 package com.hazlosano.kmp.core.ui.components.atomic
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,11 +40,14 @@ fun SleepSummaryCard(
     accentColor: Color,
     modifier: Modifier = Modifier,
     onRefresh: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     val darkOverlay = Color.Black.copy(alpha = 0.6f)
 
     LeafCard(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         containerColor = darkOverlay,
     ) {
         Box(modifier = Modifier.background(darkOverlay)) {
@@ -65,7 +69,7 @@ fun SleepSummaryCard(
                     }
                     Spacer(modifier = Modifier.width(HazloSpaces.sm))
                     Text(
-                        text = "Resumen de sueño",
+                        text = Última noche",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -122,7 +126,7 @@ fun SleepSummaryCard(
                 Spacer(modifier = Modifier.height(HazloSpaces.sm))
 
                 Text(
-                    text = sleepQualityLabel(analysis.efficiency),
+                    text = sleepQualityLabel(analysis.efficiency, analysis.totalSessions),
                     style = MaterialTheme.typography.labelLarge,
                     color = accentColor,
                     fontWeight = FontWeight.SemiBold,
@@ -231,10 +235,10 @@ private fun TimeLabel(label: String, epochMillis: Long, accentColor: Color) {
     }
 }
 
-private fun sleepQualityLabel(efficiency: Float): String = when {
-    efficiency >= 0.85f -> "Excelente descanso"
-    efficiency >= 0.70f -> "Buen descanso"
-    efficiency >= 0.50f -> "Descanso regular"
-    efficiency > 0f -> "Descanso insuficiente"
+private fun sleepQualityLabel(efficiency: Float, segments: Int): String = when {
+    efficiency >= 0.90f && segments <= 2 -> "Excelente descanso"
+    efficiency >= 0.80f -> "Buen descanso"
+    efficiency >= 0.65f -> "Sueño interrumpido"
+    efficiency > 0f -> "Descanso deficiente"
     else -> "Aún sin datos"
 }

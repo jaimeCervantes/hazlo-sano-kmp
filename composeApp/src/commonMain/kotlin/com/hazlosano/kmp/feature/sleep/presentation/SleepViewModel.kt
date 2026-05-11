@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
 class SleepViewModel(
     private val getSleepContentUseCase: GetSleepContentUseCase,
@@ -45,8 +46,8 @@ class SleepViewModel(
             try {
                 val content = async { getSleepContentUseCase() }
                 val analysis = async {
-                    val now = System.currentTimeMillis()
-                    getSleepAnalysisUseCase(now - 24 * 60 * 60 * 1000, now)
+                    val (from, to) = analysisWindow()
+                    getSleepAnalysisUseCase(from, to)
                 }
                 _uiState.value = SleepUiState.Success(
                     content = content.await(),
@@ -62,16 +63,26 @@ class SleepViewModel(
         val state = _uiState.value
         if (state !is SleepUiState.Success) return
         try {
-            val now = System.currentTimeMillis()
-            val analysis = getSleepAnalysisUseCase(now - 24 * 60 * 60 * 1000, now)
+            val (from, to) = analysisWindow()
+            val analysis = getSleepAnalysisUseCase(from, to)
             _uiState.value = state.copy(sleepAnalysis = analysis)
-            loadSessions(now)
+            loadSessions(from, to)
         } catch (_: Exception) { }
     }
 
-    private suspend fun loadSessions(now: Long) {
+    private suspend fun loadSessions(from: Long, to: Long) {
         sleepSessionRepository?.let { repo ->
-            _sessions.value = repo.getSleepSessions(now - 24 * 60 * 60 * 1000, now)
+            _sessions.value = repo.getSleepSessions(from, to)
+        }
+    }
+
+    companion object {
+        fun analysisWindow(): Pair<Long, Long> {
+            val now = Clock.System.now().toEpochMilliseconds()
+            val dayMs = 24 * 60 * 60 * 1000L
+            val midnightToday = (now / dayMs) * dayMs
+            val from = midnightToday - 6 * 3600_000L
+            return from to now
         }
     }
 }

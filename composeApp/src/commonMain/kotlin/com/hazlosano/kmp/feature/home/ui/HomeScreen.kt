@@ -67,6 +67,7 @@ fun HomeScreen(
     onNavigateToMovement: () -> Unit = {},
     onNavigateToTracker: () -> Unit = {},
     onRefreshSleep: (() -> Unit)? = null,
+    onSleepCardClick: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -79,6 +80,7 @@ fun HomeScreen(
             onNavigateToMovement = onNavigateToMovement,
             onNavigateToTracker = onNavigateToTracker,
             onRefreshSleep = onRefreshSleep,
+            onSleepCardClick = onSleepCardClick,
         )
     }
 }
@@ -104,6 +106,7 @@ private fun HomeContent(
     onNavigateToMovement: () -> Unit,
     onNavigateToTracker: () -> Unit,
     onRefreshSleep: (() -> Unit)?,
+    onSleepCardClick: (() -> Unit)?,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -116,6 +119,7 @@ private fun HomeContent(
                     accentColor = PillarSleep,
                     modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
                     onRefresh = onRefreshSleep,
+                    onClick = onSleepCardClick,
                 )
             }
             item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
