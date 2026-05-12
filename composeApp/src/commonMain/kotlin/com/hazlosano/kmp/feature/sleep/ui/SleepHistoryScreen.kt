@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Schedule
@@ -78,6 +79,7 @@ import kmp.composeapp.generated.resources.history_avg_label
 import kmp.composeapp.generated.resources.history_back
 import kmp.composeapp.generated.resources.history_consistency_label
 import kmp.composeapp.generated.resources.history_debt_label
+import kmp.composeapp.generated.resources.history_window_label
 import kmp.composeapp.generated.resources.sleep_efficiency_label
 import kmp.composeapp.generated.resources.history_title
 import kmp.composeapp.generated.resources.history_trend_label
@@ -91,7 +93,6 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun SleepHistoryScreen(
     viewModel: SleepHistoryViewModel,
-    onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -106,12 +107,12 @@ fun SleepHistoryScreen(
             contentAlignment = Alignment.Center,
         ) { Text(s.message, color = MaterialTheme.colorScheme.error) }
 
-        is SleepHistoryUiState.Success -> HistoryContent(s.history, onBack)
+        is SleepHistoryUiState.Success -> HistoryContent(s.history)
     }
 }
 
 @Composable
-private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
+private fun HistoryContent(history: SleepHistory) {
     val bgUrl = sleepBackgroundUrl(history)
     Box(modifier = Modifier.fillMaxSize()) {
         // background image
@@ -121,6 +122,7 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
             )
         }
         // dark overlay for readability
@@ -141,68 +143,48 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = HazloSpaces.md, bottom = HazloSpaces.xl),
         ) {
-        // Header with back button + big moon
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.history_back), tint = Color.White)
-                }
-                Spacer(modifier = Modifier.width(HazloSpaces.sm))
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape)
-                        .background(PillarSleep),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.Bedtime, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                }
-                Spacer(modifier = Modifier.width(HazloSpaces.sm))
-                Column {
-                    Text(stringResource(Res.string.history_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text(
-                        encouragementText(history),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.8f),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(HazloSpaces.md))
-        }
-
-        // Summary metrics card
+        // Summary metrics card with moon + encouragement
         item {
             LeafCard(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
                 containerColor = Color.Black.copy(alpha = 0.35f),
             ) {
                 Column(modifier = Modifier.padding(HazloSpaces.md)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(36.dp).clip(CircleShape)
+                                .background(PillarSleep),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Filled.Bedtime, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(modifier = Modifier.width(HazloSpaces.sm))
+                        Text(
+                            encouragementText(history),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(HazloSpaces.md))
+                    // Row 1: 3 columns
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         MetricItem(Icons.Filled.Schedule, stringResource(Res.string.history_avg_label), "${history.averageHours.toInt()}h ${((history.averageHours % 1) * 60).toInt()}m")
-                        MetricItem(Icons.AutoMirrored.Filled.TrendingUp, stringResource(Res.string.sleep_efficiency_label), "${(history.averageEfficiency * 100).toInt()}%")
+                        MetricItem(Icons.Filled.Bolt, stringResource(Res.string.sleep_efficiency_label), "${(history.averageEfficiency * 100).toInt()}%")
+                        TrendItem(history.trendLabel)
                     }
                     Spacer(modifier = Modifier.height(HazloSpaces.sm))
+                    // Row 2: 3 columns
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         MetricItem(Icons.Filled.CrisisAlert, stringResource(Res.string.history_consistency_label), "±${history.consistencyMinutes}m")
                         MetricItem(Icons.Filled.HourglassBottom, stringResource(Res.string.history_debt_label), "${history.sleepDebtMinutes / 60}h ${history.sleepDebtMinutes % 60}m")
-                    }
-                    Spacer(modifier = Modifier.height(HazloSpaces.sm))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            "${stringResource(Res.string.history_trend_label)}: ${history.trendLabel}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = PillarSleep,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        MetricItem(Icons.Filled.Bedtime, stringResource(Res.string.history_window_label), "${history.sleepWindowHours.toInt()}h ${((history.sleepWindowHours % 1) * 60).toInt()}m")
                     }
                 }
             }
@@ -295,6 +277,15 @@ private fun NightCard(night: SleepNight) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TrendItem(label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = PillarSleep)
+        Text(stringResource(Res.string.history_trend_label), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
     }
 }
 

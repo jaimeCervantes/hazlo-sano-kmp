@@ -31,6 +31,7 @@
     <string name="history_avg_label">Average</string>
     <string name="history_consistency_label">Consistency</string>
     <string name="history_debt_label">Sleep Debt</string>
+    <string name="history_window_label">In Bed</string>
     <string name="history_trend_label">Trend</string>
     <string name="history_trend_prefix">Trend: %s</string>
 

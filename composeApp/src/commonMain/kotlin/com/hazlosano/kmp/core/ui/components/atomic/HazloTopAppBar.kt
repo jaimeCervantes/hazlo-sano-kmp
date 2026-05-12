@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -19,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hazlosano.kmp.core.ui.theme.HazloSpaces
@@ -26,9 +28,12 @@ import com.hazlosano.kmp.core.ui.theme.HazloSpaces
 @Composable
 fun HazloTopAppBar(
     title: String = "Hazlo Sano",
+    showBackButton: Boolean = false,
+    onBackClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onMenuClick: () -> Unit = {},
+    leadingIcon: ImageVector? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -40,15 +45,30 @@ fun HazloTopAppBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton( 
-            onClick = onProfileClick,
-            modifier = Modifier.size(40.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Person,
-                contentDescription = "Perfil",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        if (showBackButton) {
+            IconButton(onClick = onBackClick, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else if (leadingIcon != null) {
+            IconButton(onClick = onProfileClick, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = "Perfil",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            IconButton(onClick = onProfileClick, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = "Perfil",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Text(
             text = title,
