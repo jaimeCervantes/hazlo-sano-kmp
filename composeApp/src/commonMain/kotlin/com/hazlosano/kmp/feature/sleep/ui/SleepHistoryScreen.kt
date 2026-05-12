@@ -121,7 +121,6 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
-                alignment = Alignment.BottomEnd,
             )
         }
         // dark overlay for readability
@@ -131,7 +130,7 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.99f),
+                            Color.Black.copy(alpha = 0.85f),
                             Color.Transparent
                         )
                     )
@@ -176,7 +175,7 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
         item {
             LeafCard(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
-                containerColor = Color.Black.copy(alpha = 0.85f),
+                containerColor = Color.Black.copy(alpha = 0.35f),
             ) {
                 Column(modifier = Modifier.padding(HazloSpaces.md)) {
                     Row(
@@ -373,18 +372,26 @@ private fun encouragementText(history: SleepHistory): String {
 
 private fun sleepBackgroundUrl(history: SleepHistory): String? {
     if (history.nights.isEmpty()) return null
+    val eff = history.averageEfficiency
+    val trending = history.trendLabel.contains("Mejorando")
+    val declining = history.trendLabel.contains("Empeorando")
+
     return when {
-        history.averageEfficiency >= BG_EXCELLENT_MIN -> BG_URL_EXCELLENT
-        history.averageEfficiency >= BG_GOOD_MIN -> BG_URL_GOOD
-        history.averageEfficiency >= BG_INTERRUPTED_MIN -> BG_URL_INTERRUPTED
-        else -> BG_URL_POOR
+        eff >= 0.85f && trending ->
+            "https://images.unsplash.com/photo-1728727267814-792db55ce678?w=800&q=80"
+        eff >= 0.85f ->
+            "https://images.unsplash.com/photo-1539336065911-c70206ee7aa5?w=800&q=80"
+        eff >= 0.75f && trending ->
+            "https://images.unsplash.com/photo-1767884022240-b91fb555495a?w=800&q=80"
+        eff >= 0.75f ->
+            "https://images.unsplash.com/photo-1615401796822-dedbfc0a4744?w=800&q=80"
+        declining ->
+            "https://images.unsplash.com/photo-1758600588872-3d340e69650f?w=800&q=80"
+        trending ->
+            "https://images.unsplash.com/photo-1627361358783-164528683cfe?w=800&q=80"
+        eff >= 0.60f ->
+            "https://images.unsplash.com/photo-1497491908353-c2624b242ecf?w=800&q=80"
+        else ->
+            "https://images.unsplash.com/photo-1583330618332-d1cc2fab8936?w=800&q=80"
     }
 }
-
-private const val BG_EXCELLENT_MIN = 0.85f
-private const val BG_GOOD_MIN = 0.75f
-private const val BG_INTERRUPTED_MIN = 0.60f
-private const val BG_URL_EXCELLENT = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80"
-private const val BG_URL_GOOD = "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&q=80"
-private const val BG_URL_INTERRUPTED = "https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=800&q=80"
-private const val BG_URL_POOR = "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800&q=80"
