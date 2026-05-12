@@ -33,6 +33,21 @@ import com.hazlosano.kmp.core.ui.theme.HazloSpaces
 import com.hazlosano.kmp.core.ui.util.formatClockTime
 import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.domain.model.SleepPhase
+import kmp.composeapp.generated.resources.Res
+import kmp.composeapp.generated.resources.sleep_duration_label
+import kmp.composeapp.generated.resources.sleep_efficiency_label
+import kmp.composeapp.generated.resources.sleep_fell_asleep_label
+import kmp.composeapp.generated.resources.sleep_precision_label
+import kmp.composeapp.generated.resources.sleep_quality_excellent
+import kmp.composeapp.generated.resources.sleep_quality_good
+import kmp.composeapp.generated.resources.sleep_quality_interrupted
+import kmp.composeapp.generated.resources.sleep_quality_no_data
+import kmp.composeapp.generated.resources.sleep_quality_poor
+import kmp.composeapp.generated.resources.sleep_refresh
+import kmp.composeapp.generated.resources.sleep_segments_label
+import kmp.composeapp.generated.resources.sleep_summary_title
+import kmp.composeapp.generated.resources.sleep_woke_up_label
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun SleepSummaryCard(
@@ -69,7 +84,7 @@ fun SleepSummaryCard(
                     }
                     Spacer(modifier = Modifier.width(HazloSpaces.sm))
                     Text(
-                        text = Última noche",
+                        text = stringResource(Res.string.sleep_summary_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -79,7 +94,7 @@ fun SleepSummaryCard(
                         IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
                             Icon(
                                 imageVector = Icons.Filled.Refresh,
-                                contentDescription = "Actualizar",
+                                contentDescription = stringResource(Res.string.sleep_refresh),
                                 tint = accentColor,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -95,17 +110,17 @@ fun SleepSummaryCard(
                 ) {
                     SummaryMetric(
                         value = formatDuration(analysis.totalDurationMillis),
-                        label = "Dormido",
+                        label = stringResource(Res.string.sleep_duration_label),
                         accentColor = accentColor,
                     )
                     SummaryMetric(
                         value = "${(analysis.efficiency * 100).toInt()}%",
-                        label = "Eficiencia",
+                        label = stringResource(Res.string.sleep_efficiency_label),
                         accentColor = accentColor,
                     )
                     SummaryMetric(
                         value = analysis.totalSessions.toString(),
-                        label = "Segmentos",
+                        label = stringResource(Res.string.sleep_segments_label),
                         accentColor = accentColor,
                     )
                 }
@@ -118,8 +133,8 @@ fun SleepSummaryCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        TimeLabel("Te dormiste", sleepStart, accentColor)
-                        TimeLabel("Despertaste", sleepEnd, accentColor)
+                        TimeLabel(stringResource(Res.string.sleep_fell_asleep_label), sleepStart, accentColor)
+                        TimeLabel(stringResource(Res.string.sleep_woke_up_label), sleepEnd, accentColor)
                     }
                 }
 
@@ -135,7 +150,7 @@ fun SleepSummaryCard(
                 if (analysis.averageConfidence < 1.0f) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Precisión: ${(analysis.averageConfidence * 100).toInt()}%",
+                        text = "${stringResource(Res.string.sleep_precision_label)}: ${(analysis.averageConfidence * 100).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.5f),
                     )
@@ -211,10 +226,17 @@ private fun PhaseLabel(phase: SleepPhase, duration: Long?, accentColor: Color) {
     }
 }
 
+private const val MS_PER_MINUTE = 60_000L
+private const val MINUTES_PER_HOUR = 60L
+private const val LABEL_ALPHA = 0.7f
+private const val EXCELLENT_THRESHOLD = 0.90f
+private const val GOOD_THRESHOLD = 0.80f
+private const val INTERRUPTED_THRESHOLD = 0.65f
+private const val MAX_SEGMENTS_EXCELLENT = 2
 private fun formatDuration(millis: Long): String {
-    val totalMinutes = millis / 60_000
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
+    val totalMinutes = millis / MS_PER_MINUTE
+    val hours = totalMinutes / MINUTES_PER_HOUR
+    val minutes = totalMinutes % MINUTES_PER_HOUR
     return "${hours}h ${minutes}m"
 }
 
@@ -230,15 +252,21 @@ private fun TimeLabel(label: String, epochMillis: Long, accentColor: Color) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = Color.White.copy(alpha = 0.7f),
+            color = Color.White.copy(alpha = LABEL_ALPHA),
         )
     }
 }
 
+@Composable
 private fun sleepQualityLabel(efficiency: Float, segments: Int): String = when {
-    efficiency >= 0.90f && segments <= 2 -> "Excelente descanso"
-    efficiency >= 0.80f -> "Buen descanso"
-    efficiency >= 0.65f -> "Sueño interrumpido"
-    efficiency > 0f -> "Descanso deficiente"
-    else -> "Aún sin datos"
+    efficiency >= EXCELLENT_THRESHOLD && segments <= MAX_SEGMENTS_EXCELLENT ->
+        stringResource(Res.string.sleep_quality_excellent)
+    efficiency >= GOOD_THRESHOLD ->
+        stringResource(Res.string.sleep_quality_good)
+    efficiency >= INTERRUPTED_THRESHOLD ->
+        stringResource(Res.string.sleep_quality_interrupted)
+    efficiency > 0f ->
+        stringResource(Res.string.sleep_quality_poor)
+    else ->
+        stringResource(Res.string.sleep_quality_no_data)   
 }

@@ -17,6 +17,11 @@ class SleepReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "SleepReceiver"
+        private const val STATUS_AWAKE = 1
+        private const val STATUS_ASLEEP = 2
+        private const val STATUS_LIGHT = 3
+        private const val STATUS_DEEP = 4
+        private const val STATUS_REM = 5
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -82,11 +87,11 @@ class SleepReceiver : BroadcastReceiver() {
     }
 
     private fun mapStatusToPhase(status: Int): SleepPhase = when (status) {
-        1 -> SleepPhase.AWAKE
-        2 -> SleepPhase.ASLEEP
-        3 -> SleepPhase.LIGHT
-        4 -> SleepPhase.DEEP
-        5 -> SleepPhase.REM
+        STATUS_AWAKE -> SleepPhase.AWAKE
+        STATUS_ASLEEP -> SleepPhase.ASLEEP
+        STATUS_LIGHT -> SleepPhase.LIGHT
+        STATUS_DEEP -> SleepPhase.DEEP
+        STATUS_REM -> SleepPhase.REM
         else -> SleepPhase.UNKNOWN
     }
 }

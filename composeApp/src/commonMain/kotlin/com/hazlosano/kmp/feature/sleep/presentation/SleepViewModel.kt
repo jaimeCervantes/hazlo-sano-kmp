@@ -16,6 +16,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.minus
+import kotlinx.datetime.toLocalDateTime
 
 class SleepViewModel(
     private val getSleepContentUseCase: GetSleepContentUseCase,
@@ -77,12 +82,17 @@ class SleepViewModel(
     }
 
     companion object {
+        private const val NIGHT_BOUNDARY_HOUR = 18
+
         fun analysisWindow(): Pair<Long, Long> {
-            val now = Clock.System.now().toEpochMilliseconds()
-            val dayMs = 24 * 60 * 60 * 1000L
-            val midnightToday = (now / dayMs) * dayMs
-            val from = midnightToday - 6 * 3600_000L
-            return from to now
+            val tz = TimeZone.currentSystemDefault()
+            val now = Clock.System.now()
+            val local = now.toLocalDateTime(tz)
+            // Always start from yesterday 6 PM local — captures last night's sleep
+            val yesterday = local.date.minus(1, DateTimeUnit.DAY)
+            val from = yesterday.atStartOfDayIn(tz).toEpochMilliseconds() +
+                NIGHT_BOUNDARY_HOUR * 3600_000L
+            return from to now.toEpochMilliseconds()
         }
     }
 }

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sleep summary card -->
+    <string name="sleep_summary_title">Última noche</string>
+    <string name="sleep_duration_label">Dormido</string>
+    <string name="sleep_efficiency_label">Eficiencia</string>
+    <string name="sleep_segments_label">Segmentos</string>
+    <string name="sleep_fell_asleep_label">Te dormiste</string>
+    <string name="sleep_woke_up_label">Despertaste</string>
+    <string name="sleep_precision_label">Precisión</string>
+    <string name="sleep_refresh">Actualizar</string>
+
+    <!-- Sleep quality labels -->
+    <string name="sleep_quality_excellent">Excelente descanso</string>
+    <string name="sleep_quality_good">Buen descanso</string>
+    <string name="sleep_quality_interrupted">Sueño interrumpido</string>
+    <string name="sleep_quality_poor">Descanso deficiente</string>
+    <string name="sleep_quality_no_data">Aún sin datos</string>
+
+    <!-- Sleep quality short labels -->
+    <string name="sleep_quality_excellent_short">🌟 Excelente</string>
+    <string name="sleep_quality_good_short">😊 Bueno</string>
+    <string name="sleep_quality_interrupted_short">😕 Interrumpido</string>
+    <string name="sleep_quality_poor_short">😫 Deficiente</string>
+    <string name="sleep_quality_no_data_short">Sin datos</string>
+
+    <!-- History screen -->
+    <string name="history_title">Tu sueño</string>
+    <string name="history_weekly_summary">Resumen semanal</string>
+    <string name="history_back">Volver</string>
+    <string name="history_avg_label">Promedio</string>
+    <string name="history_consistency_label">Consistencia</string>
+    <string name="history_debt_label">Deuda sueño</string>
+    <string name="history_trend_label">Tendencia</string>
+    <string name="history_trend_prefix">Tendencia: %s</string>
+
+    <!-- Trend labels -->
+    <string name="trend_improving">Mejorando ↑</string>
+    <string name="trend_declining">Empeorando ↓</string>
+    <string name="trend_stable">Estable →</string>
+    <string name="trend_insufficient">—</string>
+
+    <!-- Encouragement texts -->
+    <string name="encouragement_waiting">Esperando tus primeras noches</string>
+    <string name="encouragement_bad_improving">Anoche fue difícil, pero vas mejorando</string>
+    <string name="encouragement_bad_today">Tu sueño fue interrumpido, hoy intenta descansar</string>
+    <string name="encouragement_improving">Cada noche mejor, sigue así</string>
+    <string name="encouragement_worsening">Anoche descansaste menos, hoy recupera</string>
+    <string name="encouragement_excellent_week">Semana excelente de descanso</string>
+    <string name="encouragement_good_path">Vas por buen camino</string>
+    <string name="encouragement_debt">Llevas varias noches con déficit</string>
+    <string name="encouragement_default">La constancia construye el descanso</string>
+
+    <!-- Sleep phases -->
+    <string name="phase_light">Sueño ligero</string>
+    <string name="phase_deep">Sueño profundo</string>
+    <string name="phase_rem">REM</string>
+    <string name="phase_awake">Despierto</string>
+    <string name="phase_asleep">Dormido</string>
+    <string name="phase_unknown">Desconocido</string>
+
+    <!-- Permission rationale -->
+    <string name="permission_rationale_title">Sueño y Descanso</string>
+    <string name="permission_rationale_message">El pilar de Sueño y Descanso usa los sensores de tu teléfono para medir tus hábitos de descanso mientras duermes. Esto ayuda a entender tus patrones y mejorar tu salud metabólica y mental.\n\nLa app no graba audio ni video. Solo detecta si estás dormido o despierto usando los sensores de movimiento y luz ambiental.</string>
+    <string name="permission_activate">Activar</string>
+    <string name="permission_not_now">Ahora no</string>
+    <string name="permission_denied_title">Permiso necesario</string>
+    <string name="permission_denied_message">Sin el permiso de Actividad Física, la app no puede medir tu sueño automáticamente. Puedes activarlo manualmente en Ajustes > Aplicaciones > Hazlo Sano > Permisos.</string>
+    <string name="permission_go_settings">Ir a Ajustes</string>
+    <string name="permission_cancel">Cancelar</string>
+</resources>
