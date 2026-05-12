@@ -37,45 +37,26 @@ import com.hazlosano.kmp.core.ui.util.formatClockTime
 import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.domain.model.SleepContent
 import com.hazlosano.kmp.domain.model.SleepSession
-import com.hazlosano.kmp.domain.usecase.GetSleepHistoryUseCase
-import com.hazlosano.kmp.domain.repository.SleepSessionRepository
-import com.hazlosano.kmp.feature.sleep.presentation.SleepHistoryViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepUiState
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 
 @Composable
 fun SleepScreen(
     viewModel: SleepViewModel,
-    sleepSessionRepository: SleepSessionRepository? = null,
     onRefresh: (() -> Unit)? = null,
-    initialShowHistory: Boolean = false,
-    onHistoryDismissed: (() -> Unit)? = null,
+    onCardClick: (() -> Unit)? = null,
 ) {
-    var showHistory by remember { mutableStateOf(initialShowHistory) }
+    val uiState by viewModel.uiState.collectAsState()
 
-    val dismissHistory: () -> Unit = {
-        showHistory = false
-        onHistoryDismissed?.invoke()
-    }
-
-    if (showHistory && sleepSessionRepository != null) {
-        val historyViewModel = remember {
-            SleepHistoryViewModel(GetSleepHistoryUseCase(sleepSessionRepository))
-        }
-        SleepHistoryScreen(viewModel = historyViewModel, onBack = dismissHistory)
-    } else {
-        val uiState by viewModel.uiState.collectAsState()
-
-        when (val state = uiState) {
-            is SleepUiState.Loading -> LoadingContent()
-            is SleepUiState.Error -> ErrorContent(state.message)
-            is SleepUiState.Success -> SleepDashboardContent(
-                content = state.content,
-                sleepAnalysis = state.sleepAnalysis,
-                onRefresh = onRefresh,
-                onCardClick = { showHistory = true },
-            )
-        }
+    when (val state = uiState) {
+        is SleepUiState.Loading -> LoadingContent()
+        is SleepUiState.Error -> ErrorContent(state.message)
+        is SleepUiState.Success -> SleepDashboardContent(
+            content = state.content,
+            sleepAnalysis = state.sleepAnalysis,
+            onRefresh = onRefresh,
+            onCardClick = onCardClick ?: {},
+        )
     }
 }
 

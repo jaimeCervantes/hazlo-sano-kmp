@@ -40,10 +40,17 @@ import com.hazlosano.kmp.core.ui.theme.PillarNutrition
 import com.hazlosano.kmp.core.ui.theme.PillarSleep
 import com.hazlosano.kmp.domain.model.SleepAnalysis
 import com.hazlosano.kmp.domain.repository.SleepSessionRepository
+import com.hazlosano.kmp.domain.usecase.GetSleepHistoryUseCase
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
+import com.hazlosano.kmp.feature.sleep.presentation.SleepHistoryViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.feature.home.ui.HomeScreen
+import com.hazlosano.kmp.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.kmp.feature.sleep.ui.SleepScreen
+import kmp.composeapp.generated.resources.Res
+import kmp.composeapp.generated.resources.history_back
+import kmp.composeapp.generated.resources.history_title
+import org.jetbrains.compose.resources.stringResource
 
 enum class BottomTab(val label: String, val icon: ImageVector, val color: Color) {
     Inicio("Inicio", Icons.Filled.Home, HazloSanoGreen),
@@ -70,10 +77,20 @@ fun MainScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar()
-        Scaffold(
-            modifier = Modifier.weight(1f),
-            bottomBar = {
+        HazloTopAppBar(
+            title = if (showSleepHistory) stringResource(Res.string.history_title) else "Hazlo Sano",
+            showBackButton = showSleepHistory,
+            onBackClick = { showSleepHistory = false },
+        )
+        if (showSleepHistory && sleepSessionRepository != null) {
+            val historyViewModel = remember {
+                SleepHistoryViewModel(GetSleepHistoryUseCase(sleepSessionRepository))
+            }
+            SleepHistoryScreen(viewModel = historyViewModel)
+        } else {
+            Scaffold(
+                modifier = Modifier.weight(1f),
+                bottomBar = {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -112,14 +129,13 @@ fun MainScreen(
                     )
                     BottomTab.Sueno -> SleepScreen(
                         viewModel = sleepViewModel,
-                        sleepSessionRepository = sleepSessionRepository,
                         onRefresh = onRefreshSleep,
-                        initialShowHistory = showSleepHistory,
-                        onHistoryDismissed = { showSleepHistory = false },
+                        onCardClick = navigateToSleepHistory,
                     )
                     else -> PlaceholderScreen(tab = selectedTab)
                 }
             }
+        }
         }
     }
 }
