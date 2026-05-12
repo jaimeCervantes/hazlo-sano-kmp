@@ -140,11 +140,10 @@ fun SleepSummaryCard(
 
                 Spacer(modifier = Modifier.height(HazloSpaces.sm))
 
-                Text(
-                    text = sleepQualityLabel(analysis.efficiency, analysis.totalSessions),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = accentColor,
-                    fontWeight = FontWeight.SemiBold,
+                SleepQualityLabel(
+                    efficiency = analysis.efficiency,
+                    segments = analysis.totalSessions,
+                    accentColor = accentColor,
                 )
 
                 if (analysis.averageConfidence < 1.0f) {
@@ -229,10 +228,7 @@ private fun PhaseLabel(phase: SleepPhase, duration: Long?, accentColor: Color) {
 private const val MS_PER_MINUTE = 60_000L
 private const val MINUTES_PER_HOUR = 60L
 private const val LABEL_ALPHA = 0.7f
-private const val EXCELLENT_THRESHOLD = 0.90f
-private const val GOOD_THRESHOLD = 0.80f
-private const val INTERRUPTED_THRESHOLD = 0.65f
-private const val MAX_SEGMENTS_EXCELLENT = 2
+
 private fun formatDuration(millis: Long): String {
     val totalMinutes = millis / MS_PER_MINUTE
     val hours = totalMinutes / MINUTES_PER_HOUR
@@ -257,16 +253,3 @@ private fun TimeLabel(label: String, epochMillis: Long, accentColor: Color) {
     }
 }
 
-@Composable
-private fun sleepQualityLabel(efficiency: Float, segments: Int): String = when {
-    efficiency >= EXCELLENT_THRESHOLD && segments <= MAX_SEGMENTS_EXCELLENT ->
-        stringResource(Res.string.sleep_quality_excellent)
-    efficiency >= GOOD_THRESHOLD ->
-        stringResource(Res.string.sleep_quality_good)
-    efficiency >= INTERRUPTED_THRESHOLD ->
-        stringResource(Res.string.sleep_quality_interrupted)
-    efficiency > 0f ->
-        stringResource(Res.string.sleep_quality_poor)
-    else ->
-        stringResource(Res.string.sleep_quality_no_data)   
-}
