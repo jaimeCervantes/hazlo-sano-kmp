@@ -65,7 +65,7 @@ class GetSleepHistoryUseCase(
         return sessions.groupBy { session ->
             val instant = Instant.fromEpochMilliseconds(session.startTime)
             val local = instant.toLocalDateTime(tz)
-            val date = if (local.hour >= 18) {
+            val date = if (local.hour >= NIGHT_BOUNDARY_HOUR) {
                 local.date
             } else {
                 local.date.minus(1, DateTimeUnit.DAY)
@@ -79,34 +79,41 @@ class GetSleepHistoryUseCase(
         val onsets = nights.map { it.firstSleepStart.toDouble() }
         val mean = onsets.average()
         val variance = onsets.map { (it - mean) * (it - mean) }.average()
-        return (sqrt(variance) / 60_000.0).toInt()
+        return (sqrt(variance) / MINUTE_MS.toDouble()).toInt()
     }
 
     private fun computeSleepDebt(nights: List<SleepNight>): Int {
-        val targetMs = 8 * 3600_000L
         return nights.sumOf { night ->
-            max(0L, targetMs - night.totalDurationMillis)
-        }.toInt() / 60_000
+            max(0L, TARGET_SLEEP_MS - night.totalDurationMillis)
+        }.toInt() / MINUTE_MS.toInt()
     }
 
     private fun computeTrend(nights: List<SleepNight>): String {
-        if (nights.size < 2) return "—"
-        if (nights.size >= 4) {
+        if (nights.size < 2) return TREND_INSUFFICIENT
+        if (nights.size >= MIN_NIGHTS_HALF_TREND) {
             val half = nights.size / 2
             val recent = nights.take(half).map { it.totalDurationMillis }.average()
             val older = nights.takeLast(half).map { it.totalDurationMillis }.average()
-            return when {
-                recent > older + 30 * 60_000L -> "Mejorando ↑"
-                recent < older - 30 * 60_000L -> "Empeorando ↓"
-                else -> "Estable →"
-            }
+            return trendDirection(recent, older)
         }
         val last = nights.first().totalDurationMillis
         val prev = nights[1].totalDurationMillis
-        return when {
-            last > prev + 30 * 60_000L -> "Mejorando ↑"
-            last < prev - 30 * 60_000L -> "Empeorando ↓"
-            else -> "Estable →"
-        }
+        return trendDirection(last.toDouble(), prev.toDouble())
+    }
+
+    private fun trendDirection(recent: Double, older: Double): String = when {
+        recent > older + TREND_THRESHOLD_MS -> "Mejorando ↑"
+        recent < older - TREND_THRESHOLD_MS -> "Empeorando ↓"
+        else -> "Estable →"
+    }
+
+    companion object {
+        const val NIGHT_BOUNDARY_HOUR = 18
+        const val TARGET_HOURS = 8
+        val TARGET_SLEEP_MS: Long = TARGET_HOURS * 3600_000L
+        const val MINUTE_MS: Long = 60_000L
+        const val TREND_THRESHOLD_MS = 30 * MINUTE_MS
+        const val MIN_NIGHTS_HALF_TREND = 4
+        const val TREND_INSUFFICIENT = "—"
     }
 }

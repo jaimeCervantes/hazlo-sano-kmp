@@ -64,6 +64,29 @@ import com.hazlosano.kmp.domain.model.SleepHistory
 import com.hazlosano.kmp.domain.model.SleepNight
 import com.hazlosano.kmp.feature.sleep.presentation.SleepHistoryUiState
 import com.hazlosano.kmp.feature.sleep.presentation.SleepHistoryViewModel
+import kmp.composeapp.generated.resources.Res
+import kmp.composeapp.generated.resources.encouragement_bad_improving
+import kmp.composeapp.generated.resources.encouragement_bad_today
+import kmp.composeapp.generated.resources.encouragement_debt
+import kmp.composeapp.generated.resources.encouragement_default
+import kmp.composeapp.generated.resources.encouragement_excellent_week
+import kmp.composeapp.generated.resources.encouragement_good_path
+import kmp.composeapp.generated.resources.encouragement_improving
+import kmp.composeapp.generated.resources.encouragement_waiting
+import kmp.composeapp.generated.resources.encouragement_worsening
+import kmp.composeapp.generated.resources.history_avg_label
+import kmp.composeapp.generated.resources.history_back
+import kmp.composeapp.generated.resources.history_consistency_label
+import kmp.composeapp.generated.resources.history_debt_label
+import kmp.composeapp.generated.resources.sleep_efficiency_label
+import kmp.composeapp.generated.resources.history_title
+import kmp.composeapp.generated.resources.history_trend_label
+import kmp.composeapp.generated.resources.sleep_quality_excellent_short
+import kmp.composeapp.generated.resources.sleep_quality_good_short
+import kmp.composeapp.generated.resources.sleep_quality_interrupted_short
+import kmp.composeapp.generated.resources.sleep_quality_no_data_short
+import kmp.composeapp.generated.resources.sleep_quality_poor_short
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun SleepHistoryScreen(
@@ -98,6 +121,7 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+                alignment = Alignment.BottomEnd,
             )
         }
         // dark overlay for readability
@@ -125,7 +149,7 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(Res.string.history_back), tint = Color.White)
                 }
                 Spacer(modifier = Modifier.width(HazloSpaces.sm))
                 Box(
@@ -137,7 +161,7 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.width(HazloSpaces.sm))
                 Column {
-                    Text("Tu sueño", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(Res.string.history_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                     Text(
                         encouragementText(history),
                         style = MaterialTheme.typography.labelMedium,
@@ -159,23 +183,23 @@ private fun HistoryContent(history: SleepHistory, onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        MetricItem(Icons.Filled.Schedule, "Promedio", "${history.averageHours.toInt()}h ${((history.averageHours % 1) * 60).toInt()}m")
-                        MetricItem(Icons.AutoMirrored.Filled.TrendingUp, "Eficiencia", "${(history.averageEfficiency * 100).toInt()}%")
+                        MetricItem(Icons.Filled.Schedule, stringResource(Res.string.history_avg_label), "${history.averageHours.toInt()}h ${((history.averageHours % 1) * 60).toInt()}m")
+                        MetricItem(Icons.AutoMirrored.Filled.TrendingUp, stringResource(Res.string.sleep_efficiency_label), "${(history.averageEfficiency * 100).toInt()}%")
                     }
                     Spacer(modifier = Modifier.height(HazloSpaces.sm))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        MetricItem(Icons.Filled.CrisisAlert, "Consistencia", "±${history.consistencyMinutes}m")
-                        MetricItem(Icons.Filled.HourglassBottom, "Deuda sueño", "${history.sleepDebtMinutes / 60}h ${history.sleepDebtMinutes % 60}m")
+                        MetricItem(Icons.Filled.CrisisAlert, stringResource(Res.string.history_consistency_label), "±${history.consistencyMinutes}m")
+                        MetricItem(Icons.Filled.HourglassBottom, stringResource(Res.string.history_debt_label), "${history.sleepDebtMinutes / 60}h ${history.sleepDebtMinutes % 60}m")
                     }
                     Spacer(modifier = Modifier.height(HazloSpaces.sm))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "Tendencia: ${history.trendLabel}",
+                            "${stringResource(Res.string.history_trend_label)}: ${history.trendLabel}",
                             style = MaterialTheme.typography.labelLarge,
                             color = PillarSleep,
                             fontWeight = FontWeight.SemiBold,
@@ -285,19 +309,33 @@ private fun MetricItem(icon: ImageVector, label: String, value: String) {
 }
 
 private fun formatDuration(millis: Long): String {
-    val totalMinutes = millis / 60_000
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
+    val totalMinutes = millis / MS_PER_MIN
+    val hours = totalMinutes / MINS_PER_HOUR
+    val minutes = totalMinutes % MINS_PER_HOUR
     return "${hours}h ${minutes}m"
 }
 
+@Composable
 private fun qualityLabel(efficiency: Float, segments: Int): String = when {
-    efficiency >= 0.90f && segments <= 2 -> "🌟 Excelente"
-    efficiency >= 0.80f -> "😊 Bueno"
-    efficiency >= 0.65f -> "😕 Interrumpido"
-    efficiency > 0f -> "😫 Deficiente"
-    else -> "Sin datos"
+    efficiency >= EXCELLENT_MIN && segments <= MAX_SEGMENTS_EXCELLENT ->
+        stringResource(Res.string.sleep_quality_excellent_short)
+    efficiency >= GOOD_MIN ->
+        stringResource(Res.string.sleep_quality_good_short)
+    efficiency >= INTERRUPTED_MIN ->
+        stringResource(Res.string.sleep_quality_interrupted_short)
+    efficiency > 0f ->
+        stringResource(Res.string.sleep_quality_poor_short)
+    else ->
+        stringResource(Res.string.sleep_quality_no_data_short)
 }
+
+private const val MS_PER_MIN = 60_000L
+private const val MINS_PER_HOUR = 60L
+private const val EXCELLENT_MIN = 0.90f
+private const val GOOD_MIN = 0.80f
+private const val INTERRUPTED_MIN = 0.65f
+private const val MAX_SEGMENTS_EXCELLENT = 2
+private const val NO_DATA = "Sin datos"
 
 private fun phaseEmoji(phaseLabel: String): String? = when (phaseLabel) {
     "Sueño ligero" -> "🌙"
@@ -308,9 +346,10 @@ private fun phaseEmoji(phaseLabel: String): String? = when (phaseLabel) {
     else -> null
 }
 
+@Composable
 private fun encouragementText(history: SleepHistory): String {
     val nights = history.nights
-    if (nights.isEmpty()) return "Esperando tus primeras noches"
+    if (nights.isEmpty()) return stringResource(Res.string.encouragement_waiting)
 
     val lastNight = nights.first()
     val prevNight = nights.getOrNull(1)
@@ -320,27 +359,32 @@ private fun encouragementText(history: SleepHistory): String {
     val lastWasBad = lastNight.efficiency < 0.75f && lastNight.sessions.size >= 3
 
     return when {
-        lastWasBad && improved -> "Anoche fue difícil, pero vas mejorando"
-        lastWasBad -> "Tu sueño fue interrumpido, hoy intenta descansar"
-        improved -> "Cada noche mejor, sigue así"
-        worsened -> "Anoche descansaste menos, hoy recupera"
-        history.averageEfficiency >= 0.85f && history.nights.size >= 4 -> "Semana excelente de descanso"
-        history.averageEfficiency >= 0.80f -> "Vas por buen camino"
-        history.sleepDebtMinutes > 120 -> "Llevas varias noches con déficit"
-        else -> "La constancia construye el descanso"
+        lastWasBad && improved -> stringResource(Res.string.encouragement_bad_improving)
+        lastWasBad -> stringResource(Res.string.encouragement_bad_today)
+        improved -> stringResource(Res.string.encouragement_improving)
+        worsened -> stringResource(Res.string.encouragement_worsening)
+        history.averageEfficiency >= 0.85f && history.nights.size >= 4 ->
+            stringResource(Res.string.encouragement_excellent_week)
+        history.averageEfficiency >= 0.80f -> stringResource(Res.string.encouragement_good_path)
+        history.sleepDebtMinutes > 120 -> stringResource(Res.string.encouragement_debt)
+        else -> stringResource(Res.string.encouragement_default)
     }
 }
 
 private fun sleepBackgroundUrl(history: SleepHistory): String? {
     if (history.nights.isEmpty()) return null
     return when {
-        history.averageEfficiency >= 0.85f ->
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80"
-        history.averageEfficiency >= 0.75f ->
-            "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&q=80"
-        history.averageEfficiency >= 0.60f ->
-            "https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=800&q=80"
-        else ->
-            "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800&q=80"
+        history.averageEfficiency >= BG_EXCELLENT_MIN -> BG_URL_EXCELLENT
+        history.averageEfficiency >= BG_GOOD_MIN -> BG_URL_GOOD
+        history.averageEfficiency >= BG_INTERRUPTED_MIN -> BG_URL_INTERRUPTED
+        else -> BG_URL_POOR
     }
 }
+
+private const val BG_EXCELLENT_MIN = 0.85f
+private const val BG_GOOD_MIN = 0.75f
+private const val BG_INTERRUPTED_MIN = 0.60f
+private const val BG_URL_EXCELLENT = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80"
+private const val BG_URL_GOOD = "https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&q=80"
+private const val BG_URL_INTERRUPTED = "https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=800&q=80"
+private const val BG_URL_POOR = "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=800&q=80"
