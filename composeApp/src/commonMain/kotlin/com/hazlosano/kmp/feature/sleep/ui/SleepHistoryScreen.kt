@@ -214,6 +214,7 @@ private fun sleepBackgroundUrl(history: SleepHistory): String? {
     val trending = history.trendLabel.contains("Mejorando")
     val declining = history.trendLabel.contains("Empeorando")
     return when {
+        eff >= 0.95f -> BG_PERFECT_OR_ALMOST
         eff >= 0.85f && trending -> BG_IMPROVING_EXCELLENT
         eff >= 0.85f -> BG_EXCELLENT
         eff >= 0.75f && trending -> BG_IMPROVING_GOOD
@@ -228,11 +229,12 @@ private fun sleepBackgroundUrl(history: SleepHistory): String? {
 private const val ENC_DELTA = 0.05f
 private const val ENC_BAD_THRESHOLD = 0.75f
 private const val ENC_BAD_SEGMENTS = 3
-private const val BG_IMPROVING_EXCELLENT = "https://images.unsplash.com/photo-1728727267814-792db55ce678?w=800&q=80"
-private const val BG_EXCELLENT = "https://images.unsplash.com/photo-1539336065911-c70206ee7aa5?w=800&q=80"
-private const val BG_IMPROVING_GOOD = "https://images.unsplash.com/photo-1767884022240-b91fb555495a?w=800&q=80"
-private const val BG_GOOD = "https://images.unsplash.com/photo-1615401796822-dedbfc0a4744?w=800&q=80"
-private const val BG_DECLINING = "https://images.unsplash.com/photo-1758600588872-3d340e69650f?w=800&q=80"
-private const val BG_IMPROVING = "https://images.unsplash.com/photo-1627361358783-164528683cfe?w=800&q=80"
-private const val BG_INTERRUPTED = "https://images.unsplash.com/photo-1497491908353-c2624b242ecf?w=800&q=80"
-private const val BG_POOR = "https://images.unsplash.com/photo-1583330618332-d1cc2fab8936?w=800&q=80"
+private const val BG_PERFECT_OR_ALMOST = "https://images.unsplash.com/photo-1608825252979-9b8dbef29c50?q=60&w=800"
+private const val BG_IMPROVING_EXCELLENT = "https://images.unsplash.com/photo-1612181750970-b6c803178d80?w=800&q=60"
+private const val BG_EXCELLENT = "https://images.unsplash.com/photo-1612294355484-3f5a3249d65d?q=60&w=800"
+private const val BG_IMPROVING_GOOD = "https://plus.unsplash.com/premium_photo-1723709090773-0a9566c25afc?q=60&w=800"
+private const val BG_GOOD = "https://images.unsplash.com/photo-1767884022240-b91fb555495a?w=800&q=60"
+private const val BG_DECLINING = "https://images.unsplash.com/photo-1758600588872-3d340e69650f?w=800&q=60"
+private const val BG_IMPROVING = "https://images.unsplash.com/photo-1719471497337-d140858e6ba7?q=60&w=800"
+private const val BG_INTERRUPTED = "https://images.unsplash.com/photo-1712861712153-80a00199c83f?q=60&w=800"
+private const val BG_POOR = "https://images.unsplash.com/photo-1694728598381-b31a9b129d75?q=60&w=800"
