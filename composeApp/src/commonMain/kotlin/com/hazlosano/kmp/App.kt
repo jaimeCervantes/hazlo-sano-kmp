@@ -15,10 +15,16 @@ import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.data.repository.MockHomeRepository
 import com.hazlosano.kmp.data.repository.MockSleepRepository
+import com.hazlosano.kmp.data.product.SeedProducts
+import com.hazlosano.kmp.data.product.createProductDataSource
+import com.hazlosano.kmp.data.repository.ProductRepositoryImpl
 import com.hazlosano.kmp.data.sleep.SleepSessionRepositoryImpl
 import com.hazlosano.kmp.data.sleep.createSleepDataSource
+import com.hazlosano.kmp.domain.repository.ProductRepository
 import com.hazlosano.kmp.domain.usecase.GetSleepAnalysisUseCase
+import com.hazlosano.kmp.domain.usecase.SearchProductsUseCase
 import com.hazlosano.kmp.domain.repository.SleepSessionRepository
+import com.hazlosano.kmp.feature.nutrition.presentation.NutritionViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -41,9 +47,26 @@ fun App() {
         )
     }
     val sleepAnalysis by sleepViewModel.sleepAnalysis.collectAsState()
+
+    val productRepository: ProductRepository = remember {
+        ProductRepositoryImpl(createProductDataSource())
+    }
+    val searchProductsUseCase = remember {
+        SearchProductsUseCase(productRepository)
+    }
+    val nutritionViewModel = remember {
+        NutritionViewModel(searchProductsUseCase)
+    }
+
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
+        try {
+            SeedProducts.seedIfEmpty()
+        } catch (e: Exception) {
+            // non-fatal: products already seeded or DB temporarily unavailable
+        }
+        nutritionViewModel.refresh()
         delay(3000L)
         sleepViewModel.refresh()
         delay(5000L)
@@ -59,6 +82,7 @@ fun App() {
             MainScreen(
                 homeViewModel = viewModel,
                 sleepViewModel = sleepViewModel,
+                nutritionViewModel = nutritionViewModel,
                 sleepAnalysis = sleepAnalysis,
                 onRefreshSleep = onRefreshSleep,
                 sleepSessionRepository = sleepSessionRepository,

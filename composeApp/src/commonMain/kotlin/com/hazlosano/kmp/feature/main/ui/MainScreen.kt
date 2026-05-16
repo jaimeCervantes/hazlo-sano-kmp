@@ -43,6 +43,8 @@ import com.hazlosano.kmp.domain.repository.SleepSessionRepository
 import com.hazlosano.kmp.domain.usecase.GetSleepHistoryUseCase
 import com.hazlosano.kmp.feature.home.presentation.HomeViewModel
 import com.hazlosano.kmp.feature.sleep.presentation.SleepHistoryViewModel
+import com.hazlosano.kmp.feature.nutrition.presentation.NutritionViewModel
+import com.hazlosano.kmp.feature.nutrition.ui.NutritionScreen
 import com.hazlosano.kmp.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.kmp.feature.home.ui.HomeScreen
 import com.hazlosano.kmp.feature.sleep.ui.SleepHistoryScreen
@@ -64,6 +66,7 @@ enum class BottomTab(val label: String, val icon: ImageVector, val color: Color)
 fun MainScreen(
     homeViewModel: HomeViewModel,
     sleepViewModel: SleepViewModel,
+    nutritionViewModel: NutritionViewModel,
     sleepAnalysis: SleepAnalysis? = null,
     onRefreshSleep: (() -> Unit)? = null,
     sleepSessionRepository: SleepSessionRepository? = null,
@@ -132,6 +135,7 @@ fun MainScreen(
                         onRefresh = onRefreshSleep,
                         onCardClick = navigateToSleepHistory,
                     )
+                    BottomTab.Nutricion -> NutritionScreen(viewModel = nutritionViewModel)
                     else -> PlaceholderScreen(tab = selectedTab)
                 }
             }
