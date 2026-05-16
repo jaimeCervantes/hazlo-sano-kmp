@@ -55,7 +55,7 @@ adb logcat -s SleepMonitor:* SleepReceiver:*
 
 - [ ] **Indicador visual** — badge en `SleepSummaryCard` que muestre estado del monitor (verde = activo, gris = inactivo).
 - [ ] **Entrada manual** — implementar `SleepSource.MANUAL` como fallback para que el usuario registre horas de sueño cuando la API falla.
-- [ ] **WorkManager** — job periódico que re-suscriba `SleepMonitor` si se cayó (protege contra `force-stop` y Doze profundo).
+- [x] **WorkManager** — job periódico que re-suscriba `SleepMonitor` si se cayó (protege contra `force-stop` y Doze profundo). → Ver [Feature #002](../features/002-workmanager-periodic-refresh.md)
 - [ ] **Mensaje contextual** — si `SleepMonitor.started == false`, mostrar causa probable en la UI (permiso denegado, Play Services no disponible).
 - [ ] **Recordatorio de condiciones óptimas** — notificar al usuario que cargue el teléfono y lo deje cerca de la cama antes de dormir.
 
