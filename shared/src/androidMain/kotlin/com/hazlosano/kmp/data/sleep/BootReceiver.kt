@@ -6,12 +6,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import com.hazlosano.kmp.data.db.DatabaseProvider
+import com.hazlosano.kmp.data.db.createSqlDriver
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (Intent.ACTION_BOOT_COMPLETED != intent.action) return
 
         SleepServiceLocator.initialize(context)
+        if (!DatabaseProvider.isInitialized) {
+            DatabaseProvider.initialize(createSqlDriver(context))
+        }
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION)
             == PackageManager.PERMISSION_GRANTED

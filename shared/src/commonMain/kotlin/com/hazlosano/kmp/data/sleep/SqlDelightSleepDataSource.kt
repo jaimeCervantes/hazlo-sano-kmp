@@ -1,6 +1,5 @@
 package com.hazlosano.kmp.data.sleep
 
-import app.cash.sqldelight.db.SqlDriver
 import com.hazlosano.kmp.data.db.HazloSanoDatabase
 import com.hazlosano.kmp.domain.model.SleepSession
 import com.hazlosano.kmp.domain.model.SleepSource
@@ -8,10 +7,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal class SqlDelightSleepDataSource(
-    driver: SqlDriver,
+    database: HazloSanoDatabase,
 ) : SleepDataSource {
 
-    private val queries = HazloSanoDatabase(driver).sleepSessionQueries
+    private val queries = database.sleepSessionQueries
 
     override suspend fun getSleepSessions(from: Long, to: Long): List<SleepSession> =
         withContext(Dispatchers.Default) {
