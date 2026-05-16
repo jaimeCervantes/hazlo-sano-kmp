@@ -4,7 +4,7 @@ import com.hazlosano.kmp.domain.model.SleepSession
 import com.hazlosano.kmp.domain.model.SleepSource
 import com.hazlosano.kmp.domain.repository.SleepSessionRepository
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Clock
+import com.hazlosano.kmp.data.currentEpochMilliseconds
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -24,7 +24,7 @@ class GetSleepHistoryUseCaseTest {
     private val dayMs = 24 * 3600_000L
 
     private fun localMidnightToday(): Long {
-        val now = Clock.System.now()
+        val now = Instant.fromEpochMilliseconds(currentEpochMilliseconds())
         val tz = TimeZone.currentSystemDefault()
         return now.toLocalDateTime(tz).date.atStartOfDayIn(tz).toEpochMilliseconds()
     }

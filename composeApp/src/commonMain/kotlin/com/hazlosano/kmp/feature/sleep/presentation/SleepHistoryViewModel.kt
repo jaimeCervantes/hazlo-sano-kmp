@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Clock
+import com.hazlosano.kmp.data.currentEpochMilliseconds
 
 class SleepHistoryViewModel(
     private val getSleepHistoryUseCase: GetSleepHistoryUseCase,
@@ -32,7 +32,7 @@ class SleepHistoryViewModel(
 
     private suspend fun loadData() {
         try {
-            val now = Clock.System.now().toEpochMilliseconds()
+            val now = currentEpochMilliseconds()
             val from = now - days * 24 * 60 * 60 * 1000L
             val history = getSleepHistoryUseCase(from, to = now)
             _state.value = SleepHistoryUiState.Success(history)

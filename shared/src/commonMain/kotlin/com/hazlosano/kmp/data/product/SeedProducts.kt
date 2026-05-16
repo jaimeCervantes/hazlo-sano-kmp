@@ -1,6 +1,6 @@
 package com.hazlosano.kmp.data.product
 
-import com.hazlosano.kmp.data.db.DatabaseProvider
+import com.hazlosano.kmp.data.product.createProductDataSource
 import com.hazlosano.kmp.domain.model.HazloProduct
 import com.hazlosano.kmp.domain.model.HazloSeller
 
@@ -137,8 +137,7 @@ object SeedProducts {
     )
 
     suspend fun seedIfEmpty() {
-        val db = DatabaseProvider.get()
-        val ds = SqlDelightProductDataSource(db)
+        val ds = createProductDataSource()
         if (ds.count() > 0) return
         ds.saveSellers(listOf(seller))
         ds.saveProducts(products)
