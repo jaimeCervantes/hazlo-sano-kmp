@@ -15,9 +15,12 @@ Use this skill for setup and repair work, not feature delivery.
    - `settings.gradle.kts`
    - `build.gradle.kts`
    - `gradle/libs.versions.toml`
-   - `composeApp/build.gradle.kts`
-   - `shared/build.gradle.kts`
+   - `core/build.gradle.kts`
+   - `app/shared/build.gradle.kts`
    - `server/build.gradle.kts`
+   - `app/androidApp/build.gradle.kts`
+   - `app/desktopApp/build.gradle.kts`
+   - `app/webApp/build.gradle.kts`
 4. Validate the Gradle wrapper exists before using project commands:
    - Windows: `.\gradlew.bat --version`
    - macOS/Linux: `./gradlew --version`
@@ -37,7 +40,20 @@ settings.gradle.kts
 build.gradle.kts
 gradle/
   libs.versions.toml
-composeApp/
+app/
+  androidApp/
+    build.gradle.kts
+    src/main/
+  desktopApp/
+    build.gradle.kts
+    src/main/
+  webApp/
+    build.gradle.kts
+    src/jsMain/
+    src/commonMain/
+  iosApp/
+    iosApp.xcodeproj/
+core/
   build.gradle.kts
   src/commonMain/
   src/commonTest/
@@ -45,12 +61,11 @@ composeApp/
   src/iosMain/
   src/jvmMain/
   src/jsMain/
-  src/wasmJsMain/
 server/
   build.gradle.kts
   src/main/kotlin/
   src/test/kotlin/
-shared/
+app/shared/
   build.gradle.kts
   src/commonMain/
   src/commonTest/
@@ -58,31 +73,33 @@ shared/
   src/iosMain/
   src/jvmMain/
   src/jsMain/
-  src/wasmJsMain/
-iosApp/
 ```
 
 ## Module responsibilities
 
-- `shared`: multiplatform business logic, target-neutral contracts, data models, utilities, and small `expect` APIs.
-- `composeApp`: Compose Multiplatform UI, presentation state, target entry points, and app-specific resources.
-- `server`: Ktor JVM application, HTTP routes, server-only configuration, and server adapters.
-- `iosApp`: SwiftUI host and Xcode project needed to run the iOS target.
+- `core`: target-neutral domain logic — models, repository interfaces, use cases. No Compose, no SQLDelight, no platform APIs. Depends on nothing.
+- `shared`: Compose Multiplatform UI, presentation state, data implementations, platform adapters. Depends on `:core`.
+- `app/androidApp`: thin Android entry point (MainActivity, manifest, resources). Depends on `:app:shared`.
+- `app/desktopApp`: thin Desktop JVM entry point (main function, native distribution config). Depends on `:app:shared`.
+- `app/webApp`: thin Web entry point (ComposeViewport, index.html). Depends on `:app:shared`.
+- `app/iosApp`: SwiftUI host and Xcode project needed to run the iOS target.
+- `server`: Ktor JVM application, HTTP routes, server-only configuration, and server adapters. Depends on `:core` and `:app:shared`.
 
 ## Dependency management
 
 - Use `gradle/libs.versions.toml` for new dependency and plugin versions.
 - Add dependencies only to the module and source set that needs them.
-- Keep server-only libraries out of `shared`.
-- Keep Compose UI libraries out of `shared` unless the task deliberately changes that module's responsibility.
+- Keep server-only libraries out of `shared` and `core`.
+- Keep Compose UI libraries out of `core`.
+- Keep SQLDelight and data-layer libraries out of `core`.
 - Prefer common multiplatform libraries for `commonMain`.
 - Do not add Android/JVM/browser/iOS-specific dependencies to `commonMain`.
 
 ## Scaffolding rules
 
-- Preserve the package root `energy.s2g.tools` unless the task explicitly includes a rename.
+- Preserve the package root `com.hazlosano.kmp` unless the task explicitly includes a rename.
 - Keep `settings.gradle.kts` as the module inclusion source of truth.
-- Use type-safe project accessors such as `projects.shared` when available.
+- Use type-safe project accessors such as `projects.app.shared` when available.
 - Keep platform-specific code in the matching source set.
 - Prefer `expect`/`actual` for platform-specific behavior that must be called from common code.
 - Keep `expect` APIs small and avoid leaking platform frameworks into common contracts.
@@ -94,9 +111,12 @@ iosApp/
 Use the narrowest useful command first:
 
 ```powershell
-.\gradlew.bat :shared:check
-.\gradlew.bat :composeApp:check
+.\gradlew.bat :core:check
+.\gradlew.bat :app:shared:check
 .\gradlew.bat :server:test
+.\gradlew.bat :app:androidApp:check
+.\gradlew.bat :app:desktopApp:check
+.\gradlew.bat :app:webApp:check
 .\gradlew.bat test
 ```
 

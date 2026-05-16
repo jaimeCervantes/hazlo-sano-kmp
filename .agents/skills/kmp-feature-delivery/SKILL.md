@@ -20,12 +20,12 @@ Use this skill for behavior changes. Start from a small approved scenario, then 
 1. Read `AGENTS.md` and the bootstrap files for the affected module.
 2. Ask clarifying questions only if a real blocker prevents implementation. Maximum: three concise questions.
 3. Write or update the smallest useful test first.
-4. Implement from stable shared logic outward:
-   - `shared/src/commonMain/` for target-neutral business logic.
-   - `shared/src/<target>Main/` for platform adapters only when needed.
+4. Implement from stable core logic outward:
+   - `core/src/commonMain/` for target-neutral domain logic (models, repository interfaces, use cases).
+   - `app/shared/src/commonMain/` for Compose UI, presentation state, ViewModels, data implementations.
+   - `app/shared/src/<target>Main/` for platform adapters only when needed.
    - `server/src/main/` for Ktor routes and server-only integrations.
-   - `composeApp/src/commonMain/` for Compose UI and presentation state.
-   - `composeApp/src/<target>Main/` or `iosApp/` for target entry points and host integration.
+   - `app/androidApp/src/main/`, `app/desktopApp/src/main/`, `app/webApp/src/`, `app/iosApp/` for target entry points and host integration.
 5. Add dependencies through `gradle/libs.versions.toml` and the narrowest correct module/source set.
 6. Run relevant Gradle validation commands.
 7. In the final response, include the exact commands run or the exact commands the user should run manually.
@@ -42,26 +42,28 @@ Use this exact prompt template in step 0:
 ## Scenario and testing rules
 
 - Start with one scenario that can be implemented end-to-end in a small slice.
-- Prefer unit tests in `shared/src/commonTest/` for shared business logic.
+- Prefer unit tests in `core/src/commonTest/` for domain logic.
+- Prefer unit tests in `app/shared/src/commonTest/` for presentation logic and data implementations.
 - Use `server/src/test/` and Ktor test host for server route behavior.
-- Use `composeApp/src/commonTest/` for presentation logic and pure UI-related behavior where practical.
 - Add target-specific tests only when the behavior genuinely depends on the target.
 - Keep test data minimal and focused on the scenario.
 - Do not overbuild multiple scenarios before the first one is green.
 
 ## Module placement
 
-- Put reusable models, rules, validators, use-case logic, and target-neutral services in `shared/src/commonMain/`.
-- Put Android, JVM, browser, Wasm, or iOS-specific implementations in the matching source set.
+- Put reusable models, rules, validators, and use-case logic in `core/src/commonMain/`.
+- Put Compose UI, ViewModels, presentation state, data implementations, and UI resources in `app/shared/src/commonMain/`.
+- Put Android, JVM, browser, or iOS-specific platform implementations in the matching source set under `app/shared/src/`.
 - Put Ktor routing, request/response mapping, server configuration, and server adapters in `server/`.
-- Put Composable screens, UI state, app navigation, and UI resources in `composeApp/`.
-- Put SwiftUI host changes and Xcode project changes in `iosApp/` only when needed to run or integrate iOS.
+- Put thin platform entry points (main functions, activities, HTML) in `app/<platform>/`.
+- Put SwiftUI host changes and Xcode project changes in `app/iosApp/` only when needed to run or integrate iOS.
 
 ## Implementation rules
 
 - Follow repository conventions before introducing new abstractions.
-- Keep `shared/src/commonMain/` free of platform-only APIs.
-- Keep business logic out of Composables, Ktor routes, and platform entry points.
+- Keep `core/src/commonMain/` free of platform-only APIs, Compose, and data-layer dependencies.
+- Keep `app/shared/src/commonMain/` free of platform-only APIs.
+- Keep business logic in `core/`, not in Composables, Ktor routes, or platform entry points.
 - Keep Ktor routes thin and delegate behavior to focused functions/classes.
 - Keep Composables small and state-hoisted where practical.
 - Prefer immutable state and sealed result/state types when they make behavior clearer.
@@ -74,8 +76,9 @@ Use this exact prompt template in step 0:
 
 - Add dependency aliases in `gradle/libs.versions.toml`.
 - Add runtime dependencies to the module and source set that actually uses them.
-- Do not add server-only dependencies to `shared`.
-- Do not add Compose dependencies to `shared` unless the module is intentionally changing into a UI-aware module.
+- Do not add server-only dependencies to `shared` or `core`.
+- Do not add Compose dependencies to `core`.
+- Do not add SQLDelight or data-layer dependencies to `core`.
 - Prefer multiplatform libraries for `commonMain`.
 - Keep plugin changes at the module level unless the root build already centralizes that plugin.
 
@@ -84,9 +87,12 @@ Use this exact prompt template in step 0:
 Choose the narrowest commands that cover the changed behavior:
 
 ```powershell
-.\gradlew.bat :shared:check
-.\gradlew.bat :composeApp:check
+.\gradlew.bat :core:check
+.\gradlew.bat :app:shared:check
 .\gradlew.bat :server:test
+.\gradlew.bat :app:androidApp:check
+.\gradlew.bat :app:desktopApp:check
+.\gradlew.bat :app:webApp:check
 .\gradlew.bat test
 ```
 
@@ -95,7 +101,7 @@ Use equivalent `./gradlew` commands on macOS/Linux.
 For Android smoke validation when UI or Android wiring changes:
 
 ```powershell
-.\gradlew.bat :composeApp:assembleDebug
+.\gradlew.bat :app:androidApp:assembleDebug
 ```
 
 For server smoke validation when Ktor runtime behavior changes:
@@ -115,6 +121,7 @@ If a blocker appears, such as missing JDK, broken wrapper, dependency download f
 - Do not jump into coding before problem framing and feature-scope approval.
 - Do not create a new module for a small behavior change unless module separation is the actual goal.
 - Do not put platform-specific APIs into `commonMain`.
-- Do not put HTTP or UI adapters into shared business logic.
+- Do not put HTTP or UI adapters into `core`.
+- Do not put business logic into `shared` if it can live in `core`.
 - Do not add broad dependencies to solve narrow problems.
 - Do not stop after writing tests if the implementation can be completed in the current turn.

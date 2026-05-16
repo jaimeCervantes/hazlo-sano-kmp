@@ -51,13 +51,16 @@ For branch reviews, compare against the intended base branch. If the base is unc
 ## Repository review rules
 
 - Enforce module boundaries from `AGENTS.md`.
-- Confirm `shared/src/commonMain/` remains target-neutral and free of platform-only APIs.
-- Confirm `shared` does not depend on `composeApp` or `server`.
+- Confirm `core/src/commonMain/` remains target-neutral and free of platform-only, Compose, and data-layer APIs.
+- Confirm `shared` does not depend on server or any app module.
+- Confirm `core` does not depend on `shared` or `server`.
 - Confirm server-only Ktor code stays in `server/`.
-- Confirm Compose UI code stays in `composeApp/`.
+- Confirm Compose UI and data implementations stay in `app/shared/`.
+- Confirm thin platform entry points stay in `app/<platform>/`.
 - Verify dependencies are added to `gradle/libs.versions.toml` and the narrowest correct module/source set.
 - Check that Ktor route changes avoid direct blocking I/O in request paths.
 - Check that Compose changes do not bury business behavior in Composables.
+- Check that domain logic is placed in `core/`, not in `app/shared/`.
 - Confirm behavior changes include focused tests in the relevant module/source set.
 - Treat missing tests as a finding when changed behavior can regress.
 - For iOS-specific changes, distinguish real code issues from Windows/Linux inability to run Xcode tasks.

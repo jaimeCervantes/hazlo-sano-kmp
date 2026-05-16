@@ -1,183 +1,193 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM), Server.
+# Hazlo Sano — KMP
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-    - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-    - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-      the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-      Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-      folder is the appropriate location.
+Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM), and a Ktor JVM server.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+## Project structure
 
-* [/server](./server/src/main/kotlin) is for the Ktor server application.
+```
+Root project 'kmp'
++--- :app
+|    +--- :app:androidApp     Android entry point
+|    +--- :app:desktopApp     Desktop JVM entry point
+|    +--- :app:shared         Compose UI, data implementations, platform adapters
+|    \--- :app:webApp         Web (JS) entry point
++--- :core                    Domain models, repository interfaces, use cases
+\--- :server                  Ktor server application
+```
 
-* [/shared](./shared/src) is for the code that will be shared between all targets in the project.
-  The most important subfolder is [commonMain](./shared/src/commonMain/kotlin). If preferred, you
-  can add code to the platform-specific folders here too.
+- **[app/](app)** — Thin platform entry-point modules (Android, Desktop, Web, iOS) + shared client code.
+- **[app/shared/](app/shared/src/commonMain/kotlin/com/hazlosano/kmp)** — Compose Multiplatform UI, presentation state, data layer implementations, platform adapters. Client-only. Depends on `:core`.
+- **[core/](core/src/commonMain/kotlin/com/hazlosano/kmp/domain)** — Target-neutral domain logic: models, repository interfaces, use cases. Shared between client and server. No Compose, no SQLDelight, no platform APIs.
+- **[server/](server/src/main/kotlin/com/hazlosano/kmp)** — Ktor JVM server.
+
+## Clean Architecture alignment
+
+```
+app/shared/              ← Presentation + Data (Compose UI, ViewModels, repository impls, SQLDelight)
+  ↑ depends on
+core/                    ← Domain (entities, use cases, repository interfaces)
+  ↑ depends on
+(nothing)                ← Pure Kotlin + coroutines + datetime
+```
+
+```
+server/                  ← Ktor HTTP adapter
+  ↑ depends on
+core/                    ← Domain (shared with client)
+  +
+app/shared/              ← For Greeting/Platform utilities
+```
+
+## Dependency rules
+
+- `:core` has no project dependencies. Pure domain logic.
+- `:app:shared` depends on `:core`.
+- `:server` depends on `:core` and `:app:shared`.
+- All app entry-point modules (`:app:androidApp`, `:app:desktopApp`, `:app:webApp`) depend on `:app:shared`.
 
 ## Validation
 
 Run lint checks, type checks, and tests across all modules:
 
-  ```shell
-  ./gradlew check
-  ```
+```shell
+./gradlew check          # macOS/Linux
+.\gradlew.bat check      # Windows
+```
 
-
-To validate a single module only:
-
-  ```shell
-  ./gradlew :composeApp:check
-  ./gradlew :shared:check
-  ./gradlew :server:check
-  ```
-
-## Debug
-
-Remember to add adb or android tools to the system path.
+To validate a single module:
 
 ```shell
-adb devices
+./gradlew :core:check
+./gradlew :app:shared:check
+./gradlew :server:check
+./gradlew :app:androidApp:check
+./gradlew :app:desktopApp:check
+./gradlew :app:webApp:check
 ```
 
 ## Testing
 
 Run all tests across every module:
 
-  ```shell
-  ./gradlew allTests
-  ```
+```shell
+./gradlew allTests
+```
 
 Run tests for a specific module or platform:
 
-- on macOS/Linux
-  ```shell
-  # All composeApp tests (JVM, JS, Wasm, Android unit tests)
-  ./gradlew :composeApp:allTests
+```shell
+# Shared module (JVM, JS, Android unit tests)
+./gradlew :app:shared:allTests
 
-  # Shared module tests
-  ./gradlew :shared:allTests
+# Core module tests
+./gradlew :core:allTests
 
-  # Server tests
-  ./gradlew :server:test
+# Server tests
+./gradlew :server:test
 
-  # Single-platform tests
-  ./gradlew :composeApp:jvmTest
-  ./gradlew :composeApp:jsTest
-  ./gradlew :composeApp:wasmJsTest
-  ./gradlew :composeApp:testDebugUnitTest
-  ```
+# Single-platform tests
+./gradlew :app:shared:jvmTest
+./gradlew :app:shared:jsTest
+./gradlew :app:androidApp:testDebugUnitTest
+```
 
-
-## Running (Debug / Development)
+## Running (development)
 
 ### Android
 
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
+```shell
+./gradlew :app:androidApp:assembleDebug
+```
 
-Install the APK from `composeApp/build/outputs/apk/debug/` onto a connected device or emulator.
+Install the APK from `app/androidApp/build/outputs/apk/debug/` onto a connected device or emulator.
 
 To build and install in one step (device/emulator required):
 
-  ```shell
-  ./gradlew :composeApp:installDebug
-  ```
+```shell
+./gradlew :app:androidApp:installDebug
+```
 
 ### Desktop (JVM)
 
-  ```shell
-  ./gradlew :composeApp:run
-  ```
+```shell
+./gradlew :app:desktopApp:run
+```
 
 ### Server
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :server:run
-  ```
+```shell
+./gradlew :server:run
+```
 
-The server starts in development mode with hot reload. Set the `development` project property to `false` to disable:
+The server starts in development mode with hot reload. Disable development mode:
 
-  ```shell
-  .\gradlew.bat :server:run "-Pdevelopment=false"
-  ```
+```shell
+.\gradlew.bat :server:run "-Pdevelopment=false"
+```
 
-### Web (Wasm) — modern browsers
+### Web (JS) — browser
 
-  ```shell
-  ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
-  ```
-
-### Web (JS) — legacy browser support
-
-  ```shell
-  ./gradlew :composeApp:jsBrowserDevelopmentRun
-  ```
+```shell
+./gradlew :app:webApp:jsBrowserDevelopmentRun
+```
 
 ### iOS
 
-Open the [/iosApp](./iosApp) directory in Xcode, select a simulator or device, and run from there.
+Open the [`app/iosApp`](app/iosApp) directory in Xcode, select a simulator or device, and run from there.
 
-## Building (Release / Production)
+## Building (production)
 
 ### Android
 
-  ```shell
-  ./gradlew :composeApp:assembleRelease
-  ```
+```shell
+./gradlew :app:androidApp:assembleRelease
+```
 
-The signed release APK is written to `composeApp/build/outputs/apk/release/`.
+The signed release APK is written to `app/androidApp/build/outputs/apk/release/`.
 
 ### Desktop (JVM) — native installers
 
 ```shell
-./gradlew :composeApp:createDistributable
+./gradlew :app:desktopApp:createDistributable
 ```
 
-Generates native installers (DMG on macOS, MSI on Windows, DEB on Linux) under `composeApp/build/compose/binaries/`.
+Generates native installers (DMG on macOS, MSI on Windows, DEB on Linux) under `app/desktopApp/build/compose/binaries/`.
 
 ### Web
 
-  ```shell
-  # Wasm (production-optimized)
-  ./gradlew :composeApp:wasmJsBrowserProductionRun
+```shell
+# Development run
+./gradlew :app:webApp:jsBrowserDevelopmentRun
 
-  # JS (production-optimized)
-  ./gradlew :composeApp:jsBrowserProductionRun
-  ```
-
+# Production-optimized run
+./gradlew :app:webApp:jsBrowserProductionRun
+```
 
 To produce distributable web assets without launching a browser:
 
-  ```shell
-  ./gradlew :composeApp:wasmJsBrowserDistribution
-  ./gradlew :composeApp:jsBrowserDistribution
-  ```
+```shell
+./gradlew :app:webApp:jsBrowserDistribution
+```
 
-Output lands in `composeApp/build/dist/wasmJs/productionExecutable/` and `composeApp/build/dist/js/productionExecutable/`.
+Output lands in `app/webApp/build/dist/js/productionExecutable/`.
 
 ### Server — distributable JAR
 
-  ```shell
-  ./gradlew :server:build
-  ```
+```shell
+./gradlew :server:build
+```
 
 The fat JAR is written to `server/build/libs/`.
 
 ### iOS
 
-Archive via Xcode: open [/iosApp](./iosApp) in Xcode, select **Product → Archive**.
+Archive via Xcode: open [`app/iosApp`](app/iosApp) in Xcode, select **Product → Archive**.
 
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
 [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+[Kotlin/Wasm](https://kotl.in/wasm/).
 
 We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack
 channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).

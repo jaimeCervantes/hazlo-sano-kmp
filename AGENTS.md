@@ -25,27 +25,32 @@ This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, D
 - Do not introduce another package manager or build system unless the task explicitly requires it.
 
 ## Repository structure
-- `settings.gradle.kts` declares the included modules: `:composeApp`, `:server`, and `:shared`.
+- `settings.gradle.kts` declares the included modules: `:app:androidApp`, `:app:desktopApp`, `:app:shared`, `:app:webApp`, `:core`, and `:server`.
 - `gradle/libs.versions.toml` is the source of truth for dependency and plugin versions.
-- `composeApp/` contains the Compose Multiplatform UI for Android, iOS, Desktop JVM, JS, and Wasm.
-- `composeApp/src/commonMain/` contains UI and presentation code shared across Compose targets.
-- `composeApp/src/<target>Main/` contains target-specific UI entry points or integrations only.
-- `shared/` contains Kotlin Multiplatform code shared by app and server.
-- `shared/src/commonMain/` should hold target-neutral business logic, contracts, models, and utilities.
-- `shared/src/<target>Main/` should contain `actual` implementations or platform-specific adapters only when unavoidable.
+- `app/` contains thin platform entry-point modules — one per target:
+  - `app/androidApp/` — Android application (MainActivity, manifest, resources).
+  - `app/desktopApp/` — Desktop JVM application (main function, native distribution config).
+  - `app/webApp/` — Web browser application (ComposeViewport entry, index.html).
+  - `app/iosApp/` — SwiftUI host and Xcode project (not a Gradle module).
+- `core/` contains target-neutral domain logic: models, repository interfaces, and use cases. No Compose, no SQLDelight, no platform APIs.
+- `core/src/commonMain/` holds business contracts, pure data classes, and reusable use cases shared between client and server.
+- `app/shared/` contains Compose Multiplatform UI, data layer implementations, and platform adapters. Client-only. Depends on `:core`.
+- `app/shared/src/commonMain/` holds Compose UI, presentation state, ViewModels, and data implementations.
+- `app/shared/src/<target>Main/` contains `actual` implementations for platform-specific adapters only when unavoidable.
 - `server/` contains the Ktor JVM application and server-only adapters.
-- `iosApp/` contains the SwiftUI host application and Xcode project.
-- Keep the base package as `energy.s2g.tools` unless a deliberate rename is part of the task.
+- Keep the base package as `com.hazlosano.kmp` unless a deliberate rename is part of the task.
 
 ## Architecture rules
-- `shared` must not depend on `composeApp` or `server`.
-- `server` may depend on `shared`, but server-only Ktor concerns must stay under `server/`.
-- `composeApp` may depend on `shared`, but Compose UI concerns must stay under `composeApp/`.
-- Keep reusable business logic out of Composables, Ktor routes, SwiftUI files, and platform entry points.
-- Keep `shared/src/commonMain/` free of JVM-only, Android-only, browser-only, and iOS-only APIs.
+- `core` must not depend on `app/shared`, `server`, or any app module.
+- `app/shared` must not depend on `server` or any app entry-point module.
+- `server` may depend on `core` and `app/shared`, but server-only Ktor concerns must stay under `server/`.
+- `app` entry-point modules may depend on `app/shared` and `core`, but must remain thin with no business logic.
+- Keep reusable business logic in `core/src/commonMain/`.
+- Keep Compose UI and data implementations in `app/shared/src/commonMain/`.
+- Keep `core/src/commonMain/` free of JVM-only, Android-only, browser-only, iOS-only, Compose, and SQLDelight APIs.
 - Prefer common Kotlin APIs first; use `expect`/`actual` only for real platform differences.
 - Keep `expect` declarations small and stable, and place platform-specific implementation details behind them.
-- Ktor routes should be thin: parse input, call shared/server application logic, and map results to HTTP responses.
+- Ktor routes should be thin: parse input, call core/server application logic, and map results to HTTP responses.
 - Composables should be small, state-hoisted where practical, and focused on rendering and interaction.
 
 ## Runtime rules
@@ -61,28 +66,31 @@ This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, D
 - Use sealed interfaces/classes for closed result or UI state hierarchies when they clarify behavior.
 - Add comments only for non-obvious business rules or platform constraints.
 - Add or update tests for behavior changes.
-- If a feature crosses modules, test the common logic in `shared` first and add module-specific tests only where integration behavior matters.
+- If a feature crosses modules, test the common logic in `core` first, then `shared`, and add module-specific tests only where integration behavior matters.
 
 ## Compose rules
 - Use Material 3 and existing Compose Multiplatform dependencies unless the task requires a different UI library.
 - Keep app screens usable as the first screen; do not build a marketing landing page for tool/app requests.
 - Ensure text and controls fit on desktop, mobile, and web viewports without overlap.
 - Keep layout dimensions stable for toolbars, controls, grids, and repeated UI elements.
-- Avoid business logic in `@Composable` functions; move it to shared logic or presentation state.
+- Avoid business logic in `@Composable` functions; move it to `core` or presentation state in `shared`.
 
 ## Dependency rules
 - Add plugin aliases and library aliases in `gradle/libs.versions.toml`.
 - Keep runtime dependencies in the specific module and source set that needs them.
-- Do not add server-only dependencies to `shared`.
-- Do not add Compose UI dependencies to `shared` unless the module is intentionally becoming UI-aware.
+- Do not add server-only dependencies to `shared` or `core`.
+- Do not add Compose UI dependencies to `core`.
+- Do not add SQLDelight or data-layer dependencies to `core`.
 - Avoid adding platform-specific dependencies to `commonMain`.
 
 ## Default validation commands
 - `.\gradlew.bat test`
-- `.\gradlew.bat :shared:check`
-- `.\gradlew.bat :composeApp:check`
+- `.\gradlew.bat :core:check`
+- `.\gradlew.bat :app:shared:check`
 - `.\gradlew.bat :server:test`
-- `.\gradlew.bat :composeApp:assembleDebug`
+- `.\gradlew.bat :app:androidApp:assembleDebug`
+- `.\gradlew.bat :app:desktopApp:check`
+- `.\gradlew.bat :app:webApp:check`
 - `.\gradlew.bat :server:run`
 
 Use the equivalent `./gradlew` commands on macOS/Linux. Some iOS build tasks require macOS/Xcode; do not report Windows iOS task failures as code failures without checking the platform requirement.
@@ -99,27 +107,27 @@ Use the equivalent `./gradlew` commands on macOS/Linux. Some iOS build tasks req
   - `gradle/libs.versions.toml`
   - the affected module `build.gradle.kts`
 - Before changing shared logic, read:
-  - `shared/build.gradle.kts`
-  - `shared/src/commonMain/kotlin/energy/s2g/tools/Platform.kt`
-  - relevant `shared/src/*Main/` expect/actual files
+  - `core/build.gradle.kts`
+  - `core/src/commonMain/kotlin/com/hazlosano/kmp/domain/`
+  - relevant `app/shared/src/*Main/` expect/actual files
 - Before changing Compose UI, read:
-  - `composeApp/build.gradle.kts`
-  - `composeApp/src/commonMain/kotlin/energy/s2g/tools/App.kt`
-  - relevant target entry points under `composeApp/src/*Main/`
+  - `app/shared/build.gradle.kts`
+  - `app/shared/src/commonMain/kotlin/com/hazlosano/kmp/App.kt`
+  - relevant target entry points under `app/*/src/`
 - Before changing the Ktor server, read:
   - `server/build.gradle.kts`
-  - `server/src/main/kotlin/energy/s2g/tools/Application.kt`
-  - `server/src/test/kotlin/energy/s2g/tools/ApplicationTest.kt`
+  - `server/src/main/kotlin/com/hazlosano/kmp/Application.kt`
+  - `server/src/test/kotlin/com/hazlosano/kmp/ApplicationTest.kt`
 
 ## Non-negotiable engineering rules
 1. SOLID principles, Clean Architecture, and Clean Code have highest priority.
-2. Shared common code remains target-neutral.
-3. Business behavior belongs in shared/domain/application logic, not UI or HTTP adapters.
+2. `core` remains target-neutral with no UI or data-layer dependencies.
+3. Business behavior belongs in `core/domain/`; UI in `shared/`; platform entry points in `app/`.
 4. Dependency versions belong in the Gradle version catalog.
 5. Use the Gradle wrapper for project commands.
 
 ## PR/change checklist
-1. Module boundaries respected.
+1. Module boundaries respected (`core` → `app/shared` → `app` / `server`).
 2. Common code remains multiplatform-safe.
 3. Dependencies added to the narrowest correct module/source set.
 4. Tests cover changed behavior.
