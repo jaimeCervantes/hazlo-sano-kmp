@@ -15,6 +15,8 @@ import android.content.DialogInterface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
+import com.hazlosano.kmp.data.db.DatabaseProvider
+import com.hazlosano.kmp.data.db.createSqlDriver
 import com.hazlosano.kmp.data.sleep.SleepMonitor
 import com.hazlosano.kmp.data.sleep.SleepServiceLocator
 
@@ -34,6 +36,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         SleepServiceLocator.initialize(this)
+        DatabaseProvider.initialize(createSqlDriver(this))
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
             == PackageManager.PERMISSION_GRANTED

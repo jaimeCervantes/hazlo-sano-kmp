@@ -1,19 +1,15 @@
 package com.hazlosano.kmp.data.product
 
-import app.cash.sqldelight.db.SqlDriver
 import com.hazlosano.kmp.data.db.HazloSanoDatabase
 import com.hazlosano.kmp.domain.model.HazloProduct
 import com.hazlosano.kmp.domain.model.HazloSeller
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-
-
 internal class SqlDelightProductDataSource(
-    driver: SqlDriver,
+    private val database: HazloSanoDatabase,
 ) : ProductDataSource {
 
-    private val database = HazloSanoDatabase(driver)
     private val productQueries = database.productEntityQueries
     private val sellerQueries = database.sellerEntityQueries
 

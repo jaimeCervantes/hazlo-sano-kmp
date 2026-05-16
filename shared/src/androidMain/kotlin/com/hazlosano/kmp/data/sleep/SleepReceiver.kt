@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.google.android.gms.location.SleepSegmentEvent
+import com.hazlosano.kmp.data.db.DatabaseProvider
+import com.hazlosano.kmp.data.db.createSqlDriver
 import com.hazlosano.kmp.domain.model.SleepPhase
 import com.hazlosano.kmp.domain.model.SleepSession
 import com.hazlosano.kmp.domain.model.SleepSource
@@ -37,6 +39,9 @@ class SleepReceiver : BroadcastReceiver() {
         if (!SleepServiceLocator.isInitialized()) {
             SleepServiceLocator.initialize(context)
             Log.d(TAG, "ServiceLocator initialized from receiver")
+        }
+        if (!DatabaseProvider.isInitialized) {
+            DatabaseProvider.initialize(createSqlDriver(context))
         }
 
         val events: List<SleepSegmentEvent> = SleepSegmentEvent.extractEvents(intent)
