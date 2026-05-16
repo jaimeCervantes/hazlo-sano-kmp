@@ -28,6 +28,13 @@ kotlin {
 
     js {
         browser()
+        compilations.all {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    freeCompilerArgs.add("-Xir-incremental-disable")
+                }
+            }
+        }
     }
 
     // wasmJs omitted: sqldelight-runtime has no wasmJs artifact (SQLite not available on WASM)
@@ -53,6 +60,8 @@ kotlin {
             implementation(libs.sqldelight.native.driver)
         }
         jvmMain.dependencies {
+            implementation(libs.sqldelight.jdbc.driver)
+            implementation(libs.sqlite.jdbc)
         }
         jvmTest.dependencies {
         }

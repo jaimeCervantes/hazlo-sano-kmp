@@ -32,6 +32,13 @@ kotlin {
     js {
         browser()
         binaries.executable()
+        compilations.all {
+            compileTaskProvider.configure {
+                compilerOptions {
+                    freeCompilerArgs.add("-Xir-incremental-disable")
+                }
+            }
+        }
     }
 
     // wasmJs omitted: SQLDelight runtime has no wasmJs artifact

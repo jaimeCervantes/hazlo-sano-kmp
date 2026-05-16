@@ -1,14 +1,6 @@
 package com.hazlosano.kmp.data.sleep
 
-import com.hazlosano.kmp.domain.model.SleepSession
+import com.hazlosano.kmp.data.db.DatabaseProvider
 
-actual fun createSleepDataSource(): SleepDataSource = object : SleepDataSource {
-    private val sessions = mutableListOf<SleepSession>()
-
-    override suspend fun getSleepSessions(from: Long, to: Long): List<SleepSession> =
-        sessions.filter { it.endTime > from && it.startTime < to }
-
-    override suspend fun saveSleepSession(session: SleepSession) {
-        sessions.add(session)
-    }
-}
+actual fun createSleepDataSource(): SleepDataSource =
+    SqlDelightSleepDataSource(DatabaseProvider.get())

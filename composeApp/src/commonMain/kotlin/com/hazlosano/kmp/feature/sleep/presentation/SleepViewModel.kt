@@ -15,8 +15,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Clock
+import com.hazlosano.kmp.data.currentEpochMilliseconds
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
@@ -86,7 +87,7 @@ class SleepViewModel(
 
         fun analysisWindow(): Pair<Long, Long> {
             val tz = TimeZone.currentSystemDefault()
-            val now = Clock.System.now()
+            val now = Instant.fromEpochMilliseconds(currentEpochMilliseconds())
             val local = now.toLocalDateTime(tz)
             // Always start from yesterday 6 PM local — captures last night's sleep
             val yesterday = local.date.minus(1, DateTimeUnit.DAY)
