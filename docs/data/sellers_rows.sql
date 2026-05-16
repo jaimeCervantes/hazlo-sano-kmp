@@ -1,0 +1,4 @@
+INSERT INTO "public"."sellers" ("id", "name", "category", "phone", "url", "description", "created_at", "has_membership", "has_paid_ads", "logo_url") VALUES ('05bea858-88d0-4ff3-a531-3d82a7ad6fcc', 'Hazlo Sano', 'Food', '2781126948', 'https://restaurante.hazlosano.com', '1. Sueño: Recuperación biológica y descanso optimizado.
+2. Alimentación: Nutrición natural y conexión con el origen local.
+3. Movimiento: Ejercicio funcional y actividad física constante.
+4. Mente y Comunidad: Gestión emocional, propósito y conexión social.', '2026-03-15 22:35:27+00', false, false, 'https://storage.googleapis.com/products_and_services/images/hazloSanoTextTransparencia_500x500.webp');

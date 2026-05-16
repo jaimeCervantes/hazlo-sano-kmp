@@ -89,5 +89,11 @@ internal fun matchesHazloProductQuery(
     product: HazloProduct,
     query: String,
 ): Boolean {
-    return product.name.contains(query, ignoreCase = true)
+    if (query.isBlank()) return true
+    val q = query.trim()
+    return product.name.contains(q, ignoreCase = true) ||
+        product.description.contains(q, ignoreCase = true) ||
+        product.category.contains(q, ignoreCase = true) ||
+        product.subCategory?.contains(q, ignoreCase = true) == true ||
+        product.tags.any { it.contains(q, ignoreCase = true) }
 }

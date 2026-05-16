@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS SellerEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    url TEXT,
+    description TEXT,
+    logoUrl TEXT,
+    hasMembership INTEGER NOT NULL DEFAULT 0,
+    hasPaidAds INTEGER NOT NULL DEFAULT 0
+);
+
+selectById:
+SELECT *
+FROM SellerEntity
+WHERE id = ?;
+
+insertOrReplace:
+INSERT OR REPLACE INTO SellerEntity(id, name, category, phone, url, description, logoUrl, hasMembership, hasPaidAds)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAll:
+DELETE FROM SellerEntity;
