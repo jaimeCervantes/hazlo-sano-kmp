@@ -18,6 +18,7 @@ kotlinx-datetime = "0.6.2"
 ktor = "3.4.3"
 sqldelight = "2.0.2"
 play-services-location = "21.3.0"
+androidx-work = "2.10.1"
 coil = "3.1.0"
 logback = "1.5.32"
 material3 = "1.11.0-alpha07"
@@ -59,6 +60,7 @@ sqldelight-native-driver = { module = "app.cash.sqldelight:native-driver", versi
 sqldelight-jdbc-driver = { module = "app.cash.sqldelight:jdbc-driver", version.ref = "sqldelight" }
 sqldelight-js-driver = { module = "app.cash.sqldelight:sqljs-driver", version.ref = "sqldelight" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "play-services-location" }
+androidx-work-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 
 [plugins]

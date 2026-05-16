@@ -4,6 +4,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.SleepSegmentRequest
@@ -13,10 +16,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.TimeUnit
 
 object SleepMonitor {
 
     private const val TAG = "SleepMonitor"
+    private const val WORK_NAME_PERIODIC_REFRESH = "sleep_monitor_refresh"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
 
@@ -28,6 +33,7 @@ object SleepMonitor {
 
     fun start(context: Context) {
         val ctx = context.applicationContext
+        schedulePeriodicRefresh(ctx)
         scope.launch {
             mutex.withLock {
                 try {
@@ -84,6 +90,21 @@ object SleepMonitor {
                 }
                 pendingIntent = null
             }
+        }
+    }
+
+    private fun schedulePeriodicRefresh(context: Context) {
+        try {
+            val request = PeriodicWorkRequestBuilder<SleepMonitorWorker>(6, TimeUnit.HOURS)
+                .build()
+            WorkManager.getInstance(context)
+                .enqueueUniquePeriodicWork(
+                    WORK_NAME_PERIODIC_REFRESH,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request,
+                )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule periodic sleep monitor refresh", e)
         }
     }
 }
