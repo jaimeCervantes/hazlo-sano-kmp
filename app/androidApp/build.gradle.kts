@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.hazlosano.kmp"
+    namespace = "com.hazlosano"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.hazlosano.kmp"
+        applicationId = "com.hazlosano"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1

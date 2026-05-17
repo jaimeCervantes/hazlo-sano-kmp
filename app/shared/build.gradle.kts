@@ -12,14 +12,14 @@ plugins {
 sqldelight {
     databases {
         create("HazloSanoDatabase") {
-            packageName.set("com.hazlosano.kmp.data.db")
+            packageName.set("com.hazlosano.data.db")
         }
     }
 }
 
 kotlin {
     android {
-        namespace = "com.hazlosano.kmp.shared"
+        namespace = "com.hazlosano.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
         compilerOptions {

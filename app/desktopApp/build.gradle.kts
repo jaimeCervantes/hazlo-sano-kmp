@@ -14,11 +14,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.hazlosano.kmp.MainKt"
+        mainClass = "com.hazlosano.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.hazlosano.kmp"
+            packageName = "com.hazlosano"
             packageVersion = "1.0.0"
         }
     }

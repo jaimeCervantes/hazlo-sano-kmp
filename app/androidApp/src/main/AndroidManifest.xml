@@ -24,11 +24,11 @@
         </activity>
 
         <receiver
-                android:name="com.hazlosano.kmp.data.sleep.SleepReceiver"
+                android:name="com.hazlosano.data.sleep.SleepReceiver"
                 android:exported="false" />
 
         <receiver
-                android:name="com.hazlosano.kmp.data.sleep.BootReceiver"
+                android:name="com.hazlosano.data.sleep.BootReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

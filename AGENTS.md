@@ -3,8 +3,8 @@
 This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop JVM, and a Ktor JVM server. Keep these instructions focused on persistent repository norms. Use the dedicated skills for setup, feature delivery, and reviews.
 
 ## Use the right instruction source
-- Use `.agents/skills/kmp-project-scaffold/` when the task is project initialization, missing boilerplate, Gradle/module repair, dependency setup, build wiring, platform target setup, or test-environment setup.
-- Use `.agents/skills/kmp-feature-delivery/` when the task is a feature, bugfix, Compose UI change, Ktor endpoint change, shared logic change, or any behavior change that should start from a small scenario and tests.
+- Use `.agents/skills/project-scaffold/` when the task is project initialization, missing boilerplate, Gradle/module repair, dependency setup, build wiring, platform target setup, or test-environment setup.
+- Use `.agents/skills/feature-delivery/` when the task is a feature, bugfix, Compose UI change, Ktor endpoint change, shared logic change, or any behavior change that should start from a small scenario and tests.
 - Use `.agents/skills/review-pr/` when the task is reviewing pull requests, branches, commits, staged diffs, unstaged diffs, or other local code changes.
 
 ## Feature alignment gate (mandatory)
@@ -38,7 +38,7 @@ This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, D
 - `app/shared/src/commonMain/` holds Compose UI, presentation state, ViewModels, and data implementations.
 - `app/shared/src/<target>Main/` contains `actual` implementations for platform-specific adapters only when unavoidable.
 - `server/` contains the Ktor JVM application and server-only adapters.
-- Keep the base package as `com.hazlosano.kmp` unless a deliberate rename is part of the task.
+- Keep the base package as `com.hazlosano` unless a deliberate rename is part of the task.
 
 ## Architecture rules
 - `core` must not depend on `app/shared`, `server`, or any app module.
@@ -108,16 +108,16 @@ Use the equivalent `./gradlew` commands on macOS/Linux. Some iOS build tasks req
   - the affected module `build.gradle.kts`
 - Before changing shared logic, read:
   - `core/build.gradle.kts`
-  - `core/src/commonMain/kotlin/com/hazlosano/kmp/domain/`
+  - `core/src/commonMain/kotlin/com/hazlosano/domain/`
   - relevant `app/shared/src/*Main/` expect/actual files
 - Before changing Compose UI, read:
   - `app/shared/build.gradle.kts`
-  - `app/shared/src/commonMain/kotlin/com/hazlosano/kmp/App.kt`
+  - `app/shared/src/commonMain/kotlin/com/hazlosano/App.kt`
   - relevant target entry points under `app/*/src/`
 - Before changing the Ktor server, read:
   - `server/build.gradle.kts`
-  - `server/src/main/kotlin/com/hazlosano/kmp/Application.kt`
-  - `server/src/test/kotlin/com/hazlosano/kmp/ApplicationTest.kt`
+  - `server/src/main/kotlin/com/hazlosano/Application.kt`
+  - `server/src/test/kotlin/com/hazlosano/ApplicationTest.kt`
 
 ## Non-negotiable engineering rules
 1. SOLID principles, Clean Architecture, and Clean Code have highest priority.

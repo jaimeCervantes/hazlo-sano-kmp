@@ -7,7 +7,7 @@ plugins {
 
 kotlin {
     android {
-        namespace = "com.hazlosano.kmp.core"
+        namespace = "com.hazlosano.core"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
         compilerOptions {
