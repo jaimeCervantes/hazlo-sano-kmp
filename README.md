@@ -1,11 +1,11 @@
-# Hazlo Sano — KMP
+# Hazlo Sano
 
 Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM), and a Ktor JVM server.
 
 ## Project structure
 
 ```
-Root project 'kmp'
+Root project 'HazloSano'
 +--- :app
 |    +--- :app:androidApp     Android entry point
 |    +--- :app:desktopApp     Desktop JVM entry point
@@ -16,9 +16,9 @@ Root project 'kmp'
 ```
 
 - **[app/](app)** — Thin platform entry-point modules (Android, Desktop, Web, iOS) + shared client code.
-- **[app/shared/](app/shared/src/commonMain/kotlin/com/hazlosano/kmp)** — Compose Multiplatform UI, presentation state, data layer implementations, platform adapters. Client-only. Depends on `:core`.
-- **[core/](core/src/commonMain/kotlin/com/hazlosano/kmp/domain)** — Target-neutral domain logic: models, repository interfaces, use cases. Shared between client and server. No Compose, no SQLDelight, no platform APIs.
-- **[server/](server/src/main/kotlin/com/hazlosano/kmp)** — Ktor JVM server.
+- **[app/shared/](app/shared/src/commonMain/kotlin/com/hazlosano)** — Compose Multiplatform UI, presentation state, data layer implementations, platform adapters. Client-only. Depends on `:core`.
+- **[core/](core/src/commonMain/kotlin/com/hazlosano/domain)** — Target-neutral domain logic: models, repository interfaces, use cases. Shared between client and server. No Compose, no SQLDelight, no platform APIs.
+- **[server/](server/src/main/kotlin/com/hazlosano)** — Ktor JVM server.
 
 ## Clean Architecture alignment
 
