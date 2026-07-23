@@ -30,3 +30,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.uiToolingPreview)
 }
+dependencies {
+    implementation("org.maplibre.gl:android-sdk:11.5.1")
+    implementation("org.maplibre.gl:android-plugin-annotation-v9:3.0.2")
+    implementation("org.maplibre.gl:android-sdk-geojson:6.0.1")
+}
