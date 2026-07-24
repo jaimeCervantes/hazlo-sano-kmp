@@ -168,8 +168,8 @@ private fun HeaderSection(title: String, subtitle: String) {
 
 @Composable
 private fun PillarsOverviewSection(pillars: List<PillarOverview>, onNavigateToTracker: () -> Unit) {
-    val largePillars = pillars.take(2)
-    val smallPillars = pillars.drop(2)
+    val smallPillars = pillars.takeLast(2)
+    val largePillars = pillars.dropLast(2)
 
     Column(modifier = Modifier.padding(horizontal = HazloSpaces.gutter)) {
         for (pillar in largePillars) {
