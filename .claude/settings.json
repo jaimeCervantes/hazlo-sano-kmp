@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(git switch:*)",
+      "Bash(git mv:*)",
+      "Bash(git restore:*)",
+      "Bash(git show:*)",
+      "Bash(git stash:*)",
+      "Bash(adb:*)",
+      "Bash(sdkmanager:*)",
+      "Bash(android:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(echo:*)",
+      "Bash(mkdir:*)",
+      "Bash(rmdir:*)",
+      "Bash(unzip:*)",
+      "Bash(xargs:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "PowerShell(java*)",
+      "PowerShell(scoop *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(sdkmanager*)",
+      "PowerShell(adb*)",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(rm:*)"
+    ]
+  }
+}
