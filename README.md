@@ -2,6 +2,10 @@
 
 Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM), and a Ktor JVM server.
 
+## Setup
+
+First-time environment setup (JDK, Android SDK via command-line tools, `local.properties`) is in **[docs/SETUP.md](docs/SETUP.md)**. It also documents a required workaround for a Compose Multiplatform 1.11 + AGP 9 bug that otherwise makes the Android app crash on launch with `MissingResourceException`.
+
 ## Project structure
 
 ```
@@ -100,6 +104,8 @@ Run tests for a specific module or platform:
 ```
 
 Install the APK from `app/androidApp/build/outputs/apk/debug/` onto a connected device or emulator.
+
+> First time building for Android? See **[docs/SETUP.md](docs/SETUP.md)** for SDK setup and the Compose resources workaround.
 
 To build and install in one step (device/emulator required):
 
