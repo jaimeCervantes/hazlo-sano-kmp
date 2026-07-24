@@ -47,6 +47,8 @@ import com.hazlosano.feature.nutrition.presentation.NutritionViewModel
 import com.hazlosano.feature.nutrition.ui.NutritionScreen
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
+import com.hazlosano.feature.movement.tracker.presentation.TrackerNavState
+import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
 import hazlosano.app.shared.generated.resources.Res
@@ -73,10 +75,16 @@ fun MainScreen(
 ) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
     var showSleepHistory by remember { mutableStateOf(false) }
+    val trackerNav = remember { TrackerNavState() }
 
     val navigateToSleepHistory: () -> Unit = {
         selectedTab = BottomTab.Sueno
         showSleepHistory = true
+    }
+
+    if (trackerNav.isOpen) {
+        TrackerScreen(onBack = { trackerNav.close() }, modifier = Modifier.fillMaxSize())
+        return
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -127,6 +135,7 @@ fun MainScreen(
                     BottomTab.Inicio -> HomeScreen(
                         viewModel = homeViewModel,
                         sleepAnalysis = sleepAnalysis,
+                        onNavigateToTracker = { trackerNav.open() },
                         onRefreshSleep = onRefreshSleep,
                         onSleepCardClick = navigateToSleepHistory,
                     )

@@ -30,11 +30,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.uiToolingPreview)
 }
-dependencies {
-    implementation("org.maplibre.gl:android-sdk:11.5.1")
-    implementation("org.maplibre.gl:android-plugin-annotation-v9:3.0.2")
-    implementation("org.maplibre.gl:android-sdk-geojson:6.0.1")
-}
 
 // Workaround for a Compose Multiplatform 1.11 + AGP 9 (`com.android.kotlin.multiplatform.library`)
 // incompatibility: the plugin's task that copies Compose resources into the Android assets is left

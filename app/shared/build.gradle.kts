@@ -84,6 +84,9 @@ kotlin {
             implementation(libs.compose.uiTooling)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.android)
+            implementation(libs.maplibre.android.sdk)
+            implementation(libs.maplibre.annotation)
+            implementation(libs.maplibre.geojson)
         }
         iosMain.dependencies {
             implementation(libs.sqldelight.native.driver)

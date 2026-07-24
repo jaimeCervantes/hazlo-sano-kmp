@@ -22,6 +22,9 @@ androidx-work = "2.10.1"
 coil = "3.1.0"
 logback = "1.5.32"
 material3 = "1.11.0-alpha07"
+maplibre = "11.5.1"
+maplibre-annotation = "3.0.2"
+maplibre-geojson = "6.0.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -63,6 +66,9 @@ sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version = "3.49.1.0" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "play-services-location" }
 androidx-work-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+maplibre-android-sdk = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
+maplibre-annotation = { module = "org.maplibre.gl:android-plugin-annotation-v9", version.ref = "maplibre-annotation" }
+maplibre-geojson = { module = "org.maplibre.gl:android-sdk-geojson", version.ref = "maplibre-geojson" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
