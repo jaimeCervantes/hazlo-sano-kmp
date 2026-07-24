@@ -22,3 +22,9 @@ Feature: Movement tracker screen
     Given the tracker screen is open
     When I tap the back control
     Then the tracker screen is closed and the home screen is visible again
+
+  Scenario: Showing the user's live location on the map
+    Given the tracker screen is open
+    And the location permission is granted
+    When the device reports a new location
+    Then the tracker shows that location as the current position on the map

@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import com.hazlosano.data.db.DatabaseProvider
 import com.hazlosano.data.db.createSqlDriver
+import com.hazlosano.data.movement.MovementServiceLocator
 import com.hazlosano.data.sleep.SleepMonitor
 import com.hazlosano.data.sleep.SleepServiceLocator
 
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         SleepServiceLocator.initialize(this)
+        MovementServiceLocator.initialize(this)
         DatabaseProvider.initialize(createSqlDriver(this))
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
