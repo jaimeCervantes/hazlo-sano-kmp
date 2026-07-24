@@ -126,6 +126,13 @@ Use the equivalent `./gradlew` commands on macOS/Linux. Some iOS build tasks req
 4. Dependency versions belong in the Gradle version catalog.
 5. Use the Gradle wrapper for project commands.
 
+## Commit conventions
+- Write commit messages following [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`.
+- Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `chore`, `ci`.
+- Use an optional scope matching a module or area, e.g. `fix(android):`, `feat(core):`, `docs(agents):`.
+- Keep the summary in the imperative mood and lowercase; add a body when the change needs a why/how.
+- Prefer small, atomic commits: unrelated changes go in separate commits.
+
 ## PR/change checklist
 1. Module boundaries respected (`core` → `app/shared` → `app` / `server`).
 2. Common code remains multiplatform-safe.
