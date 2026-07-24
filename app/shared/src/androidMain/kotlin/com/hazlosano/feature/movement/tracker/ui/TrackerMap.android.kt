@@ -14,6 +14,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.hazlosano.core.ui.theme.MapTheme
+import com.hazlosano.core.util.map.MapConstants
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.feature.movement.tracker.ui.map.MapBitmaps
 import com.hazlosano.feature.movement.tracker.ui.map.MapLayers
@@ -27,15 +28,19 @@ import org.maplibre.android.maps.Style
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
-private const val DEFAULT_STYLE_URL = "https://demotiles.maplibre.org/style.json"
 private val DEFAULT_TARGET = LatLng(19.4326, -99.1332) // Ciudad de México
 private const val DEFAULT_ZOOM = 12.0
 private const val USER_ZOOM = 16.0
 
 @Composable
-actual fun TrackerMap(userLocation: UserLocation?, modifier: Modifier) {
+actual fun TrackerMap(
+    userLocation: UserLocation?,
+    traveledPoints: List<UserLocation>,
+    modifier: Modifier,
+) {
     val context = LocalContext.current
     val mapView = remember {
         MapLibre.getInstance(context)
@@ -55,7 +60,7 @@ actual fun TrackerMap(userLocation: UserLocation?, modifier: Modifier) {
                     .target(DEFAULT_TARGET)
                     .zoom(DEFAULT_ZOOM)
                     .build()
-                map.setStyle(Style.Builder().fromUri(DEFAULT_STYLE_URL)) { style ->
+                map.setStyle(Style.Builder().fromUri(MapConstants.OSM_STYLE_URL)) { style ->
                     val theme = MapTheme()
                     style.addImage(MapBitmaps.ICON_ARROW, MapBitmaps.createArrowBitmap())
                     style.addImage(
@@ -86,6 +91,20 @@ actual fun TrackerMap(userLocation: UserLocation?, modifier: Modifier) {
         } else {
             map.animateCamera(CameraUpdateFactory.newLatLng(target))
         }
+    }
+
+    LaunchedEffect(traveledPoints, mapStyle) {
+        val style = mapStyle ?: return@LaunchedEffect
+        val source = style.getSource(MapLayers.SOURCE_TRAVELED) as? GeoJsonSource
+            ?: return@LaunchedEffect
+        if (traveledPoints.size < 2) {
+            source.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+            return@LaunchedEffect
+        }
+        val line = LineString.fromLngLats(
+            traveledPoints.map { Point.fromLngLat(it.longitude, it.latitude) },
+        )
+        source.setGeoJson(Feature.fromGeometry(line))
     }
 }
 

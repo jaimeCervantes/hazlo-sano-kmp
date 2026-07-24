@@ -6,6 +6,62 @@ Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM), and a K
 
 First-time environment setup (JDK, Android SDK via command-line tools, `local.properties`) is in **[docs/SETUP.md](docs/SETUP.md)**. It also documents a required workaround for a Compose Multiplatform 1.11 + AGP 9 bug that otherwise makes the Android app crash on launch with `MissingResourceException`.
 
+## Validating a change
+
+Every code change must be validated before it is committed: **run the tests, build, and (for UI/behavior) run it on a device.** Commands below use Windows PowerShell (`.\gradlew.bat`); on macOS/Linux use `./gradlew`.
+
+### 1. Run the tests
+
+Test coverage is mandatory for changed behavior. Run the tests for the modules you touched:
+
+```powershell
+.\gradlew.bat :core:allTests           # domain logic
+.\gradlew.bat :app:shared:jvmTest      # shared logic, ViewModels, presentation (fast, JVM)
+.\gradlew.bat :server:test             # Ktor server
+```
+
+Or everything at once:
+
+```powershell
+.\gradlew.bat allTests
+```
+
+### 2. Build
+
+Build the target(s) affected by the change. For an Android change:
+
+```powershell
+.\gradlew.bat :app:androidApp:assembleDebug
+```
+
+The debug APK is written to `app\androidApp\build\outputs\apk\debug\androidApp-debug.apk`.
+
+Other targets: `:app:desktopApp:run`, `:app:webApp:jsBrowserDevelopmentRun`, `:server:run` (see [Running](#running-development)).
+
+### 3. Run on a connected device
+
+With an Android phone connected over USB and **USB debugging** enabled (or an emulator running):
+
+```powershell
+adb devices                                                          # confirm the device is listed
+adb install -r app\androidApp\build\outputs\apk\debug\androidApp-debug.apk
+```
+
+Build and install in one step:
+
+```powershell
+.\gradlew.bat :app:androidApp:installDebug
+```
+
+Watch runtime logs / diagnose a crash:
+
+```powershell
+adb logcat -c                                                        # clear the log, then reproduce
+adb logcat -d -v time *:E | Select-String "AndroidRuntime|FATAL|hazlosano"
+```
+
+> `adb` ships with `platform-tools` (installed per [docs/SETUP.md](docs/SETUP.md)). If `adb` is not found, ensure the Android SDK `platform-tools` directory is on your `PATH`.
+
 ## Project structure
 
 ```

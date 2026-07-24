@@ -1,0 +1,62 @@
+-- Movement pillar tables in the shared HazloSanoDatabase.
+-- Pillar-prefixed names keep the single multi-pillar database organized alongside
+-- SleepSessionEntity, ProductEntity, etc. A session has many points (1-to-N).
+
+CREATE TABLE IF NOT EXISTS MovementSessionEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    routeId INTEGER,
+    name TEXT NOT NULL,
+    date INTEGER NOT NULL,              -- epoch millis
+    elapsedTime INTEGER NOT NULL,       -- seconds
+    distanceTraveled REAL NOT NULL,     -- meters
+    elevationGain REAL NOT NULL,        -- meters
+    movingTime INTEGER NOT NULL DEFAULT 0,
+    avgPace REAL NOT NULL DEFAULT 0.0,  -- min/km
+    maxAltitude REAL NOT NULL DEFAULT 0.0,
+    minAltitude REAL NOT NULL DEFAULT 0.0,
+    totalAscent REAL NOT NULL DEFAULT 0.0,
+    totalDescent REAL NOT NULL DEFAULT 0.0
+);
+
+CREATE TABLE IF NOT EXISTS MovementPointEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sessionId INTEGER NOT NULL,
+    seq INTEGER NOT NULL,               -- order within the session
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    altitude REAL NOT NULL,
+    accuracy REAL NOT NULL,
+    bearing REAL NOT NULL,
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY(sessionId) REFERENCES MovementSessionEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_movement_session_date ON MovementSessionEntity(date);
+CREATE INDEX IF NOT EXISTS idx_movement_point_session ON MovementPointEntity(sessionId, seq);
+
+insertSession:
+INSERT INTO MovementSessionEntity(
+    routeId, name, date, elapsedTime, distanceTraveled, elevationGain,
+    movingTime, avgPace, maxAltitude, minAltitude, totalAscent, totalDescent
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+lastInsertedSessionId:
+SELECT last_insert_rowid();
+
+insertPoint:
+INSERT INTO MovementPointEntity(
+    sessionId, seq, latitude, longitude, altitude, accuracy, bearing, timestamp
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAllSessions:
+SELECT *
+FROM MovementSessionEntity
+ORDER BY date DESC;
+
+selectPointsBySession:
+SELECT *
+FROM MovementPointEntity
+WHERE sessionId = ?
+ORDER BY seq ASC;

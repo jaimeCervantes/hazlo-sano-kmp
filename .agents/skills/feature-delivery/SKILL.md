@@ -5,7 +5,7 @@ description: Implement or change Kotlin Multiplatform behavior in a Gradle proje
 
 # KMP BDD feature delivery
 
-Use this skill for behavior changes. Start from a small scenario, then tests, then implementation.
+Use this skill for behavior changes. Work **outside-in (double-loop)**: when it is worth it for the scenario, first write a failing e2e/integration test that **guides the design**, then implement **bottom-up** — drive out the unit tests (where most coverage lives), then component tests, building until the outer e2e/integration test passes green. Keep a pyramid shape: many unit tests, few e2e.
 
 ## Default workflow
 
@@ -30,7 +30,10 @@ Use this skill for behavior changes. Start from a small scenario, then tests, th
 3. Before any step that will create or modify repository artifacts, tell the user what files or generated artifacts will be affected.
 4. Create or update one Gherkin spec in `features/<feature_name>.feature` or under a shallow semantic subfolder when that area already has related specs or is expected to grow.
 5. Choose one priority scenario that can be implemented end-to-end in a small slice.
-6. Always start with behavior tests, then unit tests, then implementation.
+6. Outside-in, double-loop — write the outer test first to guide design, then build coverage from the base:
+   1. **Outer loop — write it first, let it fail.** When an end-to-end or integration test is worth it for the scenario, write it up front and leave it red. It drives the design and mirrors the `.feature`'s Given/When/Then; it is not where most coverage lives. UI flows: Compose UI test (`runComposeUiTest`) on the JVM. Device-only behavior (real map rendering, GPS, permission dialogs): instrumented `androidTest` (`connectedDebugAndroidTest`). Infra-dependent behavior: an integration test (e.g. SQLDelight in-memory driver).
+   2. **Inner loop — implement bottom-up, unit-first.** Drive the domain/use-case/ViewModel logic with unit tests in `commonTest` (most of the suite), then the component tests for the Composables/adapters (Compose UI test; Robolectric for Android `actual`s on the JVM).
+   3. Keep going until the outer e2e/integration test passes green. Distribution stays a pyramid: many unit tests, few e2e.
 7. After each step that creates or modifies artifacts, stop and report:
    - the files or generated artifacts created or changed;
    - the purpose of that step;
@@ -46,6 +49,7 @@ Use this skill for behavior changes. Start from a small scenario, then tests, th
 11. Run validations with `./gradlew` commands and report any migration command if SQLDelight/Database models changed.
 12. In the final response, include the exact Gradle validation commands the user can run manually from the repository root.
 13. Suggest the next scenario instead of forcing an artificial loop.
+14. After each slice, append an entry to `docs/features/<feature>-bitacora.md` (append-only). Mandatory for every slice — see the "Bitácora" section.
 
 Use this exact prompt template in step 0:
 - Problem:
@@ -85,8 +89,9 @@ Feature: [Feature Name]
   So that [benefit]
 ```
 
-Do not skip this framing stage. If context is incomplete, ask concise clarification questions and wait for explicit agreement on feature scope and the first scenario.
-For Kotlin and Android, use Cucumber-JVM or Kotest to write step definitions for your `.feature` files.
+Do not skip this framing stage for genuinely end-to-end scenarios. Skip the `.feature` only for pure unit-level bug fixes with no observable behavior change, and state explicitly why it was skipped. If context is incomplete, ask concise clarification questions and wait for explicit agreement on scope and the first scenario.
+
+The `.feature` file is the authoritative scenario spec. Pair it with an executable behavior test **of the same name** that drives those exact Given/When/Then steps (a Compose UI test for UI flows, an instrumented test for device-only flows). If the repo adopts a Kotlin Gherkin step-runner (Cucumber-JVM, or a Kotest-based runner), wire the `.feature` directly into it instead of duplicating it as prose plus a hand-written test.
 
 ## Testing rules
 
@@ -94,10 +99,12 @@ For Kotlin and Android, use Cucumber-JVM or Kotest to write step definitions for
 - Keep test files small and responsibility-focused; extract setup data, fakes, and assertions into dedicated test helpers/builders instead of growing one large test module.
 - Preserve test-layer separation: keep scenario orchestration in BDD step files, domain data builders in helper/factory modules, and transport or persistence fakes in dedicated test-double helpers.
 - Mirror semantic feature grouping in BDD tests when it improves navigation: prefer paths like `tests/bdd/step_defs/<feature_area>/...` for related specs.
-- Apply the testing pyramid:
-   1. Unit tests for domain and use-case logic (fast, isolated, with fakes/mocks). Use `core/src/commonTest/`.
-   2. Behavior-level tests with Cucumber-JVM or Kotest for the selected scenario (validating the full behavior from the feature file).
-   3. Async integration tests only if the behavior genuinely depends on the infra wiring (e.g., database interactions, external APIs).
+- **One-time test-tooling bootstrap:** the first time a change needs a test layer the repo lacks, tell the user which tooling is required and get approval **once** — then do not re-ask on later features. Typical KMP tooling: Compose UI test (`org.jetbrains.compose.ui:ui-test` + `runComposeUiTest`) for UI behavior on the JVM; Robolectric plus `withHostTest {}` on the Android target to run Android `actual`s as JVM unit tests; a Gherkin step-runner (Cucumber-JVM or Kotest) to execute `.feature` files; instrumented `androidTest` for device-only behavior.
+- Apply the testing pyramid — write the outer e2e/integration test first to guide the design, then implement bottom-up; most tests stay at the base:
+   1. **Behavior/e2e** for the selected scenario — Compose UI test (`runComposeUiTest`, JVM) for UI flows; instrumented `androidTest` only for device-bound behavior (map rendering, GPS, permission dialogs).
+   2. **Component** — individual Composables via Compose UI test; Android `actual`s via Robolectric on the JVM.
+   3. **Unit** for domain, use-case and ViewModel logic (fast, isolated, with fakes/mocks) in `core/src/commonTest/` and `app/shared/src/commonTest/`. Most tests live here.
+   4. **Integration** only when the behavior genuinely depends on infra wiring (SQLDelight in-memory driver, external APIs).
 - Keep test data minimal and focused on the scenario under implementation.
 - Do not overbuild multiple scenarios before the first one is green.
 
@@ -118,6 +125,8 @@ When closing the task, always surface the exact validation commands you ran, or 
 
 ## Implementation rules
 
+- When a working reference implementation exists, treat it as a source of correct APIs and behavior, not as the quality bar. Do not copy it verbatim: re-express it applying Clean Code, Clean Architecture, SOLID, and current Android/KMP best practices, and place it in the correct module (`core` domain, `app/shared` presentation/UI, platform source sets for platform code).
+- Covering the changed code with tests is mandatory. Unit-test the domain/use-case/ViewModel logic; when UI or platform-only pieces cannot be host-tested, say so explicitly and note the instrumented test needed.
 - Follow repository conventions before introducing new abstractions.
 - Keep `core/src/commonMain/` free of platform-only APIs, Compose, and data-layer dependencies.
 - Keep `app/shared/src/commonMain/` free of platform-only APIs.
@@ -137,6 +146,23 @@ You already know Clean Code, Clean Architecture, and SOLID principles. Apply the
 - **Error Handling:** Never return generic errors. Use sealed classes or sealed interfaces to model specific domain errors and handle them exhaustively.
 - **Naming:** Variables and functions `MUST` be in `camelCase`. Classes and interfaces `MUST` be in `PascalCase`.
 - **Refactoring and Clean Architecture:** If a file (especially a use case or viewmodel) grows too long or takes on multiple responsibilities, proactively propose and execute a refactoring to split it into a cohesive package with smaller, single-responsibility modules.
+
+## Bitácora (mandatory, per slice)
+
+After each slice, append an entry to `docs/features/<feature>-bitacora.md` (append-only — never rewrite past entries). Each entry records:
+
+- **Objective:** the scenario/slice delivered.
+- **Decisions + rationale:** notable design/architecture choices and why.
+- **Files touched:** grouped by area/module.
+- **Key commands:** the Gradle/`adb` commands run.
+- **Validation results:** with numbers (tests passed, build result, device check).
+- **Deviations:** anything done differently from the plan.
+- **Follow-ups:** known gaps or next candidates.
+
+Every entry MUST end with:
+
+- **Recap:** one paragraph on the current state.
+- **Próximos pasos (opciones):** concrete next choices, plus anything pending on the user.
 
 ## Migration rule
 

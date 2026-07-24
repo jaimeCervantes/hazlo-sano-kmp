@@ -28,3 +28,8 @@ Feature: Movement tracker screen
     And the location permission is granted
     When the device reports a new location
     Then the tracker shows that location as the current position on the map
+
+  Scenario: Saving a recorded session
+    Given a session was recorded with a traveled path
+    When I stop the recording
+    Then the session is persisted and can be read back with its path

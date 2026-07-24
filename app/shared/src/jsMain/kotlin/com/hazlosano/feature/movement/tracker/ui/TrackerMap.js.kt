@@ -9,7 +9,11 @@ import androidx.compose.ui.Modifier
 import com.hazlosano.domain.feature.movement.model.UserLocation
 
 @Composable
-actual fun TrackerMap(userLocation: UserLocation?, modifier: Modifier) {
+actual fun TrackerMap(
+    userLocation: UserLocation?,
+    traveledPoints: List<UserLocation>,
+    modifier: Modifier,
+) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(
             text = "El mapa está disponible en Android por ahora.",

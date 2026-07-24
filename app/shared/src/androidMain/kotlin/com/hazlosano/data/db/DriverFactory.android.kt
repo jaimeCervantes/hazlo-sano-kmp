@@ -66,6 +66,57 @@ private fun ensureNewTablesExist(context: Context) {
                 "CREATE INDEX IF NOT EXISTS idx_product_seller ON ProductEntity(sellerId)",
             )
         }
+
+        val movementCursor = db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='MovementSessionEntity'",
+            null,
+        )
+        val hasMovementTable = movementCursor.count > 0
+        movementCursor.close()
+
+        if (!hasMovementTable) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS MovementSessionEntity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    routeId INTEGER,
+                    name TEXT NOT NULL,
+                    date INTEGER NOT NULL,
+                    elapsedTime INTEGER NOT NULL,
+                    distanceTraveled REAL NOT NULL,
+                    elevationGain REAL NOT NULL,
+                    movingTime INTEGER NOT NULL DEFAULT 0,
+                    avgPace REAL NOT NULL DEFAULT 0.0,
+                    maxAltitude REAL NOT NULL DEFAULT 0.0,
+                    minAltitude REAL NOT NULL DEFAULT 0.0,
+                    totalAscent REAL NOT NULL DEFAULT 0.0,
+                    totalDescent REAL NOT NULL DEFAULT 0.0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS MovementPointEntity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sessionId INTEGER NOT NULL,
+                    seq INTEGER NOT NULL,
+                    latitude REAL NOT NULL,
+                    longitude REAL NOT NULL,
+                    altitude REAL NOT NULL,
+                    accuracy REAL NOT NULL,
+                    bearing REAL NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    FOREIGN KEY(sessionId) REFERENCES MovementSessionEntity(id) ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_movement_session_date ON MovementSessionEntity(date)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_movement_point_session ON MovementPointEntity(sessionId, seq)",
+            )
+        }
         db.setTransactionSuccessful()
     } finally {
         db.endTransaction()
