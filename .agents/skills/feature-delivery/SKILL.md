@@ -9,6 +9,13 @@ Use this skill for behavior changes. Start from a small scenario, then tests, th
 
 ## Default workflow
 
+> **Cadence is governed by `AGENTS.md` → "Autonomous delivery mode" (the default).** It reduces the
+> only approval checkpoints to (1) the alignment gate and (2) the `.feature` + its scenarios. After the
+> `.feature` is approved, do NOT ask for validation/authorization for anything else — only interrupt for
+> a **very grave** action (destructive/irreversible, a write to shared/prod resources, or a security
+> risk). Step 8 and the "Artifact checkpoint gate (Conditional)" section apply ONLY when the user
+> explicitly asks for step-by-step mode.
+
 - **ALL NEW CHANGES MUST BE MADE IN A NEW BRANCH AND A PULL REQUEST MUST BE CREATED.** Do not commit directly to the main branch.
 0. Alignment gate (mandatory, no exceptions):
    1. Ask the user for:

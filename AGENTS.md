@@ -15,6 +15,13 @@ This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, D
 - Propose the smallest valuable first slice and ask for explicit approval.
 - Do not write feature code/tests until the user approves that first slice.
 
+## Autonomous delivery mode (default)
+- This is the default cadence. It reduces approval checkpoints to exactly two: (1) the alignment gate, and (2) the `features/<feature>.feature` file plus its scenarios.
+- After the `.feature` is approved, do NOT ask for further validation or authorization for anything else. Proceed autonomously through tests, implementation, and Gradle validation.
+- Only interrupt for a **very grave** action: destructive or irreversible operations (`git reset --hard`, force-push, deleting files/branches, dropping database data), writes to shared/production resources, or a security risk.
+- The "Artifact checkpoint gate" (stopping for acceptance after every artifact-changing step) applies ONLY when the user explicitly asks for step-by-step mode (e.g. "pregúntame en cada paso").
+- This governs the skills' checkpoints; it does not change Claude Code's own tool-permission prompts, which are configured in `.claude/settings.json`.
+
 ## Tooling baseline (Gradle-first)
 - Use the checked-in Gradle wrapper as the default command runner.
 - On Windows, run Gradle with `.\gradlew.bat`.
