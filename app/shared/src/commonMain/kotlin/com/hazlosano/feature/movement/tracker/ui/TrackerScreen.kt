@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,15 +26,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSpaces
+import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewModel
-import kotlin.math.roundToInt
 
 /**
  * Movement tracker screen: a map showing the user's live location, live session metrics, and a
  * start/stop control that records the traveled path.
  */
 @Composable
-fun TrackerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun TrackerScreen(
+    onBack: () -> Unit,
+    onOpenHistory: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val viewModel = remember { createTrackerViewModel() }
     LocationPermissionEffect(onGranted = viewModel::startTracking)
 
@@ -73,6 +78,7 @@ fun TrackerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             isRecording = isRecording,
             onStart = viewModel::startRecording,
             onStop = viewModel::stopRecording,
+            onOpenHistory = onOpenHistory,
         )
     }
 }
@@ -93,8 +99,8 @@ private fun SessionMetrics(
             modifier = Modifier.padding(horizontal = HazloSpaces.md, vertical = HazloSpaces.sm),
             horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
         ) {
-            Metric(label = "Distancia", value = formatDistance(distanceMeters))
-            Metric(label = "Tiempo", value = formatDuration(elapsedSeconds))
+            Metric(label = "Distancia", value = MovementFormat.distance(distanceMeters))
+            Metric(label = "Tiempo", value = MovementFormat.duration(elapsedSeconds))
         }
     }
 }
@@ -121,10 +127,12 @@ private fun SessionControls(
     isRecording: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(HazloSpaces.gutter),
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.spacedBy(HazloSpaces.md, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Button(
             onClick = if (isRecording) onStop else onStart,
@@ -138,21 +146,8 @@ private fun SessionControls(
         ) {
             Text(if (isRecording) "Detener" else "Iniciar")
         }
+        OutlinedButton(onClick = onOpenHistory) {
+            Text("Historial")
+        }
     }
-}
-
-private fun formatDistance(meters: Double): String =
-    if (meters < 1000.0) {
-        "${meters.roundToInt()} m"
-    } else {
-        val km = (meters / 1000.0 * 100).roundToInt() / 100.0
-        "$km km"
-    }
-
-private fun formatDuration(totalSeconds: Long): String {
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    val mm = if (minutes < 10) "0$minutes" else "$minutes"
-    val ss = if (seconds < 10) "0$seconds" else "$seconds"
-    return "$mm:$ss"
 }

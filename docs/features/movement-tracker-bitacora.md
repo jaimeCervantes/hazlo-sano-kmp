@@ -144,3 +144,33 @@ git commit -m "docs: outside-in double-loop skill, bitacora, and validation work
 **Follow-ups (open):** sessions history screen; real SQLDelight migrations (replace the `ensureNewTablesExist` hack — tech debt); close the UI test gap (Compose UI test `runComposeUiTest` for `TrackerScreen`; Robolectric + `withHostTest` for Android `actual`s; instrumented `androidTest` for real map/GPS); persist full `SessionStats`; open tracker from the "Movimiento" bottom tab too; push branch + open PR.
 
 **Note for the next session:** the Claude Code permission allowlist + `auto` mode (`.claude/settings.json`) take effect on a fresh session, so under the new account you should get far fewer permission prompts.
+
+---
+
+## Slice 5 — Session history screen
+
+- **Objective:** Show the sessions already persisted: a "Historial" action on the tracker opens a list of recorded sessions (date, distance, time), newest first, with an empty state and back to the tracker. Spec: [`features/movement_history.feature`](../../features/movement_history.feature).
+- **Decisions + rationale:**
+  - **Navigation:** replaced `TrackerNavState` (open/closed) with `MovementNavState` (`Closed | Tracker | History`) under `feature/movement/presentation/`, so pillar-level navigation is one testable state holder instead of one boolean per screen. Back from the history returns to the tracker (`openTracker()`), back from the tracker closes the pillar.
+  - **`GetSessionsUseCase` retargeted** from `RouteRepository` to the segregated `MovementSessionRepository` (same ISP move as `SaveSessionUseCase` in slice 4), so the history needs only session persistence.
+  - **Ordering + formatting in the ViewModel**, not in the query or the Composable: `MovementHistoryViewModel` sorts by date descending and maps to `SessionListItem` display labels, so the history is correct regardless of the repository feeding it and is fully unit-testable.
+  - **`MovementFormat`** extracted as the single formatter for distance/duration/date shared by the tracker and the history (the tracker's private `formatDistance`/`formatDuration` were deleted). Multiplatform-safe (no platform date/number formatting) and the time zone is a parameter, so labels are deterministic under test.
+  - **`movementSessionRepository()` provider** extracted from `TrackerViewModelFactory` — both factories now resolve SQLDelight-or-no-op through one place.
+  - **`inMemoryHazloSanoDatabase()`** moved out of `SqlDelightMovementSessionRepositoryTest` into `jvmTest/data/db/` so the history integration test reuses the same real persistence stack.
+  - UI state as a sealed interface (`Loading | Empty | Sessions | Error`) so the screen renders a closed set of cases.
+- **Files touched:**
+  - core: `usecase/GetSessionsUseCase.kt` (now depends on `MovementSessionRepository`)
+  - shared/commonMain: `feature/movement/presentation/MovementNavState.kt`, `MovementFormat.kt`, `feature/movement/history/presentation/MovementHistoryViewModel.kt`, `MovementHistoryViewModelFactory.kt`, `feature/movement/history/ui/MovementHistoryScreen.kt`, `data/movement/MovementSessionRepositoryProvider.kt`, updated `feature/main/ui/MainScreen.kt`, `feature/movement/tracker/ui/TrackerScreen.kt` ("Historial" action + shared formatting), `tracker/presentation/TrackerViewModelFactory.kt`; deleted `tracker/presentation/TrackerNavState.kt`
+  - shared/commonTest: `movement/presentation/MovementNavStateTest.kt`, `MovementFormatTest.kt`, `movement/history/presentation/MovementHistoryViewModelTest.kt`; deleted `TrackerNavStateTest.kt`
+  - shared/jvmTest: `feature/movement/history/MovementHistoryIntegrationTest.kt`, `data/db/InMemoryHazloSanoDatabase.kt`, simplified `data/movement/SqlDelightMovementSessionRepositoryTest.kt`
+  - features: `movement_history.feature`
+- **Key commands:** `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check :app:webApp:check`
+- **Validation results:** `:app:shared:jvmTest` BUILD SUCCESSFUL — 43 tests, 0 failures (outer: `MovementHistoryIntegrationTest` 2 — save through SQLDelight then read back as rows, newest first; component: `MovementHistoryViewModelTest` 4, `MovementFormatTest` 6, `MovementNavStateTest` 5). `:app:androidApp:assembleDebug` BUILD SUCCESSFUL. `:app:desktopApp:check :app:webApp:check` BUILD SUCCESSFUL (common UI stays multiplatform-safe).
+- **Deviations:** none. Note that `kotlinx.datetime` 0.8.0 deprecates `Instant`/`monthNumber`/`dayOfMonth`; `MovementFormat` follows the idiom already used by `TimeFormat.kt` (warnings only) — migrating both to `kotlin.time.Instant` is separate tech debt.
+- **Follow-ups:** session detail screen (map of the saved path — `getSessionPoints` already exists); delete a session; Compose UI test for the list/empty states.
+
+**Recap:** Recorded sessions are now visible: the tracker's "Historial" action opens a list of saved sessions with date, distance and time, newest first, with an empty state and back to the tracker — covered end-to-end by an integration test over the real SQLDelight stack plus ViewModel, formatting, and navigation unit tests.
+
+**Próximos pasos (opciones):** (1) session detail with the saved route drawn on the map; (2) real SQLDelight migrations (replace the `ensureNewTablesExist` hack); (3) Compose UI test setup for the movement screens.
+
+---

@@ -47,7 +47,9 @@ import com.hazlosano.feature.nutrition.presentation.NutritionViewModel
 import com.hazlosano.feature.nutrition.ui.NutritionScreen
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
-import com.hazlosano.feature.movement.tracker.presentation.TrackerNavState
+import com.hazlosano.feature.movement.history.ui.MovementHistoryScreen
+import com.hazlosano.feature.movement.presentation.MovementDestination
+import com.hazlosano.feature.movement.presentation.MovementNavState
 import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
@@ -75,16 +77,32 @@ fun MainScreen(
 ) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
     var showSleepHistory by remember { mutableStateOf(false) }
-    val trackerNav = remember { TrackerNavState() }
+    val movementNav = remember { MovementNavState() }
 
     val navigateToSleepHistory: () -> Unit = {
         selectedTab = BottomTab.Sueno
         showSleepHistory = true
     }
 
-    if (trackerNav.isOpen) {
-        TrackerScreen(onBack = { trackerNav.close() }, modifier = Modifier.fillMaxSize())
-        return
+    when (movementNav.destination) {
+        MovementDestination.Tracker -> {
+            TrackerScreen(
+                onBack = { movementNav.close() },
+                onOpenHistory = { movementNav.openHistory() },
+                modifier = Modifier.fillMaxSize(),
+            )
+            return
+        }
+
+        MovementDestination.History -> {
+            MovementHistoryScreen(
+                onBack = { movementNav.openTracker() },
+                modifier = Modifier.fillMaxSize(),
+            )
+            return
+        }
+
+        MovementDestination.Closed -> Unit
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -135,7 +153,7 @@ fun MainScreen(
                     BottomTab.Inicio -> HomeScreen(
                         viewModel = homeViewModel,
                         sleepAnalysis = sleepAnalysis,
-                        onNavigateToTracker = { trackerNav.open() },
+                        onNavigateToTracker = { movementNav.openTracker() },
                         onRefreshSleep = onRefreshSleep,
                         onSleepCardClick = navigateToSleepHistory,
                     )
