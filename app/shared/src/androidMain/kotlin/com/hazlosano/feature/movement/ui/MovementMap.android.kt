@@ -2,12 +2,8 @@ package com.hazlosano.feature.movement.ui
 
 import android.content.Context
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -15,15 +11,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.theme.MapTheme
 import com.hazlosano.core.util.map.MapConstants
 import com.hazlosano.domain.feature.movement.model.GeoBounds
@@ -64,7 +57,6 @@ actual fun MovementMap(
     modifier: Modifier,
     fitPathInView: Boolean,
 ) {
-    var styleStatus by remember { mutableStateOf("cargando estilo…") }
     var framedPathKey by remember { mutableStateOf<String?>(null) }
     var centeredOnUser by remember { mutableStateOf(false) }
     // The style callback fires long after this composition; read the values it needs through
@@ -90,7 +82,6 @@ actual fun MovementMap(
             factory = { _: Context ->
                 val view = mapView
                 view.addOnDidFailLoadingMapListener { error ->
-                    styleStatus = "fallo del mapa: $error"
                     Log.e(TAG, "map failed to load: $error")
                 }
                 view.getMapAsync { map ->
@@ -112,11 +103,10 @@ actual fun MovementMap(
                             framedPathKey = currentPath.frameKey()
                             map.frame(bounds, view.width, view.height)
                         }
-                        styleStatus = "estilo OK · zoom ${map.cameraPosition.zoom.roundToInt()}"
                         Log.i(
                             TAG,
                             "style loaded, layers=${style.layers.size}, " +
-                                "points=${currentPath.size}, view=${view.width}x${view.height}",
+                                "points=${currentPath.size}, zoom=${map.cameraPosition.zoom.roundToInt()}",
                         )
                     }
                 }
@@ -148,18 +138,6 @@ actual fun MovementMap(
                     }
                 }
             },
-        )
-
-        // Temporary diagnostic while the map is being validated on device.
-        Text(
-            text = "$styleStatus · puntos: ${path.size}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(HazloSpaces.sm)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
 }

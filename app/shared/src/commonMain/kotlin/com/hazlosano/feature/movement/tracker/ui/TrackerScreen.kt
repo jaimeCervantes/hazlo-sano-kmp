@@ -16,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,6 +30,10 @@ import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewModel
 import com.hazlosano.feature.movement.ui.MovementMap
+import kotlinx.coroutines.delay
+
+/** How long the "session saved" confirmation stays on screen after a recording ends. */
+private const val SAVED_CONFIRMATION_MILLIS = 5_000L
 
 /**
  * Movement tracker screen: a map showing the user's live location, live session metrics, and a
@@ -44,11 +49,18 @@ fun TrackerScreen(
     LocationPermissionEffect(onGranted = viewModel::startTracking)
 
     val userLocation by viewModel.userLocation.collectAsState()
-    val traveledPoints by viewModel.traveledPoints.collectAsState()
-    val isRecording by viewModel.isRecording.collectAsState()
-    val distanceMeters by viewModel.distanceMeters.collectAsState()
-    val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
-    val sessionSaved by viewModel.sessionSaved.collectAsState()
+    val recording by viewModel.recording.collectAsState()
+    val savedSession by viewModel.lastSavedSession.collectAsState()
+    val isRecording = recording.isRecording
+
+    // The confirmation is transient: without this it would greet the user again every time they
+    // came back to the tracker, long after the session was saved.
+    LaunchedEffect(savedSession) {
+        if (savedSession != null) {
+            delay(SAVED_CONFIRMATION_MILLIS)
+            viewModel.acknowledgeSavedSession()
+        }
+    }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar(title = "Movimiento", showBackButton = true, onBackClick = onBack)
@@ -56,19 +68,20 @@ fun TrackerScreen(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             MovementMap(
                 userLocation = userLocation,
-                path = traveledPoints,
+                path = recording.traveledPoints,
                 modifier = Modifier.fillMaxSize(),
             )
             SessionMetrics(
-                distanceMeters = distanceMeters,
-                elapsedSeconds = elapsedSeconds,
+                distanceMeters = recording.distanceMeters,
+                elapsedSeconds = recording.elapsedSeconds,
                 modifier = Modifier.align(Alignment.TopStart).padding(HazloSpaces.gutter),
             )
         }
 
-        if (sessionSaved && !isRecording) {
+        savedSession?.let { saved ->
             Text(
-                text = "Sesión guardada",
+                text = "Sesión guardada · ${MovementFormat.distance(saved.distanceMeters)} · " +
+                    MovementFormat.duration(saved.elapsedSeconds),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),

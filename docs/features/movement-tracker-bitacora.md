@@ -202,3 +202,92 @@ git commit -m "docs: outside-in double-loop skill, bitacora, and validation work
 **Recap:** A recorded session can now be opened from the history and reviewed: its stored route is drawn on the map framed to the path's bounds, with distance, time, average pace and elevation gain, and a clear message when the session stored no route — with the framing rule, the detail use case, the ViewModel and the formatting all unit-tested, and the whole read path covered by an integration test over SQLDelight.
 
 **Próximos pasos (opciones):** (1) on-device validation of the route framing, then satellite toggle; (2) delete/rename sessions from the history or detail; (3) real SQLDelight migrations (replace the `ensureNewTablesExist` hack); (4) Compose UI test setup for the movement screens.
+
+---
+
+## Corrección — El mapa no se renderizaba hasta un evento externo (afecta a los slices 1, 3 y 6)
+
+- **Síntoma:** al abrir el detalle de una sesión (y en realidad en cualquier pantalla con mapa) no se veía nada; bloqueando y desbloqueando el teléfono aparecía el mapa con la ruta. Con diagnóstico en pantalla se confirmó que el estilo ni siquiera empezaba a descargarse hasta ese momento, y que la cámara seguía en zoom 0.
+- **Causa raíz:** MapLibre dibuja por defecto en un `SurfaceView`, que tiene su propia ventana y solo recibe superficie cuando el sistema vuelve a disponer la ventana. Dentro de un `AndroidView` de Compose eso no ocurría al componer la pantalla, así que el motor nativo no arrancaba: sin superficie no hay bucle de render, y sin bucle de render no se procesa ni la carga del estilo.
+- **Por qué la referencia no falla:** su `MapLibreOfflineRepository` llama a `OfflineManager.getInstance(context)`, que activa el `FileSource` a nivel de aplicación; nuestro proyecto no tiene esa pieza.
+- **Verificación (no hipótesis):** se extrajo `android-sdk-11.5.1.aar` del caché de Gradle y se leyó el bytecode de `MapView` con `javap`. Hallazgos que corrigieron dos suposiciones equivocadas: `onCreate()` **no** inicializa nada (solo guarda `savedInstanceState`; la superficie se crea en el constructor vía `initialize()` → `initializeDrawingSurface`), y `onStart()` es quien llama a `ConnectivityReceiver.activate()` y **`FileSource.activate()`**, que habilita las descargas de estilo y tiles.
+- **Arreglo:**
+  - `MapLibreMapOptions.createFromAttributes(context).textureMode(true)` — render dentro de la jerarquía de vistas en vez de un `SurfaceView` con ventana propia.
+  - Restaurado el enlace de ciclo de vida (`onCreate`/`onStart`/`onResume`/`onPause`/`onStop`/`onDestroy`) con puesta al día del estado actual, ahora sabiendo qué hace cada llamada.
+  - Dibujado y encuadre movidos al bloque `update` del `AndroidView` (que corre con la vista ya adjunta y medida) **y** repetidos en el callback del estilo con `rememberUpdatedState`, porque ese callback puede llegar después de la última pasada de `update` y dejaba la cámara en la vista mundial.
+- **Intentos fallidos (registrados a propósito):** (1) mover `onStart`/`onResume` a `OnAttachStateChangeListener` — no cambió nada, la vista ya estaba adjunta; (2) fijar la cámara inicial en el centro de la ruta antes de cargar el estilo — empeoró el síntoma y se revirtió; (3) eliminar todas las llamadas de ciclo de vida imitando a la referencia — dejó el `FileSource` sin activar.
+- **Archivos tocados:** `app/shared/src/androidMain/.../feature/movement/ui/MovementMap.android.kt`.
+- **Validación:** `.\gradlew.bat :app:androidApp:assembleDebug` BUILD SUCCESSFUL; `.\gradlew.bat :app:shared:jvmTest :core:jvmTest` BUILD SUCCESSFUL (68 tests). Comprobación en dispositivo: mapa y ruta visibles al abrir el detalle, sin bloquear/desbloquear.
+- **Lección:** el mapa del slice 1 se dio por bueno con `assembleDebug` y nunca se validó en dispositivo; el fallo estuvo latente tres slices y salió a la luz en el detalle porque el tracker lo enmascaraba (su diálogo de permisos provocaba el pause/resume que despertaba al render). Ninguna prueba de host podía cazarlo: en JVM el mapa es un placeholder. Es deuda de test instrumentado (`connectedDebugAndroidTest`), no de test de host.
+
+**Recap:** El mapa ya renderiza al entrar a la pantalla, con la ruta guardada dibujada y encuadrada, tras identificar por bytecode que el bloqueo era el `SurfaceView` de MapLibre y el `FileSource` sin activar.
+
+**Próximos pasos (opciones):** (1) migrar el resto del tracking desde el proyecto de referencia; (2) test instrumentado que cubra el render del mapa; (3) mapas offline (`OfflineManager`), que además activa el `FileSource` a nivel de app.
+
+---
+
+## Slice 7 (migración A) — Grabación en segundo plano
+
+- **Objetivo:** que la sesión siga grabándose con la app en segundo plano o la pantalla apagada, con notificación persistente, y que al volver al tracker se vea lo grabado. Spec: [`features/movement_background_recording.feature`](../../features/movement_background_recording.feature). Backlog: [`movement-tracking-migration.md`](movement-tracking-migration.md) punto A.
+- **Decisiones + razones:**
+  - **La grabación deja de vivir en el ViewModel.** Se introduce el contrato `RecordingController` en `core` y `TrackerViewModel` pasa a ser un observador que reenvía iniciar/detener. Salir de la pantalla ya no puede terminar una sesión.
+  - **Reglas de grabación en `core` como transiciones puras** (`RecordingState` + `started`/`recorded`/`elapsedAt`/`stopped`), separadas de dónde se ejecutan. Es lo que permite probar en JVM el comportamiento que en dispositivo depende del servicio.
+  - **Tiempo transcurrido derivado del reloj, no de contar ticks.** Antes un bucle `delay(1000)` incrementaba un contador; con la pantalla apagada el sistema estrangula esos ticks y la duración salía corta. Ahora se calcula desde `startedAtMillis`, y hay un test que fija justo eso (diez minutos sin un solo tick intermedio).
+  - **`SessionRecording`** (en `app/shared`) concentra colectar ubicaciones, mantener el estado y persistir al detener; lo usan tanto el servicio de Android como el controlador en proceso, así que las reglas no se duplican por plataforma.
+  - **`expect/actual` del controlador:** Android delega en `MovementRecordingService` (foreground, `foregroundServiceType="location"`); jvm/js/ios usan `InProcessRecordingController`, que conserva el comportamiento actual para que esos targets sigan funcionando.
+  - **`MovementRecordingStore`:** estado a nivel de proceso para publicar lo que graba el servicio. Es una excepción consciente a la regla de "no estado mutable global" de `AGENTS.md`: el servicio sobrevive a cualquier pantalla y la alternativa (bindear el servicio desde cada Composable) añade estado de conexión que también hay que gestionar. Está acotado a la grabación en curso y solo lo escribe el servicio.
+  - **Permiso de notificaciones** se pide junto al de ubicación en Android 13+, pero **no condiciona la grabación**: si se deniega, el servicio corre igual y solo se queda sin notificación visible.
+  - Frente a la referencia (`NavigationService`): allí el estado vive en un `companion object` global y el servicio mezcla navegación por ruta con grabación; aquí el estado es un componente probado de `core` y el servicio queda como adaptador delgado.
+- **Archivos tocados:**
+  - core: `model/RecordingState.kt`, `repository/RecordingController.kt`
+  - core/commonTest: `model/RecordingStateTest.kt`
+  - shared/commonMain: `data/movement/SessionRecording.kt`, `InProcessRecordingController.kt`, `RecordingControllerFactory.kt`, `tracker/presentation/TrackerViewModel.kt` (reescrito), `TrackerViewModelFactory.kt`, `tracker/ui/TrackerScreen.kt`
+  - shared/androidMain: `data/movement/MovementRecordingService.kt`, `MovementRecordingStore.kt`, `RecordingControllerFactory.android.kt`, `tracker/ui/LocationPermission.android.kt` (pide también `POST_NOTIFICATIONS`)
+  - shared/{jvm,js,ios}Main: `RecordingControllerFactory.<target>.kt`
+  - shared/commonTest: `data/movement/SessionRecordingTest.kt`, `TrackerViewModelTest.kt` (reescrito contra un controlador falso)
+  - androidApp: `AndroidManifest.xml` (permisos `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_LOCATION`, `POST_NOTIFICATIONS` y declaración del servicio)
+  - features: `movement_background_recording.feature`
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :core:check :app:desktopApp:check :app:webApp:check`
+- **Resultados de validación:** `:app:shared:jvmTest` BUILD SUCCESSFUL — 62 tests, 0 fallos (nuevos: `SessionRecordingTest` 6, `TrackerViewModelTest` reescrito a 6). `:core` BUILD SUCCESSFUL — 20 tests, 0 fallos (nuevo: `RecordingStateTest` 7). `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL.
+- **Desviaciones:** dos tests de `SessionRecording` fallaron primero con `UncompletedCoroutinesError` porque el bucle de tiempo seguía vivo al terminar `runTest`; se corrigieron capturando el estado y deteniendo la grabación antes de las aserciones (mismo tropiezo que en el slice 3, ahora en el componente extraído).
+- **Sin cobertura de host (dicho explícitamente):** el servicio en primer plano, la notificación y la entrega de ubicaciones con la pantalla apagada. Por decisión del usuario esto se valida **manualmente en dispositivo** en lugar de con tests instrumentados. Prueba manual acordada: iniciar, bloquear el teléfono, caminar varios minutos, volver y detener; comprobar que la notificación muestra distancia y tiempo crecientes y que la sesión guardada incluye el tramo grabado en segundo plano.
+
+**Recap:** La grabación pasó del ViewModel a un servicio en primer plano en Android (y a un controlador en proceso en el resto de targets), con las reglas de sesión extraídas a `core` como transiciones puras y el tiempo derivado del reloj en vez de contar ticks; la pantalla del tracker ahora solo observa y reenvía iniciar/detener.
+
+**Próximos pasos (opciones):** (1) validar en dispositivo el punto A y luego seguir con B (Kalman + estadísticas) del backlog; (2) resolver la deuda de migraciones SQLDelight antes de las tablas de rutas; (3) mostrar la sesión en curso también fuera del tracker (por ejemplo en el pilar).
+
+---
+
+## Corrección del slice 7 — Reinicio del servicio y decisión sobre el estado de proceso
+
+- **Origen:** al revisar, a petición del usuario, si `MovementRecordingStore` (estado a nivel de proceso) debía eliminarse en un slice propio.
+- **Decisión sobre el estado global:** se mantiene, documentado como decisión consciente y no como deuda. Refleja algo que el sistema ya impone como único (hay una grabación porque hay un servicio en primer plano), tiene un único escritor, es `internal` al módulo y no guarda lógica. La alternativa —servicio *bound*— añadiría estado de conexión, ventana de "aún no conectado" en la UI y reconexión, seguiría sin ser testeable en host, y cumpliría la letra de la regla de `AGENTS.md` pero no su intención: el comportamiento testeable ya vive fuera, en `RecordingState` de `core`.
+- **Fallo encontrado en esa revisión (introducido en el slice 7):** `onStartCommand` devolvía `START_STICKY`, así que si el sistema mataba el proceso recreaba el servicio con un `Intent` nulo; el `when (intent?.action)` no contemplaba ese caso y quedaba un servicio vivo que no grababa nada, sin notificación coherente y con la sesión perdida en silencio.
+- **Arreglo:** el caso sin acción apaga el servicio (`stopIfIdle`, que nunca desmonta una grabación viva) y se devuelve `START_NOT_STICKY`, porque reanudar sin haber persistido la sesión no es posible. El comportamiento ahora es honesto: no finge grabar.
+- **Lo que este arreglo NO resuelve:** la sesión en curso se sigue perdiendo si el sistema mata el proceso. Eso requiere persistir la grabación incrementalmente y se registró como punto **G** del backlog, con su encuadre, en lugar de resolverlo aquí a medias.
+- **Archivos tocados:** `app/shared/src/androidMain/.../data/movement/MovementRecordingService.kt`; `docs/features/movement-tracking-migration.md` (punto G nuevo).
+- **Validación:** `.\gradlew.bat :app:androidApp:assembleDebug` BUILD SUCCESSFUL. Sin cobertura de host: es código del servicio Android. Comprobación manual posible con `adb shell am kill com.hazlosano` durante una grabación.
+
+**Recap:** El estado a nivel de proceso se conserva como decisión razonada y documentada; a cambio, la revisión destapó un reinicio de servicio mal manejado que ya está corregido, y el problema de fondo —perder la sesión si el sistema mata la app— queda encuadrado como punto G del backlog en vez de disimulado.
+
+**Próximos pasos (opciones):** (1) validar A en dispositivo y decidir si G sube de prioridad según lo que pase en uso real; (2) seguir con B (Kalman + estadísticas); (3) deuda de migraciones SQLDelight antes de las tablas de rutas.
+
+---
+
+## Corrección del slice 7 (2) — La ruta terminada seguía pintada, y el guardado podía cancelarse
+
+- **Síntoma reportado:** al detener la sesión, el recorrido seguía dibujado en el mapa del tracker; navegar al historial o a otros pilares y volver no lo quitaba, y solo desaparecía al cerrar y reabrir la app.
+- **Causa:** `MovementRecordingStore` conserva el último estado publicado —incluidos sus puntos— y la pantalla dibujaba `recording.traveledPoints` sin distinguir si la sesión seguía viva. Como el store vive a nivel de proceso, el recorrido sobrevivía a cualquier navegación y solo se limpiaba al morir el proceso. Es consecuencia directa de la decisión de publicar el estado en proceso: la decisión sigue siendo válida, pero exigía definir qué ocurre al terminar.
+- **Segundo fallo, encontrado al arreglar el primero:** `stop()` lanzaba el guardado y el servicio llamaba a `stopSelf()` acto seguido; `onDestroy` cancela el scope, así que **la escritura de la sesión podía quedar cancelada a medias**. No se manifestó porque la escritura suele ser más rápida que el apagado, pero era una pérdida de datos esperando a ocurrir.
+- **Arreglos:**
+  - Al detener, el estado en curso vuelve a vacío: una sesión terminada pertenece al historial, no al tracker. El mapa deja de dibujarla.
+  - La confirmación pasa de un booleano a `lastSavedSession: StateFlow<RecordingState?>`, que además lleva el resumen final, así que la pantalla muestra "Sesión guardada · 1.25 km · 10:00" en vez de perder el dato al limpiar el estado. La pantalla la descarta tras cinco segundos (`acknowledgeSavedSession`), de modo que no reaparece cada vez que se vuelve al tracker.
+  - El guardado se envuelve en `withContext(NonCancellable)` y `stop()` devuelve su `Job`; el servicio espera (`join`) antes de `stopForeground`/`stopSelf`.
+- **Archivos tocados:** core `repository/RecordingController.kt`; shared/commonMain `data/movement/SessionRecording.kt`, `InProcessRecordingController.kt`, `tracker/presentation/TrackerViewModel.kt`, `tracker/ui/TrackerScreen.kt`; shared/androidMain `MovementRecordingStore.kt`, `MovementRecordingService.kt`, `RecordingControllerFactory.android.kt`; shared/commonTest `SessionRecordingTest.kt`, `TrackerViewModelTest.kt`.
+- **Validación:** `:app:shared:jvmTest` BUILD SUCCESSFUL — 67 tests, 0 fallos (nuevos: la ruta terminada se limpia, la confirmación se ofrece una vez y se olvida al reconocerla, y una nueva sesión descarta la confirmación anterior; en el ViewModel, que el mapa deja de recibir el recorrido terminado). `assembleDebug`, `:core:check`, `:app:desktopApp:check`, `:app:webApp:check` BUILD SUCCESSFUL.
+- **Desviación:** el test `reportsTheRealDurationEvenIfNothingTickedInBetween` tuvo que reescribirse: como el estado en curso ahora se limpia al detener, la duración solo es observable en la sesión guardada.
+- **Nota:** este fallo era observable únicamente ejecutando la app —ningún test de host lo habría cazado, porque el estado global de proceso es exactamente lo que no se reproduce en un test unitario— y salió de la prueba manual del usuario. Refuerza que la validación en dispositivo es parte del ciclo, no un extra.
+
+**Recap:** Al detener, el tracker vuelve a estado limpio y muestra durante unos segundos el resumen de lo guardado; además el guardado ya no puede cancelarse al apagar el servicio.
+
+**Próximos pasos (opciones):** (1) validar en dispositivo estas dos correcciones; (2) seguir con B (Kalman + estadísticas) del backlog; (3) G (sobrevivir a que el sistema mate el proceso) si en uso real ocurre.

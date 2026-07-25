@@ -1,20 +1,19 @@
 package com.hazlosano.feature.movement.tracker.presentation
 
-import com.hazlosano.domain.feature.movement.model.MovementSession
+import com.hazlosano.domain.feature.movement.model.RecordingState
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.repository.LocationRepository
-import com.hazlosano.domain.feature.movement.repository.MovementSessionRepository
-import com.hazlosano.domain.feature.movement.usecase.SaveSessionUseCase
-import com.hazlosano.domain.time.TimeProvider
+import com.hazlosano.domain.feature.movement.repository.RecordingController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.AfterTest
@@ -32,15 +31,38 @@ private class FakeLocationRepository(
     override fun getLocationUpdates(): Flow<UserLocation> = updates
 }
 
-private class FakeMovementSessionRepository : MovementSessionRepository {
-    var savedSession: MovementSession? = null
-    var savedPoints: List<UserLocation> = emptyList()
+/** Stands in for the foreground service (or its in-process equivalent). */
+private class FakeRecordingController : RecordingController {
+    private val _state = MutableStateFlow(RecordingState())
+    override val state: StateFlow<RecordingState> = _state.asStateFlow()
 
-    override fun getAllSessions() = flowOf(emptyList<MovementSession>())
-    override fun getSessionPoints(sessionId: Long) = flowOf(emptyList<UserLocation>())
-    override suspend fun saveSession(session: MovementSession, rawPoints: List<UserLocation>) {
-        savedSession = session
-        savedPoints = rawPoints
+    private val _lastSavedSession = MutableStateFlow<RecordingState?>(null)
+    override val lastSavedSession: StateFlow<RecordingState?> = _lastSavedSession.asStateFlow()
+
+    var startCount: Int = 0
+        private set
+    var stopCount: Int = 0
+        private set
+
+    override fun startRecording() {
+        startCount++
+        _lastSavedSession.value = null
+        _state.value = RecordingState(isRecording = true, startedAtMillis = 0)
+    }
+
+    override fun stopRecording() {
+        stopCount++
+        _lastSavedSession.value = _state.value.copy(isRecording = false)
+        _state.value = RecordingState()
+    }
+
+    override fun acknowledgeSavedSession() {
+        _lastSavedSession.value = null
+    }
+
+    /** Simulates what the service records while the screen is elsewhere. */
+    fun publish(state: RecordingState) {
+        _state.value = state
     }
 }
 
@@ -59,11 +81,11 @@ class TrackerViewModelTest {
 
     private fun buildViewModel(
         updates: Flow<UserLocation> = flowOf(),
-        sessionRepository: FakeMovementSessionRepository = FakeMovementSessionRepository(),
+        controller: FakeRecordingController = FakeRecordingController(),
     ): TrackerViewModel =
         TrackerViewModel(
             locationRepository = FakeLocationRepository(updates),
-            saveSession = SaveSessionUseCase(sessionRepository, TimeProvider { 0L }),
+            recordingController = controller,
         )
 
     @Test
@@ -81,59 +103,109 @@ class TrackerViewModelTest {
     fun startsNotRecording() {
         val viewModel = buildViewModel()
 
-        assertFalse(viewModel.isRecording.value)
-        assertEquals(0, viewModel.traveledPoints.value.size)
+        assertFalse(viewModel.recording.value.isRecording)
+        assertEquals(0, viewModel.recording.value.traveledPoints.size)
     }
 
     @Test
-    fun recordingAccumulatesPathAndDistance() = runTest {
-        val points = listOf(
-            UserLocation(latitude = 19.4300, longitude = -99.1300, timestamp = 0),
-            UserLocation(latitude = 19.4310, longitude = -99.1300, timestamp = 1000),
-            UserLocation(latitude = 19.4320, longitude = -99.1300, timestamp = 2000),
-        )
-        val viewModel = buildViewModel(points.asFlow())
+    fun handsRecordingOverToTheController() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
 
         viewModel.startRecording()
-        viewModel.startTracking()
-        runCurrent() // process the (delay-free) emissions without advancing the 1s timer
-        viewModel.stopRecording()
 
-        assertEquals(3, viewModel.traveledPoints.value.size)
-        assertTrue(viewModel.distanceMeters.value > 0.0)
-        assertFalse(viewModel.isRecording.value)
+        assertEquals(1, controller.startCount)
+        assertTrue(viewModel.recording.value.isRecording)
     }
 
     @Test
-    fun locationIsNotRecordedWhenNotRecording() = runTest {
-        val location = UserLocation(latitude = 19.4326, longitude = -99.1332)
-        val viewModel = buildViewModel(flowOf(location))
+    fun reflectsWhatTheControllerRecordedWhileTheScreenWasAway() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
+        viewModel.startRecording()
+
+        // The service kept recording with the app in the background.
+        controller.publish(
+            RecordingState(
+                isRecording = true,
+                startedAtMillis = 0,
+                traveledPoints = listOf(
+                    UserLocation(latitude = 19.4300, longitude = -99.1300),
+                    UserLocation(latitude = 19.4310, longitude = -99.1300),
+                ),
+                distanceMeters = 111.0,
+                elapsedSeconds = 420,
+            ),
+        )
+
+        val recording = viewModel.recording.value
+        assertTrue(recording.isRecording)
+        assertEquals(2, recording.traveledPoints.size)
+        assertEquals(111.0, recording.distanceMeters)
+        assertEquals(420, recording.elapsedSeconds)
+    }
+
+    @Test
+    fun stoppingAsksTheControllerToStopAndSurfacesTheSavedSession() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
+        viewModel.startRecording()
+
+        viewModel.stopRecording()
+
+        assertEquals(1, controller.stopCount)
+        assertFalse(viewModel.recording.value.isRecording)
+        assertNotNull(viewModel.lastSavedSession.value)
+    }
+
+    @Test
+    fun stopsShowingTheFinishedRouteOnTheMap() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
+        viewModel.startRecording()
+        controller.publish(
+            RecordingState(
+                isRecording = true,
+                startedAtMillis = 0,
+                traveledPoints = listOf(
+                    UserLocation(latitude = 19.4300, longitude = -99.1300),
+                    UserLocation(latitude = 19.4310, longitude = -99.1300),
+                ),
+                distanceMeters = 111.0,
+                elapsedSeconds = 60,
+            ),
+        )
+
+        viewModel.stopRecording()
+
+        // What the map draws must be empty once the session ended, however long the screen lives.
+        assertEquals(0, viewModel.recording.value.traveledPoints.size)
+    }
+
+    @Test
+    fun forgetsTheConfirmationOnceTheScreenShowedIt() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
+        viewModel.startRecording()
+        viewModel.stopRecording()
+
+        viewModel.acknowledgeSavedSession()
+
+        assertNull(viewModel.lastSavedSession.value)
+    }
+
+    @Test
+    fun locationUpdatesDoNotFeedTheRecording() = runTest {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(
+            flowOf(UserLocation(latitude = 19.4326, longitude = -99.1332)),
+            controller,
+        )
 
         viewModel.startTracking()
         advanceUntilIdle()
 
-        assertEquals(0, viewModel.traveledPoints.value.size)
-        assertEquals(0.0, viewModel.distanceMeters.value)
-    }
-
-    @Test
-    fun stoppingRecordingPersistsTheSession() = runTest {
-        val points = listOf(
-            UserLocation(latitude = 19.4300, longitude = -99.1300, timestamp = 0),
-            UserLocation(latitude = 19.4310, longitude = -99.1300, timestamp = 1000),
-            UserLocation(latitude = 19.4320, longitude = -99.1300, timestamp = 2000),
-        )
-        val sessionRepository = FakeMovementSessionRepository()
-        val viewModel = buildViewModel(points.asFlow(), sessionRepository)
-
-        viewModel.startRecording()
-        viewModel.startTracking()
-        runCurrent()
-        viewModel.stopRecording()
-        advanceUntilIdle()
-
-        assertNotNull(sessionRepository.savedSession)
-        assertEquals(3, sessionRepository.savedPoints.size)
-        assertTrue(viewModel.sessionSaved.value)
+        // The recording collects its own locations in the service; the screen only draws them.
+        assertEquals(0, viewModel.recording.value.traveledPoints.size)
     }
 }
