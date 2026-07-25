@@ -44,6 +44,24 @@ class MovementNavStateTest {
     }
 
     @Test
+    fun opensTheDetailOfTheTappedSession() {
+        val state = MovementNavState().apply { openHistory() }
+
+        state.openSessionDetail(sessionId = 42)
+
+        assertEquals(MovementDestination.SessionDetail(sessionId = 42), state.destination)
+    }
+
+    @Test
+    fun returnsToTheHistoryFromTheDetail() {
+        val state = MovementNavState().apply { openSessionDetail(sessionId = 42) }
+
+        state.openHistory()
+
+        assertEquals(MovementDestination.History, state.destination)
+    }
+
+    @Test
     fun closesWhenBackControlTapped() {
         val state = MovementNavState().apply { openTracker() }
 

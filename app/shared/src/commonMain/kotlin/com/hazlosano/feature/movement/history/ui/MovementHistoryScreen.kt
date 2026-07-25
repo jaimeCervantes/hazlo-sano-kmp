@@ -33,7 +33,11 @@ import com.hazlosano.feature.movement.history.presentation.createMovementHistory
 
 /** Lists the sessions recorded with the tracker, newest first. */
 @Composable
-fun MovementHistoryScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun MovementHistoryScreen(
+    onBack: () -> Unit,
+    onOpenSession: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val viewModel = remember { createMovementHistoryViewModel() }
     val state by viewModel.state.collectAsState()
 
@@ -54,14 +58,14 @@ fun MovementHistoryScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     Message(current.message, color = MaterialTheme.colorScheme.error)
                 }
 
-                is MovementHistoryUiState.Sessions -> SessionList(current.items)
+                is MovementHistoryUiState.Sessions -> SessionList(current.items, onOpenSession)
             }
         }
     }
 }
 
 @Composable
-private fun SessionList(items: List<SessionListItem>) {
+private fun SessionList(items: List<SessionListItem>, onOpenSession: (Long) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -72,13 +76,15 @@ private fun SessionList(items: List<SessionListItem>) {
         ),
         verticalArrangement = Arrangement.spacedBy(HazloSpaces.sm),
     ) {
-        items(items, key = { it.id }) { item -> SessionRow(item) }
+        items(items, key = { it.id }) { item ->
+            SessionRow(item, onClick = { onOpenSession(item.id) })
+        }
     }
 }
 
 @Composable
-private fun SessionRow(item: SessionListItem) {
-    LeafCard(modifier = Modifier.fillMaxWidth()) {
+private fun SessionRow(item: SessionListItem, onClick: () -> Unit) {
+    LeafCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(HazloSpaces.md)) {
             Text(
                 text = item.name,

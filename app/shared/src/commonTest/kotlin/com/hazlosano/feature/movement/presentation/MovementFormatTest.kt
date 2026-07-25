@@ -40,6 +40,26 @@ class MovementFormatTest {
     }
 
     @Test
+    fun showsPaceAsMinutesAndSecondsPerKilometer() {
+        assertEquals("5:30 /km", MovementFormat.pace(5.5))
+        assertEquals("12:06 /km", MovementFormat.pace(12.1))
+    }
+
+    @Test
+    fun hasNoPaceWhenTheSessionCoveredNoDistance() {
+        assertEquals("—", MovementFormat.pace(0.0))
+        assertEquals("—", MovementFormat.pace(-1.0))
+        assertEquals("—", MovementFormat.pace(Double.POSITIVE_INFINITY))
+        assertEquals("—", MovementFormat.pace(Double.NaN))
+    }
+
+    @Test
+    fun showsElevationInWholeMeters() {
+        assertEquals("0 m", MovementFormat.elevation(0.0))
+        assertEquals("125 m", MovementFormat.elevation(124.6))
+    }
+
+    @Test
     fun showsTheSessionDateInTheGivenTimeZone() {
         // 2026-07-24T07:15:00Z
         val epochMillis = 1_784_877_300_000L

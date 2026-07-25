@@ -28,6 +28,7 @@ import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewModel
+import com.hazlosano.feature.movement.ui.MovementMap
 
 /**
  * Movement tracker screen: a map showing the user's live location, live session metrics, and a
@@ -53,9 +54,9 @@ fun TrackerScreen(
         HazloTopAppBar(title = "Movimiento", showBackButton = true, onBackClick = onBack)
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            TrackerMap(
+            MovementMap(
                 userLocation = userLocation,
-                traveledPoints = traveledPoints,
+                path = traveledPoints,
                 modifier = Modifier.fillMaxSize(),
             )
             SessionMetrics(

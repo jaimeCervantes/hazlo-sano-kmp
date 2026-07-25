@@ -47,6 +47,7 @@ import com.hazlosano.feature.nutrition.presentation.NutritionViewModel
 import com.hazlosano.feature.nutrition.ui.NutritionScreen
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
+import com.hazlosano.feature.movement.detail.ui.SessionDetailScreen
 import com.hazlosano.feature.movement.history.ui.MovementHistoryScreen
 import com.hazlosano.feature.movement.presentation.MovementDestination
 import com.hazlosano.feature.movement.presentation.MovementNavState
@@ -84,7 +85,7 @@ fun MainScreen(
         showSleepHistory = true
     }
 
-    when (movementNav.destination) {
+    when (val movementDestination = movementNav.destination) {
         MovementDestination.Tracker -> {
             TrackerScreen(
                 onBack = { movementNav.close() },
@@ -97,6 +98,16 @@ fun MainScreen(
         MovementDestination.History -> {
             MovementHistoryScreen(
                 onBack = { movementNav.openTracker() },
+                onOpenSession = { sessionId -> movementNav.openSessionDetail(sessionId) },
+                modifier = Modifier.fillMaxSize(),
+            )
+            return
+        }
+
+        is MovementDestination.SessionDetail -> {
+            SessionDetailScreen(
+                sessionId = movementDestination.sessionId,
+                onBack = { movementNav.openHistory() },
                 modifier = Modifier.fillMaxSize(),
             )
             return

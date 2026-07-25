@@ -1,4 +1,4 @@
-package com.hazlosano.feature.movement.tracker.ui
+package com.hazlosano.feature.movement.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
@@ -9,10 +9,11 @@ import androidx.compose.ui.Modifier
 import com.hazlosano.domain.feature.movement.model.UserLocation
 
 @Composable
-actual fun TrackerMap(
+actual fun MovementMap(
     userLocation: UserLocation?,
-    traveledPoints: List<UserLocation>,
+    path: List<UserLocation>,
     modifier: Modifier,
+    fitPathInView: Boolean,
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(

@@ -35,6 +35,18 @@ object MovementFormat {
         }
     }
 
+    /** Average pace as `mm:ss /km`; a session without distance or time has no meaningful pace. */
+    fun pace(minutesPerKilometer: Double): String {
+        if (minutesPerKilometer <= 0.0 || !minutesPerKilometer.isFinite()) return NO_VALUE
+
+        val totalSeconds = (minutesPerKilometer * SECONDS_PER_MINUTE).roundToLong()
+        val minutes = totalSeconds / SECONDS_PER_MINUTE
+        val seconds = totalSeconds % SECONDS_PER_MINUTE
+        return "$minutes:${seconds.pad2()} /km"
+    }
+
+    fun elevation(meters: Double): String = "${meters.roundToInt()} m"
+
     fun dateTime(epochMillis: Long, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
         val local = Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(timeZone)
         val month = MONTH_NAMES[local.monthNumber - 1]
@@ -50,6 +62,7 @@ object MovementFormat {
         "jul", "ago", "sep", "oct", "nov", "dic",
     )
 
+    private const val NO_VALUE = "—"
     private const val METERS_PER_KILOMETER = 1_000.0
     private const val SECONDS_PER_MINUTE = 60L
     private const val SECONDS_PER_HOUR = 3_600L

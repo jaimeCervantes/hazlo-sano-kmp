@@ -174,3 +174,31 @@ git commit -m "docs: outside-in double-loop skill, bitacora, and validation work
 **Próximos pasos (opciones):** (1) session detail with the saved route drawn on the map; (2) real SQLDelight migrations (replace the `ensureNewTablesExist` hack); (3) Compose UI test setup for the movement screens.
 
 ---
+
+## Slice 6 — Session detail with the recorded route on the map
+
+- **Objective:** Tapping a session in the history opens its detail: the stored route drawn on the map (framed to the path), plus distance, time, average pace and elevation gain. Spec: [`features/movement_session_detail.feature`](../../features/movement_session_detail.feature).
+- **Decisions + rationale:**
+  - **Framing logic moved into the domain:** `GeoBounds` + `List<UserLocation>.boundingBox()` in `core` — the clean, target-neutral version of the reference's `resolveInitialViewportPoints`. The decision "where should the camera look" is now unit-tested on the JVM, and the Android map code only translates it to MapLibre (`CameraUpdateFactory.newLatLngBounds`), with `spansAnArea`/center covering the degenerate single-coordinate path.
+  - **One map for the pillar:** `TrackerMap` was generalized into `MovementMap(userLocation, path, fitPathInView)` under `feature/movement/ui/`, reused by the tracker (follows the live position) and the detail (frames the finished path). Avoids duplicating the MapLibre + lifecycle plumbing in a second `expect/actual`.
+  - **`GetSessionDetailUseCase`** combines `getAllSessions()` with `getSessionPoints(id)` instead of adding a `getSessionById` query: the repository contract stays narrow and no `.sq`/schema change (and therefore no migration) is needed for this slice.
+  - **`MovementDestination` became a sealed interface** so `SessionDetail(sessionId)` can carry its argument; back from the detail returns to the history, keeping the pillar's navigation in one tested state holder.
+  - `SessionDetailUiState` is sealed (`Loading | Missing | Detail | Error`), and "no stored route" is modeled as `hasPath` on the UI model instead of a separate state, since the summary is still shown.
+  - **Reference comparison** (`C:\Users\S2G52\AndroidStudioProjects\HazloSano`, `SessionDetailScreen`/`RouteMap`) was used for the MapLibre camera APIs only. Deliberately not carried over: satellite toggle, the `Route`/GPX concept, the 8-metric `CompactStatsHeader`, and the viewport logic living inside the Composable.
+- **Files touched:**
+  - core: `model/GeoBounds.kt`, `model/SessionDetail.kt`, `usecase/GetSessionDetailUseCase.kt`
+  - core/commonTest: `model/GeoBoundsTest.kt`, `usecase/GetSessionDetailUseCaseTest.kt`
+  - shared/commonMain: `feature/movement/ui/MovementMap.kt` (expect, replaces `tracker/ui/TrackerMap.kt`), `feature/movement/detail/presentation/SessionDetailViewModel.kt`, `SessionDetailViewModelFactory.kt`, `feature/movement/detail/ui/SessionDetailScreen.kt`, updated `presentation/MovementNavState.kt` (sealed destinations), `presentation/MovementFormat.kt` (pace + elevation), `history/ui/MovementHistoryScreen.kt` (clickable rows), `tracker/ui/TrackerScreen.kt`, `feature/main/ui/MainScreen.kt`
+  - shared/androidMain: `feature/movement/ui/MovementMap.android.kt` (path framing via `newLatLngBounds`, posted after layout with a center+zoom fallback); deleted `tracker/ui/TrackerMap.android.kt`
+  - shared/{iosMain,jvmMain,jsMain}: `MovementMap` placeholder actuals (old `TrackerMap` actuals deleted)
+  - shared/commonTest: `feature/movement/detail/presentation/SessionDetailViewModelTest.kt`, expanded `MovementFormatTest.kt` + `MovementNavStateTest.kt`
+  - shared/jvmTest: `feature/movement/detail/SessionDetailIntegrationTest.kt`
+  - features: `movement_session_detail.feature`
+- **Key commands:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :core:check :app:desktopApp:check :app:webApp:check`
+- **Validation results:** `:app:shared:jvmTest` BUILD SUCCESSFUL — 55 tests, 0 failures (new: `SessionDetailIntegrationTest` 3, `SessionDetailViewModelTest` 4, plus `MovementFormatTest` 9 and `MovementNavStateTest` 7). `:core` BUILD SUCCESSFUL — 13 tests, 0 failures (new: `GeoBoundsTest` 5, `GetSessionDetailUseCaseTest` 4). `:app:androidApp:assembleDebug`, `:app:desktopApp:check` and `:app:webApp:check` BUILD SUCCESSFUL.
+- **Deviations:** none in scope. Two judgment calls worth recording: the detail reads the session from the full list (no new query, no migration), and the camera fit is posted to the `MapView` because MapLibre needs the rendered size to fit bounds — with a center+zoom fallback when the view has no size yet or the path is a single coordinate.
+- **Follow-ups:** on-device check of the framing on a real recorded route (the map layer stays untested on the host — Compose UI/Robolectric/instrumented tests are still the open gap); satellite toggle using `MapConstants.SATELLITE_STYLE_URL`; delete/rename a session; real SQLDelight migrations.
+
+**Recap:** A recorded session can now be opened from the history and reviewed: its stored route is drawn on the map framed to the path's bounds, with distance, time, average pace and elevation gain, and a clear message when the session stored no route — with the framing rule, the detail use case, the ViewModel and the formatting all unit-tested, and the whole read path covered by an integration test over SQLDelight.
+
+**Próximos pasos (opciones):** (1) on-device validation of the route framing, then satellite toggle; (2) delete/rename sessions from the history or detail; (3) real SQLDelight migrations (replace the `ensureNewTablesExist` hack); (4) Compose UI test setup for the movement screens.
