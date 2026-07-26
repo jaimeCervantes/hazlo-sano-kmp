@@ -1,7 +1,6 @@
 package com.hazlosano.feature.movement.history.presentation
 
 import com.hazlosano.domain.feature.movement.model.MovementSession
-import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.repository.MovementSessionRepository
 import com.hazlosano.domain.feature.movement.usecase.GetSessionsUseCase
@@ -27,6 +26,7 @@ private class StubMovementSessionRepository(
     override fun getAllSessions(): Flow<List<MovementSession>> = sessions
     override fun getSessionPoints(sessionId: Long): Flow<List<UserLocation>> = flowOf(emptyList())
     override suspend fun saveSession(session: MovementSession, rawPoints: List<UserLocation>) = Unit
+    override suspend fun updateDistance(sessionId: Long, distanceMeters: Double) = Unit
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -121,9 +121,7 @@ class MovementHistoryViewModelTest {
             date = date,
             elapsedTime = elapsedSeconds,
             distanceTraveled = distanceMeters,
-            elevationGain = 0.0,
             previewPoints = emptyList(),
-            stats = SessionStats(),
         )
 }
 

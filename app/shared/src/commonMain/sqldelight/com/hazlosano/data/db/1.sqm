@@ -1,0 +1,105 @@
+-- Version 1 -> 2.
+--
+-- Two things happen here, and the first one is why this file exists at all.
+--
+-- Until now the app had no migrations. AndroidSqliteDriver only runs Schema.create() when the
+-- database file does not exist, so every table added after the first release was created by hand at
+-- startup by an ensureNewTablesExist() helper that duplicated the CREATE TABLE statements. That
+-- helper could only ever add whole tables: changing an existing one was impossible, and would have
+-- broken an already installed app at runtime with nothing failing at compile time. This migration
+-- replaces it, so the tables it used to create are created here for databases that predate it.
+--
+-- Second, the movement session row loses its statistics columns. They were a cache of figures that
+-- are pure functions of MovementPointEntity, and a cache written once is frozen at the algorithm
+-- that produced it: improving how climb or distance is measured left every session already recorded
+-- reporting the old number. Those figures are now computed when a session is opened. Nothing is
+-- lost that cannot be recomputed from the points, which are kept in full.
+--
+-- Rebuilding MovementSessionEntity means dropping it, and MovementPointEntity references it with
+-- ON DELETE CASCADE. With foreign keys enabled SQLite runs an implicit DELETE FROM on a dropped
+-- table, which would take every recorded point with it. This project enables foreign keys nowhere,
+-- and neither driver turns them on by default, so the drop is safe here — and
+-- MovementSessionMigrationTest asserts exactly that rather than leaving it to be reasoned about.
+
+-- Tables that ensureNewTablesExist used to create by hand.
+CREATE TABLE IF NOT EXISTS SellerEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    url TEXT,
+    description TEXT,
+    logoUrl TEXT,
+    hasMembership INTEGER NOT NULL DEFAULT 0,
+    hasPaidAds INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ProductEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    price REAL NOT NULL,
+    isAvailable INTEGER NOT NULL DEFAULT 1,
+    description TEXT,
+    category TEXT NOT NULL,
+    subCategory TEXT,
+    tags TEXT NOT NULL DEFAULT '[]',
+    imageUrl TEXT,
+    productUrl TEXT,
+    sellerId TEXT,
+    FOREIGN KEY (sellerId) REFERENCES SellerEntity(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_category ON ProductEntity(category);
+CREATE INDEX IF NOT EXISTS idx_product_seller ON ProductEntity(sellerId);
+
+CREATE TABLE IF NOT EXISTS MovementPointEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sessionId INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    altitude REAL NOT NULL,
+    accuracy REAL NOT NULL,
+    bearing REAL NOT NULL,
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY(sessionId) REFERENCES MovementSessionEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_movement_point_session ON MovementPointEntity(sessionId, seq);
+
+-- Created in its old shape when missing, so the rebuild below has something to copy from whether
+-- this database ever had movement sessions or not.
+CREATE TABLE IF NOT EXISTS MovementSessionEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    routeId INTEGER,
+    name TEXT NOT NULL,
+    date INTEGER NOT NULL,
+    elapsedTime INTEGER NOT NULL,
+    distanceTraveled REAL NOT NULL,
+    elevationGain REAL NOT NULL,
+    movingTime INTEGER NOT NULL DEFAULT 0,
+    avgPace REAL NOT NULL DEFAULT 0.0,
+    maxAltitude REAL NOT NULL DEFAULT 0.0,
+    minAltitude REAL NOT NULL DEFAULT 0.0,
+    totalAscent REAL NOT NULL DEFAULT 0.0,
+    totalDescent REAL NOT NULL DEFAULT 0.0
+);
+
+CREATE TABLE MovementSessionEntityRebuilt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    routeId INTEGER,
+    name TEXT NOT NULL,
+    date INTEGER NOT NULL,
+    elapsedTime INTEGER NOT NULL,
+    distanceTraveled REAL NOT NULL
+);
+
+INSERT INTO MovementSessionEntityRebuilt(id, routeId, name, date, elapsedTime, distanceTraveled)
+SELECT id, routeId, name, date, elapsedTime, distanceTraveled
+FROM MovementSessionEntity;
+
+DROP TABLE MovementSessionEntity;
+
+ALTER TABLE MovementSessionEntityRebuilt RENAME TO MovementSessionEntity;
+
+CREATE INDEX IF NOT EXISTS idx_movement_session_date ON MovementSessionEntity(date);

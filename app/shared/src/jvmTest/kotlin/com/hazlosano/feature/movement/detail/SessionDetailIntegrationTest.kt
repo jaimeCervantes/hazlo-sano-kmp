@@ -2,13 +2,12 @@ package com.hazlosano.feature.movement.detail
 
 import com.hazlosano.data.db.inMemoryHazloSanoDatabase
 import com.hazlosano.data.movement.SqlDelightMovementSessionRepository
-import com.hazlosano.domain.feature.movement.model.NavigationState
-import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.model.boundingBox
 import com.hazlosano.domain.feature.movement.repository.MovementSessionRepository
 import com.hazlosano.domain.feature.movement.usecase.GetSessionDetailUseCase
 import com.hazlosano.domain.feature.movement.usecase.GetSessionsUseCase
+import com.hazlosano.domain.feature.movement.usecase.RefreshSessionSummaryUseCase
 import com.hazlosano.domain.feature.movement.usecase.SaveSessionUseCase
 import com.hazlosano.domain.time.TimeProvider
 import com.hazlosano.feature.movement.detail.presentation.SessionDetailUiState
@@ -59,10 +58,10 @@ class SessionDetailIntegrationTest {
 
         assertEquals("Sesión de movimiento", detail.session.name)
         assertEquals("24 jul 2026 · 07:15", detail.session.dateLabel)
-        assertEquals("1.25 km", detail.session.distanceLabel)
         assertEquals("10:00", detail.session.durationLabel)
-        assertEquals("8:00 /km", detail.session.paceLabel)
-        assertEquals("5 m", detail.session.elevationLabel)
+        // Measured from the route that came back out of the database, not from the 1250 m the
+        // session was saved with.
+        assertEquals("390 m", detail.session.distanceLabel)
         assertTrue(detail.session.hasPath)
         assertEquals(
             RECORDED_PATH.map { it.latitude to it.longitude },
@@ -96,7 +95,33 @@ class SessionDetailIntegrationTest {
 
         assertEquals(0, detail.session.path.size)
         assertFalse(detail.session.hasPath)
-        assertEquals("1.25 km", detail.session.distanceLabel)
+        // Nothing was stored to measure, so nothing is claimed.
+        assertEquals("—", detail.session.distanceLabel)
+    }
+
+    @Test
+    fun openingASessionBringsTheHistorySummaryInLineWithItsRoute() = runTest {
+        val repository: MovementSessionRepository =
+            SqlDelightMovementSessionRepository(inMemoryHazloSanoDatabase())
+        // Saved with a distance that does not match the route it stored, as a session recorded
+        // before the measurement improved would be.
+        saveRecordedSession(repository, path = RECORDED_PATH)
+        assertEquals("1.25 km", historyDistanceLabels(repository).single())
+
+        detailOf(repository, historySessionIds(repository).single())
+
+        assertEquals("390 m", historyDistanceLabels(repository).single())
+    }
+
+    private suspend fun historyDistanceLabels(
+        repository: MovementSessionRepository,
+    ): List<String> {
+        val history = MovementHistoryViewModel(
+            getSessions = GetSessionsUseCase(repository),
+            timeZone = TimeZone.UTC,
+        )
+        val state = history.state.first { it !is MovementHistoryUiState.Loading }
+        return assertIs<MovementHistoryUiState.Sessions>(state).items.map { it.distanceLabel }
     }
 
     private suspend fun historySessionIds(repository: MovementSessionRepository): List<Long> {
@@ -115,6 +140,7 @@ class SessionDetailIntegrationTest {
         val viewModel = SessionDetailViewModel(
             sessionId = sessionId,
             getSessionDetail = GetSessionDetailUseCase(repository),
+            refreshSessionSummary = RefreshSessionSummaryUseCase(repository),
             timeZone = TimeZone.UTC,
         )
         val state = viewModel.state.first { it !is SessionDetailUiState.Loading }
@@ -129,13 +155,9 @@ class SessionDetailIntegrationTest {
         saveSession(
             name = "Sesión de movimiento",
             routeId = null,
-            state = NavigationState(
-                traveledPoints = path,
-                elapsedTime = 600,
-                distanceTraveled = 1_250.0,
-                elevationGain = 5.0,
-                stats = SessionStats(totalAscent = 5.0, avgPace = 8.0, movingTime = 580),
-            ),
+            points = path,
+            elapsedSeconds = 600,
+            distanceMeters = 1_250.0,
         )
     }
 }

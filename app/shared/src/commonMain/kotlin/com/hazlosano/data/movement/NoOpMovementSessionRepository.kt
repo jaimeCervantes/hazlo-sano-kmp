@@ -11,4 +11,5 @@ object NoOpMovementSessionRepository : MovementSessionRepository {
     override fun getAllSessions(): Flow<List<MovementSession>> = flowOf(emptyList())
     override fun getSessionPoints(sessionId: Long): Flow<List<UserLocation>> = flowOf(emptyList())
     override suspend fun saveSession(session: MovementSession, rawPoints: List<UserLocation>) = Unit
+    override suspend fun updateDistance(sessionId: Long, distanceMeters: Double) = Unit
 }

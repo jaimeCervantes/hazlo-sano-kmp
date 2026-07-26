@@ -32,6 +32,8 @@ import com.hazlosano.feature.movement.detail.presentation.SessionDiagnosisUi
 import com.hazlosano.feature.movement.detail.presentation.createSessionDetailViewModel
 import com.hazlosano.feature.movement.ui.MovementMap
 
+private const val METRICS_PER_ROW = 4
+
 /** Detail of one recorded session: its route on the map and the summary of what was recorded. */
 @Composable
 fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -95,18 +97,31 @@ private fun SessionDetailContent(session: SessionDetailUi) {
     }
 }
 
+/**
+ * Laid out as rows of four rather than one row of eight: eight figures across a phone would shrink
+ * every one of them until none could be read at a glance, and the map still needs the room.
+ */
 @Composable
 private fun SessionSummary(session: SessionDetailUi) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(HazloSpaces.sm),
     ) {
-        SummaryMetric(label = "Distancia", value = session.distanceLabel)
-        SummaryMetric(label = "Tiempo", value = session.durationLabel)
-        SummaryMetric(label = "Ritmo", value = session.paceLabel)
-        SummaryMetric(label = "Desnivel", value = session.elevationLabel)
+        session.metrics.chunked(METRICS_PER_ROW).forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                row.forEach { metric ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        SummaryMetric(label = metric.label, value = metric.value)
+                    }
+                }
+                // Keeps a short last row aligned with the one above instead of spreading out.
+                repeat(METRICS_PER_ROW - row.size) {
+                    Box(modifier = Modifier.weight(1f)) {}
+                }
+            }
+        }
     }
 }
 

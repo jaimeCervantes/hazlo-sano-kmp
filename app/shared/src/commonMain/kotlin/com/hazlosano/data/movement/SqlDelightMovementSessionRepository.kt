@@ -39,13 +39,6 @@ class SqlDelightMovementSessionRepository(
                     date = session.date,
                     elapsedTime = session.elapsedTime,
                     distanceTraveled = session.distanceTraveled,
-                    elevationGain = session.elevationGain,
-                    movingTime = session.stats.movingTime,
-                    avgPace = session.stats.avgPace,
-                    maxAltitude = session.stats.maxAltitude,
-                    minAltitude = session.stats.minAltitude,
-                    totalAscent = session.stats.totalAscent,
-                    totalDescent = session.stats.totalDescent,
                 )
                 val sessionId = queries.lastInsertedSessionId().executeAsOne()
                 rawPoints.forEachIndexed { index, point ->
@@ -61,6 +54,12 @@ class SqlDelightMovementSessionRepository(
                     )
                 }
             }
+        }
+    }
+
+    override suspend fun updateDistance(sessionId: Long, distanceMeters: Double) {
+        withContext(Dispatchers.Default) {
+            queries.updateDistance(distanceTraveled = distanceMeters, id = sessionId)
         }
     }
 }

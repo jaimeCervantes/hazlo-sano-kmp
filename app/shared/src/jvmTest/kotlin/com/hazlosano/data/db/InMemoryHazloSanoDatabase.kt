@@ -10,14 +10,19 @@ import java.sql.DriverManager
  * last connection closes, so a single connection is kept open for the whole test.
  */
 internal fun inMemoryHazloSanoDatabase(): HazloSanoDatabase {
+    val driver = inMemoryDriver()
+    HazloSanoDatabase.Schema.create(driver)
+    return HazloSanoDatabase(driver)
+}
+
+/** An empty database, for tests that build a schema by hand before letting migrations run. */
+internal fun inMemoryDriver(): JdbcDriver {
     val connection = DriverManager.getConnection("jdbc:sqlite::memory:")
-    val driver = object : JdbcDriver() {
+    return object : JdbcDriver() {
         override fun getConnection(): Connection = connection
         override fun closeConnection(connection: Connection) = Unit
         override fun addListener(vararg queryKeys: String, listener: Query.Listener) = Unit
         override fun removeListener(vararg queryKeys: String, listener: Query.Listener) = Unit
         override fun notifyListeners(vararg queryKeys: String) = Unit
     }
-    HazloSanoDatabase.Schema.create(driver)
-    return HazloSanoDatabase(driver)
 }

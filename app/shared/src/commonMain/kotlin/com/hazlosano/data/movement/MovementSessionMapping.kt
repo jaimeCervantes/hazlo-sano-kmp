@@ -3,10 +3,12 @@ package com.hazlosano.data.movement
 import com.hazlosano.data.db.MovementPointEntity
 import com.hazlosano.data.db.MovementSessionEntity
 import com.hazlosano.domain.feature.movement.model.MovementSession
-import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 
-/** Maps a persisted session row to the domain model. Points are loaded separately. */
+/**
+ * Maps a persisted session row to the domain model. Points are loaded separately, and everything
+ * the route shows is derived from them when the session is opened rather than read from here.
+ */
 internal fun MovementSessionEntity.toDomain(
     previewPoints: List<UserLocation> = emptyList(),
 ): MovementSession =
@@ -17,16 +19,7 @@ internal fun MovementSessionEntity.toDomain(
         date = date,
         elapsedTime = elapsedTime,
         distanceTraveled = distanceTraveled,
-        elevationGain = elevationGain,
         previewPoints = previewPoints,
-        stats = SessionStats(
-            maxAltitude = maxAltitude,
-            minAltitude = minAltitude,
-            totalAscent = totalAscent,
-            totalDescent = totalDescent,
-            avgPace = avgPace,
-            movingTime = movingTime,
-        ),
     )
 
 internal fun MovementPointEntity.toDomain(): UserLocation =

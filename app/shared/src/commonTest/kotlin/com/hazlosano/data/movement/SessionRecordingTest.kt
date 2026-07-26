@@ -41,6 +41,8 @@ private class RecordingMovementSessionRepository : MovementSessionRepository {
         savedSession = session
         savedPoints = rawPoints
     }
+
+    override suspend fun updateDistance(sessionId: Long, distanceMeters: Double) = Unit
 }
 
 /** A clock the test moves by hand, so elapsed time does not depend on how long the test ran. */

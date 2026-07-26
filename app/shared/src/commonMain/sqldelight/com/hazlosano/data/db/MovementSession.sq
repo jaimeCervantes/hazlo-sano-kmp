@@ -1,21 +1,23 @@
 -- Movement pillar tables in the shared HazloSanoDatabase.
 -- Pillar-prefixed names keep the single multi-pillar database organized alongside
 -- SleepSessionEntity, ProductEntity, etc. A session has many points (1-to-N).
+--
+-- The session row holds only what listing sessions needs. Climb, descent, altitudes and time spent
+-- moving are all pure functions of MovementPointEntity, so they are computed when a session is
+-- opened instead of stored: a stored figure is frozen at the algorithm that wrote it, which would
+-- leave every session already recorded reporting the old number after any improvement.
+--
+-- distanceTraveled is the deliberate exception. It is derivable too, but the history must be able
+-- to list sessions without reading every point of every one of them, so it is kept as a summary and
+-- refreshed by updateDistance when a session is opened.
 
 CREATE TABLE IF NOT EXISTS MovementSessionEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     routeId INTEGER,
     name TEXT NOT NULL,
     date INTEGER NOT NULL,              -- epoch millis
-    elapsedTime INTEGER NOT NULL,       -- seconds
-    distanceTraveled REAL NOT NULL,     -- meters
-    elevationGain REAL NOT NULL,        -- meters
-    movingTime INTEGER NOT NULL DEFAULT 0,
-    avgPace REAL NOT NULL DEFAULT 0.0,  -- min/km
-    maxAltitude REAL NOT NULL DEFAULT 0.0,
-    minAltitude REAL NOT NULL DEFAULT 0.0,
-    totalAscent REAL NOT NULL DEFAULT 0.0,
-    totalDescent REAL NOT NULL DEFAULT 0.0
+    elapsedTime INTEGER NOT NULL,       -- seconds, wall clock from start to stop
+    distanceTraveled REAL NOT NULL      -- meters, summary refreshed on read
 );
 
 CREATE TABLE IF NOT EXISTS MovementPointEntity (
@@ -35,11 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_movement_session_date ON MovementSessionEntity(da
 CREATE INDEX IF NOT EXISTS idx_movement_point_session ON MovementPointEntity(sessionId, seq);
 
 insertSession:
-INSERT INTO MovementSessionEntity(
-    routeId, name, date, elapsedTime, distanceTraveled, elevationGain,
-    movingTime, avgPace, maxAltitude, minAltitude, totalAscent, totalDescent
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO MovementSessionEntity(routeId, name, date, elapsedTime, distanceTraveled)
+VALUES (?, ?, ?, ?, ?);
 
 lastInsertedSessionId:
 SELECT last_insert_rowid();
@@ -49,6 +48,11 @@ INSERT INTO MovementPointEntity(
     sessionId, seq, latitude, longitude, altitude, accuracy, bearing, timestamp
 )
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateDistance:
+UPDATE MovementSessionEntity
+SET distanceTraveled = ?
+WHERE id = ?;
 
 selectAllSessions:
 SELECT *

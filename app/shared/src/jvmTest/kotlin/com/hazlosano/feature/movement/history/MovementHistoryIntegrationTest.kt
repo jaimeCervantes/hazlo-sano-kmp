@@ -94,16 +94,12 @@ class MovementHistoryIntegrationTest {
         saveSession(
             name = name,
             routeId = null,
-            state = NavigationState(
-                traveledPoints = listOf(
-                    UserLocation(latitude = 19.4300, longitude = -99.1300, timestamp = at),
-                    UserLocation(latitude = 19.4310, longitude = -99.1300, timestamp = at + 1_000),
-                ),
-                elapsedTime = 600,
-                distanceTraveled = 1_250.0,
-                elevationGain = 5.0,
-                stats = SessionStats(totalAscent = 5.0, avgPace = 8.0, movingTime = 580),
+            points = listOf(
+                UserLocation(latitude = 19.4300, longitude = -99.1300, timestamp = at),
+                UserLocation(latitude = 19.4310, longitude = -99.1300, timestamp = at + 1_000),
             ),
+            elapsedSeconds = 600,
+            distanceMeters = 1_250.0,
         )
     }
 }

@@ -12,6 +12,8 @@ import com.hazlosano.domain.feature.movement.model.UserLocation
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -36,11 +38,13 @@ class CalculateStatsUseCaseTest {
 
         val stats = readings.recordedStats()
 
-        assertTrue(stats.totalAscent < 25.0, "flat ground reported ${stats.totalAscent} m of climb")
-        assertTrue(stats.totalDescent < 25.0, "flat ground reported ${stats.totalDescent} m of descent")
+        val ascent = assertNotNull(stats.totalAscent)
+        val descent = assertNotNull(stats.totalDescent)
+        assertTrue(ascent < 25.0, "flat ground reported $ascent m of climb")
+        assertTrue(descent < 25.0, "flat ground reported $descent m of descent")
         // Guards the test itself: counting every rise, as before, invents hundreds of metres here.
         assertTrue(
-            readings.naiveAscentMeters() > stats.totalAscent * 10,
+            readings.naiveAscentMeters() > ascent * 10,
             "the altitude is not noisy enough to prove anything: " +
                 "counting every rise gives ${readings.naiveAscentMeters()} m",
         )
@@ -139,16 +143,17 @@ class CalculateStatsUseCaseTest {
 
         val travellingSeconds = 2 * travellingReadings * SAMPLING_INTERVAL_MILLIS / 1_000L
         val elapsedSeconds = session.elapsedSeconds()
+        val movingTime = assertNotNull(stats.movingTime)
         assertCloseTo(
             expected = travellingSeconds.toDouble(),
-            actual = stats.movingTime.toDouble(),
+            actual = movingTime.toDouble(),
             tolerance = 0.15,
             what = "time spent moving",
         )
         // The pause belongs to the session even though it is not time spent moving.
         assertTrue(
-            elapsedSeconds > stats.movingTime + 240,
-            "the pause was counted as movement: moving ${stats.movingTime} s of $elapsedSeconds s",
+            elapsedSeconds > movingTime + 240,
+            "the pause was counted as movement: moving $movingTime s of $elapsedSeconds s",
         )
     }
 
@@ -165,8 +170,9 @@ class CalculateStatsUseCaseTest {
             )
             val stats = trace.recordedStats()
             val elapsed = trace.elapsedSeconds()
-            val covered = stats.movingTime.toDouble() / elapsed
-            if (covered >= 0.95) null else "${pace.label}: ${stats.movingTime} s of $elapsed s moving"
+            val movingTime = assertNotNull(stats.movingTime)
+            val covered = movingTime.toDouble() / elapsed
+            if (covered >= 0.95) null else "${pace.label}: $movingTime s of $elapsed s moving"
         }
 
         assertTrue(
@@ -191,18 +197,42 @@ class CalculateStatsUseCaseTest {
 
         val stats = trace.recordedStats()
 
+        val highest = assertNotNull(stats.maxAltitude)
+        val lowest = assertNotNull(stats.minAltitude)
         // What has to be right is the height between the two, not the absolute altitude: a
         // percentage of 2000 m would pass while the whole hill went missing.
         assertCloseTo(
             expected = height,
-            actual = stats.maxAltitude - stats.minAltitude,
+            actual = highest - lowest,
             tolerance = 0.20,
             what = "height between the lowest and highest points",
         )
         assertTrue(
-            abs(stats.minAltitude - BASE_ALTITUDE_METERS) < ALTITUDE_NOISE_ALLOWANCE_METERS,
-            "the lowest point drifted from the terrain: ${stats.minAltitude} m",
+            abs(lowest - BASE_ALTITUDE_METERS) < ALTITUDE_NOISE_ALLOWANCE_METERS,
+            "the lowest point drifted from the terrain: $lowest m",
         )
+    }
+
+    @Test
+    fun aSessionThatRecordedNoAltitudeReportsNoneRatherThanZero() {
+        // Zero would claim flat ground at sea level, which is an assertion the recording never made.
+        val readings = trace(
+            readings = 120,
+            metersPerReading = TravelPace.WALKING.metersPerReading,
+            accuracyMeters = 8f,
+            noiseMeters = 5.0,
+            startAltitudeMeters = 0.0,
+        )
+
+        val stats = readings.recordedStats()
+
+        assertNull(stats.totalAscent)
+        assertNull(stats.totalDescent)
+        assertNull(stats.maxAltitude)
+        assertNull(stats.minAltitude)
+        // What did not depend on altitude is still measured.
+        assertNotNull(stats.movingTime)
+        assertNotNull(stats.avgPace)
     }
 
     @Test
@@ -231,11 +261,12 @@ class CalculateStatsUseCaseTest {
     private fun List<UserLocation>.elapsedSeconds(): Long =
         if (isEmpty()) 0L else (last().timestamp - first().timestamp) / 1_000L
 
-    private fun assertCloseTo(expected: Double, actual: Double, tolerance: Double, what: String) {
-        val drift = abs(actual - expected) / expected
+    private fun assertCloseTo(expected: Double, actual: Double?, tolerance: Double, what: String) {
+        val measured = assertNotNull(actual, "$what was not measured at all")
+        val drift = abs(measured - expected) / expected
         assertTrue(
             drift <= tolerance,
-            "$what: expected about $expected, got $actual (off by ${(drift * 100).toInt()} %)",
+            "$what: expected about $expected, got $measured (off by ${(drift * 100).toInt()} %)",
         )
     }
 }

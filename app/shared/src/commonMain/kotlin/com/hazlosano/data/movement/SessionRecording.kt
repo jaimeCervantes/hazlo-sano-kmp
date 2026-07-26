@@ -6,14 +6,12 @@ import com.hazlosano.data.movement.trace.createTraceStore
 import com.hazlosano.domain.feature.movement.filter.LocationFilter
 import com.hazlosano.domain.feature.movement.filter.LocationFilterResult
 import com.hazlosano.domain.feature.movement.filter.TraceRecord
-import com.hazlosano.domain.feature.movement.model.NavigationState
 import com.hazlosano.domain.feature.movement.model.RecordingState
 import com.hazlosano.domain.feature.movement.model.elapsedAt
 import com.hazlosano.domain.feature.movement.model.recorded
 import com.hazlosano.domain.feature.movement.model.started
 import com.hazlosano.domain.feature.movement.model.stopped
 import com.hazlosano.domain.feature.movement.repository.LocationRepository
-import com.hazlosano.domain.feature.movement.usecase.CalculateStatsUseCase
 import com.hazlosano.domain.feature.movement.usecase.SaveSessionUseCase
 import com.hazlosano.domain.time.TimeProvider
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +37,6 @@ class SessionRecording(
     private val locationRepository: LocationRepository,
     private val saveSession: SaveSessionUseCase,
     private val timeProvider: TimeProvider,
-    private val calculateStats: CalculateStatsUseCase = CalculateStatsUseCase(),
     private val sessionName: String = "Sesión de movimiento",
     private val traceStore: TraceStore = createTraceStore(),
 ) {
@@ -125,17 +122,15 @@ class SessionRecording(
             // The write must survive the host being torn down right after stopping.
             withContext(NonCancellable) {
                 if (finished.traveledPoints.isNotEmpty()) {
-                    val stats = calculateStats(finished.traveledPoints, finished.elapsedSeconds)
+                    // No statistics are computed here: everything the route shows is derived when
+                    // the session is opened, so writing it now would only freeze it at today's
+                    // algorithm and leave this session stale after the next improvement.
                     saveSession(
                         name = sessionName,
                         routeId = null,
-                        state = NavigationState(
-                            traveledPoints = finished.traveledPoints,
-                            elapsedTime = finished.elapsedSeconds,
-                            distanceTraveled = finished.distanceMeters,
-                            elevationGain = stats.totalAscent,
-                            stats = stats,
-                        ),
+                        points = finished.traveledPoints,
+                        elapsedSeconds = finished.elapsedSeconds,
+                        distanceMeters = finished.distanceMeters,
                     )
                     _lastSavedSession.value = finished
                 }

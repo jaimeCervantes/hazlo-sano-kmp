@@ -1,0 +1,160 @@
+package com.hazlosano.data.db
+
+import app.cash.sqldelight.db.SqlDriver
+import com.hazlosano.data.movement.SqlDelightMovementSessionRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+/**
+ * The migration that finally replaces the hand-written table creation this project used instead of
+ * migrations, and drops the statistics columns now that the figures are derived from the route.
+ *
+ * The point of this test is the route. Rebuilding MovementSessionEntity means dropping it, and
+ * MovementPointEntity references it with ON DELETE CASCADE — so with foreign keys enabled SQLite's
+ * implicit DELETE FROM would take every recorded point with it. That is a data loss that would only
+ * show up on a real phone, after the fact, with the readings already gone.
+ */
+class MovementSessionMigrationTest {
+
+    @Test
+    fun `a database from before the migration keeps its sessions and their routes`() = runTest {
+        val driver = inMemoryDriver()
+        driver.createSchemaAsItWasBeforeMigrations()
+        driver.recordASessionTheOldWay()
+
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+
+        val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
+        val session = repository.getAllSessions().first().single()
+        assertEquals("Salida de ayer", session.name)
+        assertEquals(1_784_877_300_000L, session.date)
+        assertEquals(600L, session.elapsedTime)
+        assertEquals(1_250.0, session.distanceTraveled, 1e-9)
+
+        val points = repository.getSessionPoints(session.id).first()
+        assertEquals(3, points.size, "rebuilding the sessions table took the route with it")
+        assertEquals(19.4300, points.first().latitude, 1e-9)
+        assertEquals(2_200.0, points.first().altitude, 1e-9)
+        assertEquals(19.4320, points.last().latitude, 1e-9)
+    }
+
+    @Test
+    fun `the derived columns are gone rather than left behind as dead weight`() = runTest {
+        val driver = inMemoryDriver()
+        driver.createSchemaAsItWasBeforeMigrations()
+
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+
+        val columns = driver.columnsOf("MovementSessionEntity")
+        assertEquals(
+            setOf("id", "routeId", "name", "date", "elapsedTime", "distanceTraveled"),
+            columns,
+        )
+    }
+
+    @Test
+    fun `a database that never had the movement tables gets them`() = runTest {
+        // The hand-written helper only ran on Android. A database that predates it has neither the
+        // movement tables nor the nutrition ones, and the migration has to create both.
+        val driver = inMemoryDriver()
+
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+
+        assertTrue(driver.columnsOf("MovementSessionEntity").isNotEmpty())
+        assertTrue(driver.columnsOf("MovementPointEntity").isNotEmpty())
+        assertTrue(driver.columnsOf("ProductEntity").isNotEmpty())
+        assertTrue(driver.columnsOf("SellerEntity").isNotEmpty())
+    }
+
+    @Test
+    fun `a session recorded after the migration still saves and reads back`() = runTest {
+        val driver = inMemoryDriver()
+        driver.createSchemaAsItWasBeforeMigrations()
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+
+        val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
+        repository.updateDistance(sessionId = 1, distanceMeters = 10.0) // no rows, must not throw
+
+        assertTrue(repository.getAllSessions().first().isEmpty())
+    }
+}
+
+/** The movement tables as they were before this migration: statistics columns and all. */
+private fun SqlDriver.createSchemaAsItWasBeforeMigrations() {
+    exec(
+        """
+        CREATE TABLE MovementSessionEntity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            routeId INTEGER,
+            name TEXT NOT NULL,
+            date INTEGER NOT NULL,
+            elapsedTime INTEGER NOT NULL,
+            distanceTraveled REAL NOT NULL,
+            elevationGain REAL NOT NULL,
+            movingTime INTEGER NOT NULL DEFAULT 0,
+            avgPace REAL NOT NULL DEFAULT 0.0,
+            maxAltitude REAL NOT NULL DEFAULT 0.0,
+            minAltitude REAL NOT NULL DEFAULT 0.0,
+            totalAscent REAL NOT NULL DEFAULT 0.0,
+            totalDescent REAL NOT NULL DEFAULT 0.0
+        )
+        """.trimIndent(),
+    )
+    exec(
+        """
+        CREATE TABLE MovementPointEntity (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sessionId INTEGER NOT NULL,
+            seq INTEGER NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            altitude REAL NOT NULL,
+            accuracy REAL NOT NULL,
+            bearing REAL NOT NULL,
+            timestamp INTEGER NOT NULL,
+            FOREIGN KEY(sessionId) REFERENCES MovementSessionEntity(id) ON DELETE CASCADE
+        )
+        """.trimIndent(),
+    )
+}
+
+private fun SqlDriver.recordASessionTheOldWay() {
+    exec(
+        "INSERT INTO MovementSessionEntity(id, routeId, name, date, elapsedTime, distanceTraveled, " +
+            "elevationGain, movingTime, avgPace, maxAltitude, minAltitude, totalAscent, totalDescent) " +
+            "VALUES (1, NULL, 'Salida de ayer', 1784877300000, 600, 1250.0, " +
+            "5.0, 580, 8.0, 2210.0, 2200.0, 5.0, 0.0)",
+    )
+    listOf(
+        Triple(0, 19.4300, 2_200.0),
+        Triple(1, 19.4310, 2_205.0),
+        Triple(2, 19.4320, 2_210.0),
+    ).forEach { (seq, latitude, altitude) ->
+        exec(
+            "INSERT INTO MovementPointEntity(sessionId, seq, latitude, longitude, altitude, " +
+                "accuracy, bearing, timestamp) " +
+                "VALUES (1, $seq, $latitude, -99.13, $altitude, 8.0, 0.0, ${1_000 + seq * 2_000})",
+        )
+    }
+}
+
+private fun SqlDriver.exec(sql: String) {
+    execute(identifier = null, sql = sql, parameters = 0)
+}
+
+private fun SqlDriver.columnsOf(table: String): Set<String> =
+    executeQuery(
+        identifier = null,
+        sql = "SELECT name FROM pragma_table_info('$table')",
+        parameters = 0,
+        mapper = { cursor ->
+            val names = mutableSetOf<String>()
+            while (cursor.next().value) {
+                cursor.getString(0)?.let(names::add)
+            }
+            app.cash.sqldelight.db.QueryResult.Value(names.toSet())
+        },
+    ).value

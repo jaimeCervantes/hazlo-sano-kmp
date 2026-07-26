@@ -13,7 +13,8 @@ import kotlin.math.roundToLong
  */
 object MovementFormat {
 
-    fun distance(meters: Double): String {
+    fun distance(meters: Double?): String {
+        if (meters == null) return NO_VALUE
         val safeMeters = meters.coerceAtLeast(0.0)
         if (safeMeters < METERS_PER_KILOMETER) return "${safeMeters.roundToInt()} m"
 
@@ -23,7 +24,8 @@ object MovementFormat {
         return "$kilometers.$fraction km"
     }
 
-    fun duration(totalSeconds: Long): String {
+    fun duration(totalSeconds: Long?): String {
+        if (totalSeconds == null) return NO_VALUE
         val safeSeconds = totalSeconds.coerceAtLeast(0L)
         val hours = safeSeconds / SECONDS_PER_HOUR
         val minutes = (safeSeconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE
@@ -36,7 +38,8 @@ object MovementFormat {
     }
 
     /** Average pace as `mm:ss /km`; a session without distance or time has no meaningful pace. */
-    fun pace(minutesPerKilometer: Double): String {
+    fun pace(minutesPerKilometer: Double?): String {
+        if (minutesPerKilometer == null) return NO_VALUE
         if (minutesPerKilometer <= 0.0 || !minutesPerKilometer.isFinite()) return NO_VALUE
 
         val totalSeconds = (minutesPerKilometer * SECONDS_PER_MINUTE).roundToLong()
@@ -45,7 +48,12 @@ object MovementFormat {
         return "$minutes:${seconds.pad2()} /km"
     }
 
-    fun elevation(meters: Double): String = "${meters.roundToInt()} m"
+    /**
+     * Metres, or "—" when the figure was never measured. Null is not zero here: a session whose
+     * readings carried no altitude has no climb, and reporting zero would claim flat ground.
+     */
+    fun elevation(meters: Double?): String =
+        if (meters == null) NO_VALUE else "${meters.roundToInt()} m"
 
     /** One decimal place without platform number formatting, for values that round badly to whole. */
     fun oneDecimal(value: Double): String {
