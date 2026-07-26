@@ -56,7 +56,7 @@ class MovementRecordingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> start()
+            ACTION_START -> start(intent.getBooleanExtra(EXTRA_CAPTURE_TRACE, false))
             ACTION_STOP -> stop()
             // No action means the system recreated the service on its own. Whatever it was
             // recording is gone — nothing is persisted to resume from — so shut down instead of
@@ -68,9 +68,9 @@ class MovementRecordingService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun start() {
+    private fun start(captureTrace: Boolean) {
         startForeground(NOTIFICATION_ID, buildNotification(RecordingState()))
-        recording.start()
+        recording.start(captureTrace)
     }
 
     private fun stop() {
@@ -127,9 +127,12 @@ class MovementRecordingService : Service() {
         private const val NOTIFICATION_ID = 2001
         private const val ACTION_START = "com.hazlosano.movement.START_RECORDING"
         private const val ACTION_STOP = "com.hazlosano.movement.STOP_RECORDING"
+        private const val EXTRA_CAPTURE_TRACE = "com.hazlosano.movement.CAPTURE_TRACE"
 
-        fun start(context: Context) {
-            context.startForegroundService(intent(context, ACTION_START))
+        fun start(context: Context, captureTrace: Boolean) {
+            context.startForegroundService(
+                intent(context, ACTION_START).putExtra(EXTRA_CAPTURE_TRACE, captureTrace),
+            )
         }
 
         fun stop(context: Context) {

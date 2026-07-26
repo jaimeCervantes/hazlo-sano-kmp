@@ -1,5 +1,11 @@
 package com.hazlosano.data.movement
 
+import com.hazlosano.data.movement.trace.TraceSink
+import com.hazlosano.data.movement.trace.TraceStore
+import com.hazlosano.data.movement.trace.createTraceStore
+import com.hazlosano.domain.feature.movement.filter.LocationFilter
+import com.hazlosano.domain.feature.movement.filter.LocationFilterResult
+import com.hazlosano.domain.feature.movement.filter.TraceRecord
 import com.hazlosano.domain.feature.movement.model.NavigationState
 import com.hazlosano.domain.feature.movement.model.RecordingState
 import com.hazlosano.domain.feature.movement.model.elapsedAt
@@ -35,6 +41,7 @@ class SessionRecording(
     private val timeProvider: TimeProvider,
     private val calculateStats: CalculateStatsUseCase = CalculateStatsUseCase(),
     private val sessionName: String = "Sesión de movimiento",
+    private val traceStore: TraceStore = createTraceStore(),
 ) {
     private val _state = MutableStateFlow(RecordingState())
     val state: StateFlow<RecordingState> = _state.asStateFlow()
@@ -44,15 +51,47 @@ class SessionRecording(
 
     private var locationJob: Job? = null
     private var tickJob: Job? = null
+    private var traceSink: TraceSink? = null
 
-    fun start() {
+    /**
+     * [captureTrace] keeps every reading the receiver delivers, with the filter's verdict, for
+     * calibrating the thresholds against a real GPS. It is decided per recording and defaults to
+     * off: an app in normal use has no business writing a file for every session.
+     */
+    fun start(captureTrace: Boolean = false) {
         if (_state.value.isRecording) return
         _lastSavedSession.value = null
-        _state.value = RecordingState().started(timeProvider.nowMillis())
+        val startedAtMillis = timeProvider.nowMillis()
+        _state.value = RecordingState().started(startedAtMillis)
+
+        val sink = if (captureTrace) traceStore.openTrace(startedAtMillis) else null
+        traceSink = sink
 
         locationJob = scope.launch {
+            // The filter is local to this job, so every session starts without any memory of the
+            // previous one instead of inheriting its estimate.
+            var filter = LocationFilter()
             locationRepository.getLocationUpdates().collect { location ->
-                _state.value = _state.value.recorded(location)
+                val outcome = filter.accepting(location)
+                filter = outcome.filter
+                // Recorded before acting on it, and recorded raw: the rejected readings are the
+                // half that a saved session cannot tell you about, and they are what makes the
+                // trace replayable against a different threshold.
+                sink?.append(
+                    TraceRecord(
+                        reading = location,
+                        discardReason = (outcome as? LocationFilterResult.Discarded)?.reason,
+                    ),
+                )
+                when (outcome) {
+                    // The corrected position is what gets recorded, so the drawn path, the distance
+                    // and the statistics recomputed from the points all describe the same journey.
+                    is LocationFilterResult.Accepted -> {
+                        _state.value = _state.value.recorded(outcome.location)
+                    }
+                    // Noise, a jump or a fix too vague to be worth metres: the path does not grow.
+                    is LocationFilterResult.Discarded -> Unit
+                }
             }
         }
         tickJob = scope.launch {
@@ -74,28 +113,35 @@ class SessionRecording(
         locationJob = null
         tickJob?.cancel()
         tickJob = null
+        val sink = traceSink
+        traceSink = null
 
         // A finished session belongs to the history, not to the tracker: clear it so the screen
         // stops drawing a route that is no longer being recorded.
         _state.value = RecordingState()
-        if (finished.traveledPoints.isEmpty()) return null
+        if (finished.traveledPoints.isEmpty() && sink == null) return null
 
         return scope.launch {
             // The write must survive the host being torn down right after stopping.
             withContext(NonCancellable) {
-                val stats = calculateStats(finished.traveledPoints, finished.elapsedSeconds)
-                saveSession(
-                    name = sessionName,
-                    routeId = null,
-                    state = NavigationState(
-                        traveledPoints = finished.traveledPoints,
-                        elapsedTime = finished.elapsedSeconds,
-                        distanceTraveled = finished.distanceMeters,
-                        elevationGain = stats.totalAscent,
-                        stats = stats,
-                    ),
-                )
-                _lastSavedSession.value = finished
+                if (finished.traveledPoints.isNotEmpty()) {
+                    val stats = calculateStats(finished.traveledPoints, finished.elapsedSeconds)
+                    saveSession(
+                        name = sessionName,
+                        routeId = null,
+                        state = NavigationState(
+                            traveledPoints = finished.traveledPoints,
+                            elapsedTime = finished.elapsedSeconds,
+                            distanceTraveled = finished.distanceMeters,
+                            elevationGain = stats.totalAscent,
+                            stats = stats,
+                        ),
+                    )
+                    _lastSavedSession.value = finished
+                }
+                // Closed last, and with the session's first stored point, so the detail can find
+                // the trace that belongs to it.
+                sink?.finish(finished.traveledPoints.firstOrNull()?.timestamp)
             }
         }
     }

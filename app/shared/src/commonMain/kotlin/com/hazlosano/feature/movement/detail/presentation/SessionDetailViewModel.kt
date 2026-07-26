@@ -2,6 +2,9 @@ package com.hazlosano.feature.movement.detail.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hazlosano.data.movement.trace.TraceStore
+import com.hazlosano.data.movement.trace.createTraceStore
+import com.hazlosano.domain.feature.movement.filter.summarize
 import com.hazlosano.domain.feature.movement.model.SessionDetail
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.usecase.GetSessionDetailUseCase
@@ -22,6 +25,8 @@ data class SessionDetailUi(
     val paceLabel: String,
     val elevationLabel: String,
     val path: List<UserLocation>,
+    /** Null when this session was recorded without the trace capture, so there is nothing to say. */
+    val diagnosis: SessionDiagnosisUi? = null,
 ) {
     val hasPath: Boolean
         get() = path.size >= 2
@@ -41,6 +46,7 @@ sealed interface SessionDetailUiState {
 class SessionDetailViewModel(
     private val sessionId: Long,
     private val getSessionDetail: GetSessionDetailUseCase,
+    private val traceStore: TraceStore = createTraceStore(),
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel() {
 
@@ -65,7 +71,7 @@ class SessionDetailViewModel(
         }
     }
 
-    private fun SessionDetail.toUiState(): SessionDetailUiState =
+    private suspend fun SessionDetail.toUiState(): SessionDetailUiState =
         SessionDetailUiState.Detail(
             SessionDetailUi(
                 name = session.name,
@@ -75,6 +81,17 @@ class SessionDetailViewModel(
                 paceLabel = MovementFormat.pace(session.avgPaceMinKm),
                 elevationLabel = MovementFormat.elevation(session.elevationGain),
                 path = path,
+                diagnosis = readDiagnosis(),
             ),
         )
+
+    /**
+     * A session finds its own trace by the timestamp of its first stored point, which is the same
+     * reading the filter first accepted. No session recorded without the capture has one, and that
+     * is reported as no diagnosis at all rather than as counts of zero.
+     */
+    private suspend fun SessionDetail.readDiagnosis(): SessionDiagnosisUi? {
+        val firstPoint = path.firstOrNull() ?: return null
+        return traceStore.readTrace(firstPoint.timestamp)?.summarize()?.toDiagnosisUi()
+    }
 }

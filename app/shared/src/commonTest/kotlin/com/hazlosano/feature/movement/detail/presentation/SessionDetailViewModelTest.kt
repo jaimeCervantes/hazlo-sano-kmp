@@ -1,5 +1,9 @@
 package com.hazlosano.feature.movement.detail.presentation
 
+import com.hazlosano.data.movement.trace.FakeTraceStore
+import com.hazlosano.data.movement.trace.TraceStore
+import com.hazlosano.domain.feature.movement.filter.DiscardReason
+import com.hazlosano.domain.feature.movement.filter.TraceRecord
 import com.hazlosano.domain.feature.movement.model.MovementSession
 import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
@@ -21,6 +25,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 private class StubMovementSessionRepository(
@@ -99,15 +105,78 @@ class SessionDetailViewModelTest {
         assertEquals("base de datos no disponible", state.message)
     }
 
+    @Test
+    fun explainsWhatTheFilterDidWithTheReadingsOfThisSession() = runTest {
+        val path = listOf(
+            UserLocation(latitude = 19.43, longitude = -99.13, timestamp = FIRST_POINT_MILLIS),
+            UserLocation(latitude = 19.44, longitude = -99.13, timestamp = FIRST_POINT_MILLIS + 2_000),
+        )
+        val traceStore = FakeTraceStore()
+        traceStore.finishedTraces[FIRST_POINT_MILLIS] = listOf(
+            TraceRecord(reading(FIRST_POINT_MILLIS, accuracy = 10f), null),
+            TraceRecord(reading(FIRST_POINT_MILLIS + 2_000, accuracy = 10f), null),
+            TraceRecord(
+                reading(FIRST_POINT_MILLIS + 4_000, accuracy = 10f),
+                DiscardReason.WITHIN_NOISE,
+            ),
+            TraceRecord(
+                reading(FIRST_POINT_MILLIS + 6_000, accuracy = 70f),
+                DiscardReason.POOR_ACCURACY,
+            ),
+        )
+
+        val viewModel = buildViewModel(listOf(session()), path, traceStore)
+
+        val state = assertIs<SessionDetailUiState.Detail>(viewModel.state.value)
+        val rows = assertNotNull(state.session.diagnosis).rows
+        assertEquals("4", rows.value("Lecturas recibidas"))
+        assertEquals("2 · 50 %", rows.value("Aceptadas"))
+        assertEquals("2 · 50 %", rows.value("Descartadas"))
+        assertEquals("1", rows.value("· Bajo el ruido"))
+        assertEquals("1", rows.value("· Precisión insuficiente"))
+        assertEquals("2.0 s", rows.value("Intervalo real"))
+        assertTrue(
+            rows.none { it.label == "· Salto imposible" },
+            "a reason that never fired was listed as zero",
+        )
+    }
+
+    @Test
+    fun hasNoDiagnosisWhenTheSessionWasRecordedWithoutATrace() = runTest {
+        val path = listOf(
+            UserLocation(latitude = 19.43, longitude = -99.13, timestamp = FIRST_POINT_MILLIS),
+        )
+
+        val viewModel = buildViewModel(listOf(session()), path, FakeTraceStore())
+
+        val state = assertIs<SessionDetailUiState.Detail>(viewModel.state.value)
+        // Null rather than a diagnosis full of zeros, which would claim the filter rejected nothing.
+        assertNull(state.session.diagnosis)
+        assertEquals("1.25 km", state.session.distanceLabel)
+    }
+
+    private fun List<DiagnosisRow>.value(label: String): String? =
+        firstOrNull { it.label == label }?.value
+
+    private fun reading(timestamp: Long, accuracy: Float): UserLocation =
+        UserLocation(
+            latitude = 19.43,
+            longitude = -99.13,
+            accuracy = accuracy,
+            timestamp = timestamp,
+        )
+
     private fun buildViewModel(
         sessions: List<MovementSession>,
         path: List<UserLocation> = emptyList(),
+        traceStore: TraceStore = FakeTraceStore(),
     ): SessionDetailViewModel =
         SessionDetailViewModel(
             sessionId = SESSION_ID,
             getSessionDetail = GetSessionDetailUseCase(
                 StubMovementSessionRepository(sessions = flowOf(sessions), path = path),
             ),
+            traceStore = traceStore,
             timeZone = TimeZone.UTC,
         )
 
@@ -128,3 +197,4 @@ class SessionDetailViewModelTest {
 
 private const val SESSION_ID = 7L
 private const val JULY_24_2026_AT_07_15_UTC = 1_784_877_300_000L
+private const val FIRST_POINT_MILLIS = 1_784_877_000_000L

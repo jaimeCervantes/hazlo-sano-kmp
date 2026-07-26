@@ -43,9 +43,12 @@ private class FakeRecordingController : RecordingController {
         private set
     var stopCount: Int = 0
         private set
+    var startedWithTraceCapture: Boolean? = null
+        private set
 
-    override fun startRecording() {
+    override fun startRecording(captureTrace: Boolean) {
         startCount++
+        startedWithTraceCapture = captureTrace
         _lastSavedSession.value = null
         _state.value = RecordingState(isRecording = true, startedAtMillis = 0)
     }
@@ -192,6 +195,28 @@ class TrackerViewModelTest {
         viewModel.acknowledgeSavedSession()
 
         assertNull(viewModel.lastSavedSession.value)
+    }
+
+    @Test
+    fun recordsWithoutATraceUnlessItWasAskedFor() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
+
+        viewModel.startRecording()
+
+        assertEquals(false, controller.startedWithTraceCapture)
+    }
+
+    @Test
+    fun carriesTheTraceCaptureChoiceIntoTheRecordingItStarts() {
+        val controller = FakeRecordingController()
+        val viewModel = buildViewModel(controller = controller)
+
+        viewModel.setCaptureTrace(true)
+        viewModel.startRecording()
+
+        assertEquals(true, viewModel.captureTrace.value)
+        assertEquals(true, controller.startedWithTraceCapture)
     }
 
     @Test

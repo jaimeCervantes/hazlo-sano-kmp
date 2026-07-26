@@ -14,6 +14,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +52,7 @@ fun TrackerScreen(
     val userLocation by viewModel.userLocation.collectAsState()
     val recording by viewModel.recording.collectAsState()
     val savedSession by viewModel.lastSavedSession.collectAsState()
+    val captureTrace by viewModel.captureTrace.collectAsState()
     val isRecording = recording.isRecording
 
     // The confirmation is transient: without this it would greet the user again every time they
@@ -88,12 +90,42 @@ fun TrackerScreen(
                 textAlign = TextAlign.Center,
             )
         }
+        // Only offered while idle: the choice applies to the recording being started, and showing a
+        // switch that silently does nothing mid-session would be a lie.
+        if (!isRecording) {
+            TraceCaptureToggle(enabled = captureTrace, onChange = viewModel::setCaptureTrace)
+        }
         SessionControls(
             isRecording = isRecording,
             onStart = viewModel::startRecording,
             onStop = viewModel::stopRecording,
             onOpenHistory = onOpenHistory,
         )
+    }
+}
+
+@Composable
+private fun TraceCaptureToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = HazloSpaces.gutter),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Guardar traza de diagnóstico",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Guarda cada lectura del GPS para ajustar el filtro.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = enabled, onCheckedChange = onChange)
     }
 }
 

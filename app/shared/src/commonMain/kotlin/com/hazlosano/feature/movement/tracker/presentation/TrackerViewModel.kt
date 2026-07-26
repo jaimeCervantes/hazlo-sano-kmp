@@ -30,6 +30,15 @@ class TrackerViewModel(
     val recording: StateFlow<RecordingState> = recordingController.state
     val lastSavedSession: StateFlow<RecordingState?> = recordingController.lastSavedSession
 
+    private val _captureTrace = MutableStateFlow(false)
+
+    /**
+     * Whether the next recording keeps a diagnostic trace. Held here rather than persisted: it is a
+     * choice about the outing you are about to record, so starting the app afresh forgetting it is
+     * the right behaviour, not a limitation.
+     */
+    val captureTrace: StateFlow<Boolean> = _captureTrace.asStateFlow()
+
     private var tracking = false
 
     fun startTracking() {
@@ -42,8 +51,12 @@ class TrackerViewModel(
         }
     }
 
+    fun setCaptureTrace(enabled: Boolean) {
+        _captureTrace.value = enabled
+    }
+
     fun startRecording() {
-        recordingController.startRecording()
+        recordingController.startRecording(_captureTrace.value)
     }
 
     fun stopRecording() {

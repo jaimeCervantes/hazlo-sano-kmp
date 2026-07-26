@@ -19,7 +19,13 @@ interface RecordingController {
      */
     val lastSavedSession: StateFlow<RecordingState?>
 
-    fun startRecording()
+    /**
+     * [captureTrace] asks for every reading the receiver delivers to be kept, with the filter's
+     * verdict, so the thresholds can be calibrated against a real GPS. It belongs to the recording
+     * being started rather than to the app, which is why it is an argument and not a setting.
+     */
+    fun startRecording(captureTrace: Boolean = false)
+
     fun stopRecording()
 
     /** Drops the confirmation once the screen has shown it. */

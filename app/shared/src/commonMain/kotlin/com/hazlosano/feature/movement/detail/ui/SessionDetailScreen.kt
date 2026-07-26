@@ -1,6 +1,7 @@
 package com.hazlosano.feature.movement.detail.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +28,7 @@ import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.theme.PillarMovement
 import com.hazlosano.feature.movement.detail.presentation.SessionDetailUi
 import com.hazlosano.feature.movement.detail.presentation.SessionDetailUiState
+import com.hazlosano.feature.movement.detail.presentation.SessionDiagnosisUi
 import com.hazlosano.feature.movement.detail.presentation.createSessionDetailViewModel
 import com.hazlosano.feature.movement.ui.MovementMap
 
@@ -72,6 +76,8 @@ private fun SessionDetailContent(session: SessionDetailUi) {
 
         SessionSummary(session)
 
+        session.diagnosis?.let { Diagnosis(it) }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (session.hasPath) {
                 MovementMap(
@@ -101,6 +107,47 @@ private fun SessionSummary(session: SessionDetailUi) {
         SummaryMetric(label = "Tiempo", value = session.durationLabel)
         SummaryMetric(label = "Ritmo", value = session.paceLabel)
         SummaryMetric(label = "Desnivel", value = session.elevationLabel)
+    }
+}
+
+/**
+ * Collapsed by default: the diagnosis explains a distance that looks wrong, so it belongs next to
+ * the metrics — but it is for calibrating the filter, not for reading about an outing.
+ */
+@Composable
+private fun Diagnosis(diagnosis: SessionDiagnosisUi) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter)) {
+        Text(
+            text = if (expanded) "Diagnóstico ▾" else "Diagnóstico ▸",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .clickable { expanded = !expanded }
+                .fillMaxWidth()
+                .padding(vertical = HazloSpaces.sm),
+        )
+
+        if (expanded) {
+            diagnosis.rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = HazloSpaces.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = row.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = row.value,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
     }
 }
 

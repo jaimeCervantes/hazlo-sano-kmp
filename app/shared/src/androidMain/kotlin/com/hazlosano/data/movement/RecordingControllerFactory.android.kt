@@ -16,8 +16,8 @@ private class ServiceRecordingController(
     override val state: StateFlow<RecordingState> = MovementRecordingStore.state
     override val lastSavedSession: StateFlow<RecordingState?> = MovementRecordingStore.lastSavedSession
 
-    override fun startRecording() {
-        MovementRecordingService.start(context)
+    override fun startRecording(captureTrace: Boolean) {
+        MovementRecordingService.start(context, captureTrace)
     }
 
     override fun stopRecording() {

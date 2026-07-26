@@ -47,6 +47,12 @@ object MovementFormat {
 
     fun elevation(meters: Double): String = "${meters.roundToInt()} m"
 
+    /** One decimal place without platform number formatting, for values that round badly to whole. */
+    fun oneDecimal(value: Double): String {
+        val tenths = (value.coerceAtLeast(0.0) * 10).roundToLong()
+        return "${tenths / 10}.${tenths % 10}"
+    }
+
     fun dateTime(epochMillis: Long, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
         val local = Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(timeZone)
         val month = MONTH_NAMES[local.monthNumber - 1]
