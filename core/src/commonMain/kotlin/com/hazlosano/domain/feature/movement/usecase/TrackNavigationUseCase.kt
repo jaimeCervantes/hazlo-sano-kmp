@@ -3,7 +3,8 @@ package com.hazlosano.domain.feature.movement.usecase
 import com.hazlosano.domain.geo.degreesToRadians
 import com.hazlosano.domain.geo.haversineMeters
 import com.hazlosano.domain.time.TimeProvider
-import com.hazlosano.domain.feature.movement.filter.KalmanFilter
+import com.hazlosano.domain.feature.movement.filter.LocationFilter
+import com.hazlosano.domain.feature.movement.filter.LocationFilterResult
 import com.hazlosano.domain.feature.movement.model.NavigationState
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.feature.movement.model.UserLocation
@@ -20,14 +21,13 @@ import kotlin.math.cos
 private const val HARD_SNAP_THRESHOLD = 20.0
 private const val SOFT_SNAP_THRESHOLD = 50.0
 private const val OFF_ROUTE_THRESHOLD = 70.0
-private const val MAX_PLAUSIBLE_SPEED_MPS = 40.0
 
 class TrackNavigationUseCase(
     private val locationRepository: LocationRepository,
     private val calculateStatsUseCase: CalculateStatsUseCase,
     private val timeProvider: TimeProvider
 ) {
-    private val kalmanFilter = KalmanFilter()
+    private var locationFilter = LocationFilter()
     private var traveledPoints = mutableListOf<UserLocation>()
     private var distanceTraveled = 0.0
     private var elevationGain = 0.0
@@ -36,23 +36,19 @@ class TrackNavigationUseCase(
     operator fun invoke(targetRoute: Route?): Flow<NavigationState> = flow {
         startTime = timeProvider.nowMillis()
         traveledPoints.clear()
-        kalmanFilter.reset()
+        locationFilter = LocationFilter()
         distanceTraveled = 0.0
         elevationGain = 0.0
 
         val locationFlow = locationRepository.getLocationUpdates()
             .onEach { rawLocation ->
-                val (fLat, fLng) = kalmanFilter.filter(
-                    rawLocation.latitude, rawLocation.longitude,
-                    rawLocation.accuracy, rawLocation.timestamp
-                )
-                val filtered = rawLocation.copy(latitude = fLat, longitude = fLng)
-
-                if (traveledPoints.isNotEmpty()) {
-                    val last = traveledPoints.last()
-                    val dist = calculateDistance(last, filtered)
-                    val time = (filtered.timestamp - last.timestamp) / 1000.0
-                    if (time > 0 && (dist / time) > MAX_PLAUSIBLE_SPEED_MPS) return@onEach
+                val outcome = locationFilter.accepting(rawLocation)
+                locationFilter = outcome.filter
+                // Smoothing and the plausibility gate live in the filter, so navigation and plain
+                // recording judge a reading the same way.
+                val filtered = when (outcome) {
+                    is LocationFilterResult.Accepted -> outcome.location
+                    is LocationFilterResult.Discarded -> return@onEach
                 }
 
                 val finalLocation = if (targetRoute != null) applySmartSnap(filtered, targetRoute) else filtered
