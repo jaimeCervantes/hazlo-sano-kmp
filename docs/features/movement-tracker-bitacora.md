@@ -571,3 +571,60 @@ Nota: `assembleDebug` y `:app:webApp:check` **chocan si se lanzan en la misma in
 **Recap:** Una grabación puede ahora guardar cada lectura que entregó el receptor con el veredicto que le dio el filtro, en un CSV que se saca del teléfono sin permisos especiales y se vuelve a pasar por el filtro en un test. La sesión encuentra su propia traza por el timestamp de su primer punto guardado, sin tocar el esquema, y el detalle la resume plegada. Está apagado por defecto y una sesión sin traza lo dice en vez de enseñar ceros. Con esto, calibrar deja de costar una salida por iteración.
 
 **Próximos pasos (opciones):** (1) salir a calibrar — primero teléfono quieto, luego trayecto conocido a pie y en bici, luego cuesta ida y vuelta; (2) B2b, métricas en el detalle; (3) commitear los slices 8, 9 y 10 por separado.
+
+---
+
+## Slice 11 (B2b, replanteado) — Las cifras se derivan del recorrido, y se paga la deuda de migraciones
+
+- **Objetivo:** que mejorar cómo mide la app mejore también las salidas ya grabadas, y que el detalle enseñe todo lo que la sesión mide. Spec: [`movement_session_metrics.feature`](../../features/movement_session_metrics.feature) (9 escenarios).
+
+- **Cómo cambió el encuadre (importa más que el resultado):** el slice empezó siendo "B2b: mostrar tiempo en movimiento, altitud máx/mín y descenso". Al proponer de paso borrar `altitudeDistribution`, `currentPace` y `currentSlope`, el usuario preguntó por qué se borraba algo potencialmente valioso. Al mirarlo de cerca los tres **no eran el mismo caso**, y esa pregunta destapó el problema de fondo:
+  - `currentPace` es el ritmo de los **últimos 5 puntos** de una sesión terminada: los ~8 s en los que frenabas para pulsar Detener. `currentSlope` es peor — solo se asigna en el último segmento y solo si pasa la puerta de `isTravelling`, así que **casi siempre valía `0.0`**, que se lee como "llano". No eran métricas sin consumidor: eran métricas **falsas**, restos del caso de uso de navegación en vivo de la referencia.
+  - `altitudeDistribution` sí era valioso — pero **no estaba persistido**, así que se calculaba al detener y se tiraba. No podía llegar a pantalla nunca.
+  - Y de ahí lo que de verdad importaba: **todas** las columnas de estadísticas (`movingTime`, `avgPace`, `maxAltitude`, `minAltitude`, `totalAscent`, `totalDescent`) y también `distanceTraveled` son **funciones puras de los puntos guardados**. No eran datos: eran una **caché**. Una caché congelada en la versión del algoritmo que la escribió, que es exactamente por qué los slices 8 y 9 tuvieron que anotar "las sesiones ya grabadas conservan sus números inflados; no se recalculan".
+  - Al preguntarle si prefería evitar la migración, el usuario respondió que la migración no era obstáculo y que lo importante era que el código quedara flexible **antes de tener usuarios reales**. Eso desbloqueó la opción correcta.
+
+- **Decisiones + porqué:**
+  - **Las cifras se derivan al leer.** `GetSessionDetailUseCase` calcula `SessionStats` desde los puntos cada vez que se abre una sesión. Consecuencia inmediata y medible: retocar una constante durante la calibración actualiza **todas** las salidas anteriores, así que se pueden comparar entre sí. Sin esto, cada ronda de ajuste habría dejado obsoletos los datos de campo del día anterior — y esa fase empieza ahora.
+  - **Y consecuencia a futuro:** una métrica nueva (pendiente media, VAM, histograma de altitud) deja de costar una migración. Se añade una función y funciona sobre todo el historial.
+  - **`elapsedTime` y `date` siguen guardados.** El tiempo transcurrido es reloj de pared de Iniciar a Detener e incluye los tramos sin cobertura antes del primer fix y después del último: **no es derivable del recorrido**, y derivarlo habría perdido información.
+  - **`distanceTraveled` se queda como resumen, y se cura al abrir.** El historial no puede leer todos los puntos de todas las sesiones para pintar una lista — con usuarios reales son decenas de miles de filas por apertura. Así que la lista lee un resumen guardado, y `RefreshSessionSummaryUseCase` lo reescribe cuando el detalle mide algo distinto. Abrir una sesión la cura. Límite asumido y anotado: una sesión que nunca abras conserva su resumen viejo en la lista.
+  - **Guarda explícita contra borrar datos:** curar **no** se aplica a una sesión sin puntos. Medir un recorrido vacío da 0, que es la ausencia de recorrido y no un viaje de longitud cero; escribirlo habría destruido el único registro de cuánto anduvo. Tiene su test.
+  - **`null` significa "no medido", nunca cero.** Todos los campos de `SessionStats` son nullable. Una sesión cuyas lecturas no traían altitud no tiene desnivel — reportar 0 afirmaría terreno llano, que es una afirmación que la grabación nunca hizo. La UI muestra "—".
+  - **`MovementSession` adelgaza** a lo que el historial necesita (id, nombre, fecha, tiempo, distancia, preview). Las cifras viven en `SessionDetail`.
+  - **`SessionRecording` ya no calcula estadísticas al detener** — desaparece su dependencia de `CalculateStatsUseCase`. Guardar es guardar puntos y el resumen.
+  - **Rejilla de 4×2 en el detalle.** Ocho cifras en una fila en un móvil no se leen; y el mapa sigue necesitando sitio.
+
+- **La migración (deuda del slice 4, saldada):**
+  - Se activan las migraciones de SQLDelight con `1.sqm` (versión 1 → 2) y **se borra `ensureNewTablesExist`**, el parche que creaba tablas a mano al arrancar porque `AndroidSqliteDriver` solo ejecuta `Schema.create()` cuando el fichero no existe. Ese parche solo sabía añadir tablas enteras: cambiar una existente era imposible, y habría roto una instalación previa en tiempo de ejecución sin fallar en compilación.
+  - `1.sqm` crea las tablas que el parche creaba (para bases que lo preceden) y reconstruye `MovementSessionEntity` sin las columnas derivadas.
+  - **El riesgo real y cómo se cerró:** reconstruir la tabla implica un `DROP TABLE`, y `MovementPointEntity` la referencia con `ON DELETE CASCADE`. Con claves foráneas activas, el `DELETE FROM` implícito de SQLite **se habría llevado todos los puntos grabados** — una pérdida de datos que solo aparecería en un teléfono real, después, con las lecturas ya perdidas. Se comprobó que el proyecto no activa `PRAGMA foreign_keys` en ningún sitio y que ningún driver lo hace por defecto; pero eso no se dejó como razonamiento: `MovementSessionMigrationTest` monta una base v1 con una sesión y su recorrido, aplica la migración y **afirma que los tres puntos siguen ahí**.
+  - No se usa `ALTER TABLE ... DROP COLUMN` porque exige SQLite 3.35+ (Android 14+).
+
+- **Archivos tocados:**
+  - core/commonMain: `model/SessionStats.kt` (nullable, sin `currentPace`/`currentSlope`/`altitudeDistribution`), `model/MovementSession.kt` (adelgazado), `model/SessionDetail.kt` (lleva `stats` y `distanceMeters`), `usecase/CalculateStatsUseCase.kt`, `usecase/GetSessionDetailUseCase.kt`, `usecase/SaveSessionUseCase.kt`, `usecase/RefreshSessionSummaryUseCase.kt` (nuevo), `repository/MovementSessionRepository.kt`
+  - core/commonTest: `usecase/RefreshSessionSummaryUseCaseTest.kt` (nuevo, 4), `CalculateStatsUseCaseTest.kt` (+1), `GetSessionDetailUseCaseTest.kt` (+2)
+  - shared/commonMain sqldelight: `MovementSession.sq` (sin columnas derivadas, `updateDistance`), `1.sqm` (nuevo)
+  - shared/androidMain: `data/db/DriverFactory.android.kt` (de 125 líneas a 16)
+  - shared/commonMain: `data/movement/MovementSessionMapping.kt`, `SqlDelightMovementSessionRepository.kt`, `NoOpMovementSessionRepository.kt`, `SessionRecording.kt`, `feature/movement/detail/presentation/SessionDetailViewModel.kt`, `SessionDetailViewModelFactory.kt`, `detail/ui/SessionDetailScreen.kt`, `presentation/MovementFormat.kt`
+  - shared/jvmTest: `data/db/MovementSessionMigrationTest.kt` (nuevo, 4), `data/db/InMemoryHazloSanoDatabase.kt`, `SqlDelightMovementSessionRepositoryTest.kt` (+1), `SessionDetailIntegrationTest.kt` (+1)
+  - shared/commonTest: `SessionDetailViewModelTest.kt` (reescrito, +4), más ajustes en los stubs de repositorio
+  - features: `movement_session_metrics.feature`
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+
+- **Resultados de validación:** `:core` **55 tests, 0 fallos** (antes 48). `:app:shared:jvmTest` **94 tests, 0 fallos** (antes 84). `:core:check`, `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL.
+
+- **Desviaciones:** tres expectativas de test mal calculadas por mí (distancia haversine real 1111,9 m donde asumí 1113,2, y 390 m donde puse 339). Eran errores de aritmética en las aserciones, no del código; corregidas contra el valor medido.
+
+- **Sin cobertura de host (dicho explícitamente):** la migración se prueba sobre SQLite en memoria vía JDBC, no sobre `AndroidSqliteDriver` en un teléfono. Lo que no cubre el test es que el `user_version` del dispositivo sea realmente 1 — si por lo que sea no lo fuera, la migración no se dispararía. **Comprobación manual al instalar:** abrir el historial y verificar que las sesiones anteriores siguen ahí con su recorrido. Si algo saliera mal, la salida es desinstalar y reinstalar (sin usuarios, coste asumido).
+
+- **Seguimientos:**
+  - `avgSlope`, `maxSlope` y `vam` se calculan y no se muestran. Ahora **mostrarlos no cuesta migración**: es añadir dos líneas al ViewModel y a la rejilla.
+  - `altitudeDistribution` se borró como campo. El histograma tiempo-por-franja-de-altitud se recalcula desde los puntos guardados cuando se quiera, y funcionará **retroactivamente sobre todo el historial**.
+  - Una sesión que nunca se abra conserva su resumen viejo en la lista.
+  - Las tablas de rutas del punto C ya no tienen deuda de migraciones delante: se añaden con un `2.sqm`.
+
+**Recap:** Las cifras de una sesión pasan a derivarse de su recorrido cada vez que se abre, en vez de leerse de columnas escritas al detener. El detalle muestra ahora ocho métricas —incluidas tiempo en movimiento, descenso y altitud máx/mín— con "—" donde no se midió nada en vez de ceros que afirman terreno llano. La deuda de migraciones queda saldada con la primera migración real del proyecto, cuyo riesgo de borrado en cascada del recorrido está cerrado con un test y no con un razonamiento. Lo que esto compra de inmediato: la calibración que empieza ahora ya no invalida los datos de campo de las salidas anteriores.
+
+**Próximos pasos (opciones):** (1) instalar, comprobar que el historial sobrevive a la migración, y salir a calibrar; (2) commitear el slice; (3) mostrar pendiente media y VAM, que ya no cuestan migración.
