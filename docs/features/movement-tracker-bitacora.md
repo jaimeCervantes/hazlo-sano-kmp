@@ -291,3 +291,283 @@ git commit -m "docs: outside-in double-loop skill, bitacora, and validation work
 **Recap:** Al detener, el tracker vuelve a estado limpio y muestra durante unos segundos el resumen de lo guardado; además el guardado ya no puede cancelarse al apagar el servicio.
 
 **Próximos pasos (opciones):** (1) validar en dispositivo estas dos correcciones; (2) seguir con B (Kalman + estadísticas) del backlog; (3) G (sobrevivir a que el sistema mate el proceso) si en uso real ocurre.
+
+---
+
+## Slice 8 (migración B1) — Filtrar la ubicación antes de acumular distancia
+
+- **Objetivo:** que la distancia grabada refleje lo recorrido de verdad. Hasta ahora `RecordingState.recorded()` acumulaba haversine sobre el punto **crudo** que entregaba el proveedor fusionado, así que el ruido del GPS sumaba metros que nadie anduvo. Spec: [`movement_location_smoothing.feature`](../../features/movement_location_smoothing.feature) (8 escenarios).
+- **Recorte:** el punto B del backlog se partió en B1 (filtro, todo en `core`) y B2 (tests de `CalculateStatsUseCase` + métricas en el detalle). B2 queda pendiente.
+
+- **Decisiones + porqué:**
+  - **La bici obligó a rediseñar los umbrales** (pregunta del usuario durante el encuadre, antes de escribir código). La app **nunca sabe qué actividad grabas**: no hay selector y `MovementSession` no lleva tipo. A 2 s de muestreo, caminar avanza ~2,8 m por lectura y una bici ~11-30 m: cualquier constante en metros codifica en silencio una actividad y destroza la otra. Por eso **ningún umbral es una constante métrica**: el descarte por salto se expresa como **velocidad sobre el intervalo real** (25 m/s ≈ 90 km/h) y el suelo de ruido se deriva de **la precisión que reporta la propia lectura**. Sin esa corrección, un límite pensado para caminar habría rechazado todos los puntos de un ciclista y la sesión habría salido en cero.
+  - **`KalmanFilter` reescrito como valor inmutable.** La referencia lo tiene mutable; un filtro mutable compartido entre copias de un estado inmutable es un bug esperando. Ahora cada lectura devuelve un filtro nuevo, y "cada grabación empieza de cero" sale gratis en vez de depender de acordarse de llamar a `reset()`.
+  - **La velocidad que adapta el filtro se estima descontando la precisión de la lectura.** En la referencia se estima sobre posiciones crudas, así que diez metros de ruido alrededor de alguien parado se leen como 5 m/s y el filtro deja de suavizar justo cuando más falta hace. Es el fallo que hacía inútil el suavizado en reposo.
+  - **`LocationFilter` separado de `RecordingState`** (SRP): `RecordingState` responde "qué grabamos", `LocationFilter` responde "esto merece grabarse". Así `RecordingState` sigue siendo una transición pura sin internals del filtro colándose en el estado que observa Compose, y sus 7 tests conservan su significado.
+  - **Se graba la posición corregida, no la cruda.** `CalculateStatsUseCase` recalcula la distancia desde los puntos y `SessionDetail` redibuja el trazado: guardar puntos crudos con distancia filtrada habría hecho que trazado, distancia y estadísticas contaran tres historias distintas.
+  - **Rechazo sin contaminar:** una lectura con precisión pésima o un salto imposible **no** se le pasa al suavizador (una medida absurda arrastraría la estimación). Una lectura buena pero por debajo del suelo de ruido **sí** refina la estimación aunque no haga crecer el trazado, y la siguiente distancia se mide desde el último punto **aceptado** — por eso el movimiento lento se acumula a lo largo de varias lecturas en vez de descartarse una por una para siempre.
+  - **Sin `expect`/`actual` ni dependencias nuevas.** Todo el filtro es Kotlin común en `core`.
+  - **`TrackNavigationUseCase` (código muerto de la slice C) usaba la API vieja** y duplicaba a mano kalman + puerta de velocidad con estado mutable. En vez de adaptarlo, se apunta al `LocationFilter`: compila, pierde la duplicación y llega a C ya alineado.
+
+- **Archivos tocados:**
+  - core/commonMain: `filter/KalmanFilter.kt` (reescrito), `filter/LocationFilter.kt` (nuevo), `usecase/TrackNavigationUseCase.kt`
+  - core/commonTest: `filter/LocationFilterTest.kt` (nuevo, 10 tests), `filter/GpsTraces.kt` (nuevo, generador de trazas sintéticas)
+  - shared/commonMain: `data/movement/SessionRecording.kt`
+  - shared/commonTest: `data/movement/SessionRecordingTest.kt` (2 tests nuevos + helper de coordenadas)
+  - features: `movement_location_smoothing.feature`
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+
+- **Resultados de validación:** `:core` 30 tests, 0 fallos (antes 20). `:app:shared:jvmTest` 69 tests, 0 fallos (antes 67). `:core:check`, `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL.
+
+  Medido sobre las trazas sintéticas (recorrido real → grabado):
+
+  | Traza | Real | Grabado | Desvío |
+  |---|---|---|---|
+  | Parado 2 min, ruido ±10 m | 0 m | **10,2 m** (crudo: **714,3 m**) | — |
+  | Caminando 4 min (~5 km/h) | 333,2 m | 333,5 m | 0,1 % |
+  | Bici 2 min (~40 km/h) | 1298,0 m | 1305,5 m | 0,6 % |
+  | Bajada (~55 km/h) | 887,4 m | 889,0 m | 0,2 % |
+  | Bici + parada + bici | 836,0 m | 838,0 m | 0,2 % |
+  | Con un salto de 500 m inyectado | 858,0 m | 866,8 m | 1,0 % |
+
+  El caso estático es el titular: **714 m → 10 m**, y el test compara contra el crudo para que no pueda pasar en verde con una traza que no sea ruidosa. Las cotas de los tests (5 % de desvío, 15 m parado) están holgadas respecto a lo medido a propósito, para que afinar constantes no rompa la suite mientras el comportamiento siga siendo cierto.
+
+- **Desviaciones:**
+  - La primera aserción de `aSingleWildReadingDoesNotCorruptTheSession` estaba mal planteada (comprobaba que ningún punto pasara de la latitud del salto, pero el recorrido de prueba pasa legítimamente más al norte). Se sustituyó por una más fuerte: la sesión **con** el salto es idéntica punto por punto a la sesión **sin** él.
+  - Hubo que tocar `TrackNavigationUseCase`, que no estaba en el alcance: era código muerto que no compilaba con la API nueva del filtro.
+  - `:app:androidApp:assembleDebug` falló una vez al lanzarlo en paralelo con `:app:webApp:check` (`copySharedComposeResourcesToAssets`, choque por los mismos recursos compartidos). Por separado pasan los dos; no es del código.
+
+- **Sin cobertura de host (dicho explícitamente):** las constantes están calibradas contra ruido sintético uniforme, no contra un GPS real. El ruido real está correlacionado (no es blanco), así que el comportamiento en reposo en la calle puede diferir. **Prueba manual pendiente:** grabar una sesión dejando el teléfono quieto varios minutos y comprobar que la distancia no crece; y grabar un trayecto conocido, a pie y en bici, comparando el total con otra app o con el recorrido real.
+
+- **Seguimientos:**
+  - **B2:** cubrir `CalculateStatsUseCase` con tests y mostrar en el detalle las métricas que ya se persisten.
+  - **Muestreo a 2 s y recorte de curvas:** en una bajada con curvas el trazado corta las curvas y la distancia se queda **corta** — error contrario al que arregla esta slice. Se resolvería muestreando más a menudo, a costa de batería. No se toca aquí.
+  - **Calibrar constantes en dispositivo:** `MAX_PLAUSIBLE_SPEED_MPS`, `MAX_USABLE_ACCURACY_METERS`, el suelo de ruido y el ruido de proceso mínimo son primeras estimaciones razonadas, no valores medidos en campo.
+  - Las sesiones ya grabadas conservan sus distancias infladas; no se recalculan.
+
+**Recap:** Cada ubicación pasa ahora por un filtro en `core` que descarta lecturas imprecisas y saltos imposibles, suaviza el resto con un Kalman adaptativo inmutable y solo deja crecer el trazado cuando el desplazamiento supera la incertidumbre de la propia lectura. Sobre trazas sintéticas, dos minutos parado bajan de 714 m a 10 m mientras caminar y andar en bici conservan su distancia con menos de un 1 % de desvío. La adaptación por velocidad —y que ningún umbral esté en metros fijos— es lo que hace que el mismo filtro sirva para caminar y para la bici sin que la app sepa cuál de las dos estás haciendo.
+
+**Próximos pasos (opciones):** (1) validar en dispositivo (teléfono quieto + trayecto conocido a pie y en bici) antes de seguir; (2) B2: tests de `CalculateStatsUseCase` y métricas en el detalle; (3) deuda de migraciones SQLDelight antes de las tablas de rutas de C.
+
+---
+
+## Corrección del slice 8 — Cubrir los cuatro modos: caminata, trote, carrera y bici
+
+- **Origen:** el usuario señaló que el pilar contempla **caminata, trote, carrera y bici**, y B1 solo se había probado con dos de los cuatro (caminata ~5 km/h y bici ~40 km/h, más una bajada). Trote (~9 km/h) y carrera (~14 km/h) caían justo en el hueco no cubierto — y es un hueco que importa, porque el suelo de ruido se compara contra lo que avanzas entre lecturas y esos dos ritmos están entre 5 y 8 m por lectura.
+
+- **Fallo real encontrado al añadir la cobertura:** con señal mala (precisión 18 m, ruido ±15 m) se **descartaban lecturas buenas como saltos imposibles** en los tres ritmos de bici. La distancia seguía saliendo bien (0,8-3,0 %), así que una prueba que solo mirara la distancia lo habría dado por bueno; lo que se estaba perdiendo era resolución del trazado, y con algo más de ruido se habría empezado a perder recorrido.
+  - **Causa:** la puerta de plausibilidad comparaba la lectura **cruda** contra la última posición **aceptada**, que es una estimación suavizada y por tanto retrasada. Sumando el retraso más el ruido de la lectura, una bajada legítima aparentaba más de 25 m/s. El margen entre el caso real más rápido (55 km/h = 15,3 m/s) y el umbral era de solo 1,6x.
+  - **Arreglo 1:** descontar la precisión de la lectura antes de calcular la velocidad, igual que ya se hacía para estimar la velocidad que adapta el suavizado. No se puede declarar imposible un desplazamiento cuya mitad es incertidumbre de medida.
+  - **Arreglo 2:** `MAX_PLAUSIBLE_SPEED_MPS` de 25 → **40 m/s** (144 km/h). La puerta existe para cazar teletransportes del GPS, que son dos órdenes de magnitud mayores (el test inyecta 500 m/s); 90 km/h dejaba demasiado poco aire sobre una bajada real. El test del salto salvaje sigue cazándolo sin margen de duda.
+
+- **Cobertura nueva:** los ritmos pasan a ser una tabla (`TravelPace`) recorrida por dos tests, en vez de casos sueltos. Los tests reportan **todos** los ritmos que fallan, no solo el primero, así que una regresión se ve entera de una vez.
+  - `theDistanceIsTrueAtEveryPaceTheAppIsUsedAt` — señal típica (precisión 8 m), 4 min por ritmo.
+  - `aPoorSignalCostsPrecisionNotTheJourney` — fixes bastos (precisión 18 m, ruido ±15 m), 10 min por ritmo. Es el caso donde más sufre el paso corto, porque el suelo de ruido escala con la precisión y la zancada del que camina es la primera en quedar por debajo.
+
+- **Archivos tocados:**
+  - core/commonMain: `filter/LocationFilter.kt` (puerta de plausibilidad)
+  - core/commonTest: `filter/TravelPace.kt` (nuevo), `filter/LocationFilterTest.kt` (tres tests de ritmo sueltos → dos dirigidos por tabla)
+  - features: `movement_location_smoothing.feature` (dos `Scenario Outline` con los cuatro modos)
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+
+- **Resultados de validación:** `:core` 29 tests, 0 fallos; `:app:shared:jvmTest` 69 tests, 0 fallos; `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL. (El total de `core` baja de 30 a 29 porque tres tests de ritmo se refunden en dos que cubren seis ritmos cada uno.)
+
+  Recorrido real → grabado, por ritmo:
+
+  | Ritmo | Señal típica (4 min) | Señal mala (10 min) |
+  |---|---|---|
+  | Caminata (5 km/h) | 330,6 → 333,6 m (0,9 %) | 830,6 → 835,9 m (0,6 %) |
+  | Trote (9 km/h) | 595,0 → 603,4 m (1,4 %) | 1495,0 → 1538,6 m (2,9 %) |
+  | Carrera (14 km/h) | 925,6 → 938,4 m (1,4 %) | 2325,6 → 2400,5 m (3,2 %) |
+  | Bici (25 km/h) | 1652,8 → 1678,0 m (1,5 %) | 4152,8 → 4293,2 m (3,4 %) |
+  | Bici rápida (40 km/h) | 2644,4 → 2673,5 m (1,1 %) | 6644,4 → 6852,1 m (3,1 %) |
+  | Bajada (55 km/h) | 3636,1 → 3662,6 m (0,7 %) | 9136,1 → 9383,3 m (2,7 %) |
+
+  Ningún ritmo pasa del 1,5 % con señal típica ni del 3,4 % con señal mala, y ninguna lectura legítima se descarta ya como salto. Las cotas de los tests (5 % y 10 %) dejan aire deliberado sobre lo medido.
+
+- **Nota sobre el método:** este fallo salió de ampliar la cobertura a los casos que el usuario nombró, no de una revisión del código. Las dos actividades que faltaban no fallaron —fue la bici con señal mala la que destapó el problema—, pero sin la tabla de ritmos completa nadie lo habría mirado.
+
+- **Sigue pendiente:** validación en dispositivo. El ruido sintético es uniforme e independiente entre lecturas; el real está correlacionado. Los porcentajes de arriba son una cota de confianza sobre el diseño, no una medición de campo.
+
+**Recap:** El filtro está ahora probado en los cuatro modos que contempla el pilar —caminata, trote, carrera y bici, más la bajada rápida— con señal buena y mala, y la ampliación destapó que la puerta de saltos imposibles descartaba lecturas legítimas de ciclista con señal basta. Corregida descontando la incertidumbre de la medida y subiendo el umbral a 144 km/h, ningún ritmo pierde lecturas y el desvío máximo es del 3,4 % en el peor caso.
+
+**Próximos pasos (opciones):** (1) validar en dispositivo a pie y en bici antes de seguir; (2) B2: tests de `CalculateStatsUseCase` y métricas en el detalle — ojo, sus umbrales `dist > 0.5` y `dist > 2.0` son constantes métricas y tienen exactamente el problema que se acaba de evitar aquí; (3) deuda de migraciones SQLDelight antes de las tablas de rutas de C.
+
+---
+
+## Slice 9 (migración B2a) — Que las estadísticas de la sesión sean ciertas
+
+- **Objetivo:** corregir el cálculo de estadísticas antes de mostrar ninguna métrica más. `CalculateStatsUseCase` corría en producción **sin un solo test**, acumulaba desnivel sobre altitud cruda y decidía qué era movimiento con umbrales en metros fijos. Spec: [`movement_session_statistics.feature`](../../features/movement_session_statistics.feature) (7 escenarios). **B2b** (mostrar las métricas en el detalle) queda pendiente.
+
+- **Decisiones + porqué:**
+  - **Orden invertido respecto al backlog.** El punto B decía "revisar el caso de uso y mostrar las métricas". Al analizarlo salió que la pantalla de detalle **ya muestra** "Desnivel" = `stats.totalAscent`, acumulado sumando cada diferencia de altitud positiva sobre la altitud cruda del GPS. Es decir, no era una métrica pendiente de enseñar: era una métrica falsa ya enseñada. Mostrar más encima habría multiplicado el problema.
+  - **Un fallo que introdujo B1 sin querer.** `movingTime` contaba un tramo como movimiento si `dist > 0.5`. Desde B1 el filtro descarta las lecturas de cuando estás parado, así que una pausa de cinco minutos ya no produce muchos segmentos cortos sino **un único segmento larguísimo** entre el punto anterior y el posterior, que supera de sobra los 0,5 m: la pausa entera contaba como tiempo en movimiento. Ahora el criterio es **velocidad** (≥ 0,5 m/s), no distancia — coherente con la regla de B1 de que ningún umbral sea una constante métrica, y además inmune a que cambie el muestreo.
+  - **Suavizado de altitud en el filtro, histéresis en el caso de uso.** Son dos responsabilidades distintas: suavizar es una regla de señal (va con el resto del suavizado, en `KalmanFilter`, para que los puntos guardados lleven la altitud corregida y trazado/distancia/estadísticas sigan contando la misma historia, decisión de B1); acumular es una regla de negocio (va en `Elevation`, un valor propio y probable aislado).
+  - **La altitud NO se suaviza de forma adaptativa.** El truco de B1 —estimar la velocidad descontando la precisión— no funciona en vertical: una subida real avanza decenas de centímetros entre lecturas mientras el error vertical se mide en decenas de metros, así que no hay tasa vertical que detectar por lectura. Se usa un ruido de proceso fijo.
+  - **Precisión vertical derivada de la horizontal (×2).** El proveedor no entrega una precisión vertical aparte; la geometría satelital sitúa al receptor a un lado del cielo en vez de rodearlo, así que el error vertical de un fix ronda el doble del horizontal.
+  - **`Elevation` con histéresis:** se guarda una altitud de referencia y solo cuenta un cambio que supere el umbral, momento en que la referencia se mueve con él. Una subida larga y sostenida suma su altura real; el ruido alrededor de una misma altitud no suma nada. El umbral es **parámetro, no constante**: pertenece a la calidad del fix que reportó la altitud, no al terreno.
+  - **Una sesión de un solo punto devuelve `SessionStats()`.** Antes fijaba `maxAltitude`/`minAltitude` a la altitud de ese punto: una sesión que no fue a ninguna parte se reportaba con una altitud real y cero desnivel, indistinguible de una sesión de verdad.
+  - **`altitudeDistribution`:** se conserva el cálculo (nadie lo lee, pero quitarlo tocaría el modelo y el mapper) y se corrige su bucketing, que truncaba hacia cero y metía las altitudes negativas en la franja equivocada.
+
+- **Ajuste durante la implementación (dos tests en rojo lo destaparon):** el primer suavizado vertical era **demasiado agresivo**. Con `VERTICAL_DRIFT_MPS = 0.3` la altitud estimada iba ~28 m por detrás de la real en una subida: la cima se medía más baja y, en la ida y vuelta, el descenso arrancaba truncado y perdía el **36 %**. Se aflojó a `1.0` y se documentó el constante por lo que realmente equilibra (retraso contra ruido), no como "tasa máxima de ascenso plausible", que era una justificación falsa. Rechazar el ruido es trabajo de la histéresis, aguas abajo; el suavizado solo quita el filo de cada lectura.
+
+- **Archivos tocados:**
+  - core/commonMain: `filter/KalmanFilter.kt` (altitud + `verticalAccuracy()`), `model/Elevation.kt` (nuevo), `usecase/CalculateStatsUseCase.kt` (reescrito)
+  - core/commonTest: `usecase/CalculateStatsUseCaseTest.kt` (nuevo, 7 tests), `filter/GpsTraces.kt` (perfil de altitud, ruido vertical y `naiveAscentMeters()`)
+  - features: `movement_session_statistics.feature`
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+
+- **Resultados de validación:** `:core` 36 tests, 0 fallos (antes 29). `:app:shared:jvmTest` 69 tests, 0 fallos. `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL.
+
+  | Caso | Real | Antes (sumando cada subida) | Ahora |
+  |---|---|---|---|
+  | Llano, 10 min, ruido de altitud ±15 m | 0 m | **1450,2 m** de ascenso | **0,0 m** (descenso 13,3 m) |
+  | Subida sostenida de 119,6 m | 119,6 m | — | 108,3 m (−9 %) |
+  | Ida y vuelta a una loma de 99,5 m | 99,5 ↑ / 99,5 ↓ | — | 103,9 ↑ (+4 %) / 86,5 ↓ (−13 %) |
+  | Desnivel entre punto más bajo y más alto | 119,2 m | — | 112,3 m (−6 %) |
+  | Tiempo en movimiento con pausa de 5 min | 360 s de 660 s | 660 s (la pausa contaba) | 348 s (−3 %) |
+
+  El titular es el llano: **1450 m de ascenso inventado → 0 m**. El test compara contra la acumulación ingenua para que no pueda pasar en verde con una traza de altitud que no sea ruidosa.
+
+- **Desviaciones:**
+  - El test de altitud máxima/mínima estaba mal planteado: comparaba 2119 m contra 2091 m con tolerancia porcentual, y un 1 % de 2119 m son 21 m — la tolerancia no medía nada. Se cambió a comparar el **desnivel entre el punto más bajo y el más alto**, que es la cantidad con significado.
+  - `movingTime` no estaba en el alcance del `.feature` original de B1 pero su fallo lo causó B1, así que se arregla aquí.
+
+- **Sesgo conocido y no resuelto:** el desnivel sale **entre un 4 % y un 13 % corto** en subidas reales. Son las dos mitades del mismo compromiso: la histéresis se come el último tramo por debajo del umbral, y el suavizado llega con algo de retraso a los cambios de pendiente. Preferible a inventar: quedarse corto por un 10 % es un error acotado; sumar cada subida daba 1450 m sobre terreno llano.
+
+- **Sin cobertura de host (dicho explícitamente):** el ruido de altitud sintético es uniforme e independiente entre lecturas. El error vertical real del GPS está **fuertemente correlacionado** (deriva lenta con la geometría de los satélites, no salto a salto), y la histéresis se comporta distinto frente a una deriva lenta que frente a ruido blanco. **Este caso es menos representativo que el horizontal de B1**, así que la validación en dispositivo importa más aquí: grabar una ruta de desnivel conocido (una cuesta medida, o comparar con una app de referencia) a pie y en bici.
+
+- **Seguimientos:**
+  - **B2b:** mostrar en el detalle tiempo en movimiento, altitud máx/mín y descenso, con "—" para las sesiones viejas. El escenario "una sesión sin nada grabado no tiene estadísticas" está resuelto en el dominio pero **su mitad de pantalla es de B2b**.
+  - **Calibrar en dispositivo** `VERTICAL_DRIFT_MPS`, el factor de histéresis y `MIN_TRAVELLING_SPEED_MPS`.
+  - `currentPace` y `currentSlope` son métricas de sesión en vivo que se calculan sobre una sesión terminada y se tiran (no se persisten). Restos del caso de uso de navegación de la referencia; candidatos a borrado.
+  - `altitudeDistribution` sigue sin consumidor: decidir en B2b si se muestra o se borra del modelo.
+  - Las sesiones ya grabadas conservan su desnivel inflado; no se recalculan.
+
+**Recap:** Las estadísticas de una sesión terminada pasan a calcularse sobre altitud suavizada, acumulando desnivel con histéresis contra la calidad del fix y contando como movimiento por velocidad en vez de por distancia. Sobre trazas sintéticas, un paseo llano deja de reportar 1450 m de ascenso inventado y reporta 0, mientras una subida real conserva su altura con un sesgo conocido del 4-13 % por defecto. De paso se corrigió que, desde B1, las pausas contaran enteras como tiempo en movimiento.
+
+**Próximos pasos (opciones):** (1) validar en dispositivo con una ruta de desnivel conocido — importa más aquí que en B1 porque el error vertical real está correlacionado y el ruido sintético no lo está; (2) B2b: mostrar las métricas en el detalle; (3) deuda de migraciones SQLDelight antes de las tablas de rutas de C.
+
+---
+
+## Session handoff — 2026-07-25 (reinicio de la máquina)
+
+Estado al cerrar la sesión, tras entregar los slices 8 (B1) y 9 (B2a). **Nada está commiteado.**
+
+### Estado de git
+
+- Rama: `feat/movement-tracker-screen` (último commit: `f4badb8 feat(movement): record sessions in a foreground service`).
+- Un reinicio **no pierde** estos cambios: están escritos en disco, solo sin commitear. Al volver, `git status` debe mostrar exactamente esto:
+
+**Modificados**
+- `core/.../filter/KalmanFilter.kt` — reescrito inmutable, suavizado horizontal adaptativo + vertical
+- `core/.../usecase/CalculateStatsUseCase.kt` — reescrito
+- `core/.../usecase/TrackNavigationUseCase.kt` — apuntado a `LocationFilter` (era código muerto que no compilaba con la API nueva)
+- `app/shared/.../data/movement/SessionRecording.kt` — filtra antes de acumular
+- `app/shared/.../data/movement/SessionRecordingTest.kt` — 2 tests nuevos + helper de coordenadas
+- `docs/features/movement-tracker-bitacora.md`, `docs/features/movement-tracking-migration.md`
+- `CLAUDE.md` (reglas de terminal añadidas por el usuario), `.claude/settings.json`
+
+**Nuevos**
+- `core/.../filter/LocationFilter.kt`
+- `core/.../model/Elevation.kt`
+- `core/src/commonTest/.../filter/` (`LocationFilterTest.kt`, `GpsTraces.kt`, `TravelPace.kt`)
+- `core/src/commonTest/.../usecase/CalculateStatsUseCaseTest.kt`
+- `features/movement_location_smoothing.feature`, `features/movement_session_statistics.feature`
+
+### Validación en el momento de cerrar
+
+Todo en verde:
+
+| Comando | Resultado |
+|---|---|
+| `.\gradlew.bat :core:jvmTest` | 36 tests, 0 fallos |
+| `.\gradlew.bat :app:shared:jvmTest` | 69 tests, 0 fallos |
+| `.\gradlew.bat :app:androidApp:assembleDebug` | BUILD SUCCESSFUL |
+| `.\gradlew.bat :app:desktopApp:check` | BUILD SUCCESSFUL |
+| `.\gradlew.bat :app:webApp:check` | BUILD SUCCESSFUL |
+
+Nota: `assembleDebug` y `:app:webApp:check` **chocan si se lanzan en la misma invocación de Gradle** (`copySharedComposeResourcesToAssets`, conflicto por los mismos recursos compartidos). Lanzarlos por separado.
+
+### Acciones pendientes
+
+**1. Decidir el commit (pendiente del usuario).** No se ha commiteado nada por no haberlo pedido. Son dos slices independientes y conviene que sean dos commits:
+   - `feat(movement): filter gps readings before accumulating distance` — slice 8
+   - `feat(movement): compute session statistics from smoothed altitude` — slice 9
+
+   `CLAUDE.md` y `.claude/settings.json` son cambios del usuario, ajenos a los slices: van aparte o se dejan fuera.
+
+**2. Validación en dispositivo — es la pendiente de verdad, y bloquea la confianza en ambos slices.** Ninguno está validado contra un GPS real; las constantes se calibraron contra ruido sintético.
+   - **B1 (posición):** dejar el teléfono quieto varios minutos y comprobar que la distancia no crece; grabar un trayecto conocido a pie y en bici y comparar el total.
+   - **B2a (altitud):** grabar una ruta de **desnivel conocido**, a pie y en bici. **Esta importa más**: el ruido de altitud sintético es uniforme e independiente entre lecturas, mientras que el error vertical real del GPS está fuertemente correlacionado (deriva lenta con la geometría satelital). La histéresis se comporta distinto ante una deriva lenta que ante ruido blanco, así que los números del slice 9 son una cota de confianza sobre el diseño, no una predicción de campo.
+   - Constantes a recalibrar con lo que salga: `VERTICAL_DRIFT_MPS`, el factor de histéresis (`ELEVATION_THRESHOLD_FACTOR`), `MIN_TRAVELLING_SPEED_MPS`, `MAX_PLAUSIBLE_SPEED_MPS`, `MAX_USABLE_ACCURACY_METERS`.
+
+**3. Siguiente slice: B2b** — mostrar en el detalle tiempo en movimiento, altitud máx/mín y descenso. Incluye la mitad de pantalla del escenario "una sesión sin nada grabado no tiene estadísticas": el dominio ya devuelve `SessionStats()` vacío, falta que la UI muestre "—" en vez de ceros. Requiere alignment gate y `.feature` propios.
+
+**4. Deuda y limpieza anotadas, sin urgencia:**
+   - Sesiones ya grabadas conservan distancia inflada y desnivel inflado; no se recalculan. Decidir si se marcan de algún modo.
+   - `currentPace` y `currentSlope` se calculan sobre una sesión terminada y se tiran (no se persisten). Restos del caso de uso de navegación de la referencia; candidatos a borrado.
+   - `altitudeDistribution` sigue sin consumidor: decidir en B2b si se muestra o se borra del modelo.
+   - Sesgo conocido: el desnivel sale un 4-13 % corto en subidas reales. Aceptado a cambio de no inventar.
+   - Muestreo a 2 s: en curvas cerradas a velocidad de bici se cortan las curvas y la distancia se queda corta. Se arreglaría muestreando más, a costa de batería.
+   - Deuda de migraciones SQLDelight, pendiente antes de las tablas nuevas de C.
+
+**Recap:** El pilar Movimiento tiene ahora la señal filtrada antes de acumular distancia (slice 8) y las estadísticas calculadas sobre altitud suavizada con histéresis (slice 9), ambos cubiertos por tests en `core` y con toda la validación de host en verde. Lo que falta no es código: es contrastar ambos contra un GPS real, porque el ruido sintético con el que se calibraron no reproduce la correlación del error real — especialmente en vertical.
+
+**Próximos pasos (opciones):** (1) commitear los dos slices por separado; (2) validar en dispositivo, primero el desnivel con una ruta conocida; (3) B2b, mostrar las métricas en el detalle.
+
+---
+
+## Slice 10 — Capturar la traza cruda del GPS para poder calibrar
+
+- **Objetivo:** que una salida real se pueda repetir en frío. Hasta ahora una sesión guardaba **solo las lecturas aceptadas y ya suavizadas**, así que una salida al campo podía decir que la distancia se desvió pero nunca por qué, y ninguna constante se podía reajustar sin volver a salir. Spec: [`movement_trace_capture.feature`](../../features/movement_trace_capture.feature) (9 escenarios).
+- **Encuadre:** salió de la pregunta del usuario sobre cómo probar los slices 8 y 9 con un GPS real. Se ofrecieron dos slices —este y B2b (métricas en el detalle)— y se eligió este primero por un motivo asimétrico: **desde una traza cruda se recalcula todo lo de B2b en frío, pero desde la pantalla de B2b no se recupera ni una lectura descartada.** Si solo uno llega listo a la primera salida, tiene que ser este.
+
+- **Decisiones + porqué:**
+  - **CSV en disco, no en la base de datos.** El diagnóstico es por sesión, así que lo natural habría sido **columnas nuevas en `MovementSessionEntity`** — y añadir una columna a una tabla existente es exactamente lo que el parche `ensureNewTablesExist` **no** sabe hacer: la guarda es `if (!hasTable)`, se salta la tabla ya creada y la app revienta en tiempo de ejecución solo en instalaciones previas. La otra opción, tabla nueva, funcionaba a costa de un tercer bloque de `CREATE TABLE` duplicado a mano. Un fichero esquiva las dos cosas y además es lo que se puede sacar del teléfono y reproducir, que es para lo que existe. La deuda de migraciones queda anotada, sin tocarla.
+  - **Se guarda la lectura CRUDA, no la corregida.** Es lo que hace la traza reproducible: volver a pasarla por el filtro reconstruye el trazado suavizado. Guardar la corregida la suavizaría dos veces en cada reproducción. Hay un test que falla si esa diferencia desaparece.
+  - **Se guardan también las lecturas descartadas, y esa es la mitad que importa.** Una lectura rechazada por `WITHIN_NOISE` **sí** alimenta al suavizador, así que quitarla cambia todas las estimaciones posteriores. El trazado persistido de una sesión es precisamente una traza sin ellas: por eso la captura no podía resolverse leyendo la base de datos. Está fijado en `aTraceThatKeptOnlyTheAcceptedReadingsWouldNotReproduceAnything`.
+  - **Casado traza↔sesión por el timestamp del primer punto guardado.** `MovementSessionEntity.date` no sirve: `SaveSessionUseCase` lo fija al **detener**, no al iniciar. El primer punto almacenado es la misma lectura que el filtro aceptó primero, y `KalmanFilter` conserva el `timestamp` original al corregir la posición, así que es una clave exacta y no cuesta ni una columna. El fichero se escribe como `partial-<inicio>.csv` y se renombra a `trace-<primerPunto>.csv` al guardar la sesión.
+  - **Escritura incremental, con `flush` por lectura.** Una línea corta cada dos segundos no cuesta nada, y es lo único que hace que la traza de una grabación que el sistema mató valga algo — que es justamente la salida con la pantalla apagada. Va por un `Channel` sin límite hacia `Dispatchers.IO`, así que nunca bloquea el hilo que colecta ubicaciones (en Android, el principal del servicio).
+  - **El parseo es deliberadamente indulgente.** Una traza cortada termina a media línea; se descarta esa línea y se lee el resto. Un veredicto desconocido (traza escrita por una versión futura) también se salta en vez de adivinarse como aceptado, que inventaría un diagnóstico.
+  - **La captura es un argumento de `startRecording(captureTrace)`, no un ajuste.** Pertenece a la grabación que estás iniciando, no a la app. Evita estado global nuevo y viaja al servicio como extra del `Intent`. El interruptor vive en `TrackerViewModel` y solo se ofrece con la grabación parada: un switch que no hace nada a mitad de sesión sería mentira.
+  - **Apagado por defecto.** Una app en uso normal no tiene por qué escribir un fichero por sesión. Una sesión sin traza reporta **"sin diagnóstico"**, no contadores a cero — un cero afirmaría que el filtro no rechazó nada.
+  - **El diagnóstico se muestra plegado en el detalle** (elección del usuario), como filas ya formateadas. Se construye como lista de filas y no como campos con nombre para que **una razón que nunca disparó simplemente no aparezca**, en vez de una columna de ceros.
+  - **La mediana, no la media, para el intervalo real.** Una sesión con un tramo sin cobertura deja un hueco enorme que arrastraría la media lejos del ritmo al que corrió el resto.
+  - **Reparto por módulos:** `TraceRecord`, `TraceSummary` y el resumen viven en `core` (son dominio puro y probable); el CSV y el `TraceStore` viven en `app/shared` porque son E/S. Solo Android escribe traza; jvm/js/ios usan `NoOpTraceStore`.
+
+- **Archivos tocados:**
+  - core/commonMain: `filter/TraceRecord.kt` (nuevo), `filter/TraceSummary.kt` (nuevo), `repository/RecordingController.kt` (`startRecording(captureTrace)`)
+  - core/commonTest: `filter/TraceSummaryTest.kt` (nuevo, 7), `filter/TraceReplayTest.kt` (nuevo, 5), `filter/GpsTraces.kt` (`tracedThrough()`)
+  - shared/commonMain: `data/movement/trace/TraceFormat.kt`, `TraceStore.kt`, `TraceStoreFactory.kt` (nuevos), `data/movement/SessionRecording.kt`, `InProcessRecordingController.kt`, `feature/movement/tracker/presentation/TrackerViewModel.kt`, `tracker/ui/TrackerScreen.kt`, `feature/movement/detail/presentation/SessionDiagnosis.kt` (nuevo), `SessionDetailViewModel.kt`, `detail/ui/SessionDetailScreen.kt`, `presentation/MovementFormat.kt` (`oneDecimal`)
+  - shared/androidMain: `data/movement/trace/FileTraceStore.kt`, `TraceStoreFactory.android.kt` (nuevos), `MovementRecordingService.kt`, `RecordingControllerFactory.android.kt`
+  - shared/{jvm,js,ios}Main: `data/movement/trace/TraceStoreFactory.<target>.kt`
+  - shared/commonTest: `data/movement/trace/FakeTraceStore.kt`, `TraceFormatTest.kt` (nuevos), `SessionRecordingTest.kt` (+5), `feature/movement/detail/presentation/SessionDetailViewModelTest.kt` (+2), `tracker/presentation/TrackerViewModelTest.kt` (+2)
+  - features: `movement_trace_capture.feature`
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+
+- **Resultados de validación:** `:core` **48 tests, 0 fallos** (antes 36). `:app:shared:jvmTest` **84 tests, 0 fallos** (antes 69). `:core:check`, `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL. Test exterior = `TraceReplayTest` (una traza reproduce su sesión y responde a un cambio de umbral); componentes = `TraceSummaryTest`, `TraceFormatTest`, y los añadidos de `SessionRecordingTest`.
+
+- **Desviaciones:** ninguna respecto al `.feature`. Un cambio de alcance menor: `stop()` ya no puede salir antes de tiempo cuando la sesión no grabó nada, porque la traza hay que cerrarla igual — antes devolvía `null` sin más. El comportamiento visible se conserva (`doesNotPersistASessionWithoutAnyLocation` sigue en verde) y hay un test nuevo que fija que una grabación sin sesión **sí** cierra su traza y **no** la ata a ninguna sesión.
+
+- **Sin cobertura de host (dicho explícitamente):** `FileTraceStore` —el renombrado, el `flush` por lectura, el directorio en almacenamiento externo— no se prueba en JVM: es código Android. Lo que sí está probado es todo lo que decide *qué* se escribe y *cómo* se lee. La prueba de que el fichero sobrevive a que el sistema mate el proceso es manual: `adb shell am kill com.hazlosano` a mitad de una grabación con la captura encendida, y comprobar que el `partial-*.csv` conserva las lecturas.
+
+- **Cómo usarlo en campo:**
+  1. Tracker → activar **"Guardar traza de diagnóstico"** → Iniciar.
+  2. Al terminar, el detalle de esa sesión muestra **Diagnóstico** (plegado): lecturas recibidas, aceptadas y descartadas con su reparto por motivo, precisión media e intervalo real.
+  3. Sacar el fichero: `adb pull /sdcard/Android/data/com.hazlosano/files/traces/ .` — sin `run-as`.
+  4. **Sacar las trazas después de cada salida.** Desinstalar la app borra ese directorio, y desinstalar es la salida barata a la deuda de migraciones.
+
+- **Seguimientos:**
+  - **B2b:** mostrar en el detalle tiempo en movimiento, altitud máx/mín y descenso. No necesita esquema nuevo: `MovementSessionMapping` ya los lee de vuelta.
+  - Reproducir en un test de JVM las trazas reales que salgan de la calibración y ajustar `VERTICAL_DRIFT_MPS`, `ELEVATION_THRESHOLD_FACTOR`, `MIN_TRAVELLING_SPEED_MPS`, `MAX_PLAUSIBLE_SPEED_MPS` y `MAX_USABLE_ACCURACY_METERS`.
+  - Los `partial-*.csv` de grabaciones interrumpidas no se limpian solos; se borran a mano.
+  - Deuda de migraciones SQLDelight, intacta y anotada: **mientras siga viva, cualquier columna nueva sobre una tabla existente rompe la app en instalaciones previas sin avisar en compilación.**
+
+**Recap:** Una grabación puede ahora guardar cada lectura que entregó el receptor con el veredicto que le dio el filtro, en un CSV que se saca del teléfono sin permisos especiales y se vuelve a pasar por el filtro en un test. La sesión encuentra su propia traza por el timestamp de su primer punto guardado, sin tocar el esquema, y el detalle la resume plegada. Está apagado por defecto y una sesión sin traza lo dice en vez de enseñar ceros. Con esto, calibrar deja de costar una salida por iteración.
+
+**Próximos pasos (opciones):** (1) salir a calibrar — primero teléfono quieto, luego trayecto conocido a pie y en bici, luego cuesta ida y vuelta; (2) B2b, métricas en el detalle; (3) commitear los slices 8, 9 y 10 por separado.

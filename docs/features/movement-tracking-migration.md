@@ -8,7 +8,7 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 - Al cerrar un slice: marcar aquí su estado y enlazar el `.feature`.
 - La referencia es **fuente de APIs y comportamiento, no de calidad**: se re-expresa aplicando Clean Architecture, SOLID y las reglas de `AGENTS.md`, y se cubre con tests. No se copia tal cual.
 
-**Aviso sobre `core`**: varios archivos ya están copiados en `core/src/commonMain/.../feature/movement/` pero **nadie los usa** — `KalmanFilter`, `GpxParser`, `CalculateStatsUseCase`, `TrackNavigationUseCase`, `ImportRouteUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, y las interfaces `RouteRepository`, `NavigationController`, `OfflineMapRepository`. Que el archivo exista no significa que la funcionalidad esté migrada: falta implementarlos, conectarlos y probarlos.
+**Aviso sobre `core`**: varios archivos ya están copiados en `core/src/commonMain/.../feature/movement/` pero **nadie los usa** — `GpxParser`, `TrackNavigationUseCase`, `ImportRouteUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, y las interfaces `RouteRepository`, `NavigationController`, `OfflineMapRepository`. (`KalmanFilter` ya está reescrito, en uso y probado desde el slice 8; `CalculateStatsUseCase` se invoca al detener pero sigue sin un solo test.) Que el archivo exista no significa que la funcionalidad esté migrada: falta implementarlos, conectarlos y probarlos.
 
 ---
 
@@ -23,6 +23,8 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Detalle de sesión con la ruta en el mapa | Hecho (slice 6) |
 | Render del mapa en dispositivo | Corregido tras el slice 6 (ver bitácora, entrada de corrección) |
 | Grabación en segundo plano | Hecho (slice 7, punto A del backlog), validado en dispositivo |
+| Filtrado de la señal antes de acumular distancia | Hecho (slice 8, punto B1), probado en caminata, trote, carrera y bici. Sin validar en dispositivo |
+| Estadísticas ciertas (desnivel, tiempo en movimiento) | Hecho (slice 9, punto B2a). Sin validar en dispositivo |
 
 ---
 
@@ -40,14 +42,16 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 ## B — Filtro Kalman y estadísticas reales
 
-- **Estado:** pendiente. Es el slice más pequeño y el único 100 % en `core` con tests puros.
+- **Estado:** partido en tres. **B1 (filtro de posición) hecho** en el slice 8 — spec: [`movement_location_smoothing.feature`](../../features/movement_location_smoothing.feature). **B2a (estadísticas ciertas) hecho** en el slice 9 — spec: [`movement_session_statistics.feature`](../../features/movement_session_statistics.feature). **B2b (mostrar las métricas en el detalle) pendiente.** Ninguno de los dos está validado en dispositivo: las constantes se calibraron contra ruido sintético, no contra un GPS real — y en el caso de la altitud eso importa más, porque el error vertical real está correlacionado y el sintético no.
 - **Problem:** la distancia se acumula con haversine sobre puntos **crudos**, así que el ruido del GPS infla los kilómetros, y ese error contamina también las estadísticas derivadas. (`CalculateStatsUseCase` ya se invoca al detener y sus columnas se persisten — lo que falta es filtrar la señal antes de acumular, y mostrar las métricas que ya se guardan.)
 - **Savings:** datos en los que se puede confiar sin repetir la medición ni corregirla a mano; evita rehacer el historial más adelante con métricas distintas.
 - **Why:** el pilar promete ver progreso; con distancias infladas y estadísticas vacías, el progreso mostrado es ficción.
 - **Referencia:** `domain/filter/KalmanFilter.kt` (68 líneas, ruido de proceso base 3 m/s) y `domain/usecase/CalculateStatsUseCase.kt` (105 líneas: altitud máx/mín, ascenso/descenso, pendientes, VAM, ritmo actual y medio, tiempo en movimiento).
-- **Alcance propuesto:** filtrar cada ubicación con Kalman antes de acumular el recorrido, revisar y probar `CalculateStatsUseCase` (hoy se usa sin un solo test), y mostrar en el detalle las métricas que ya se persisten.
-- **Módulos:** `core` (filtro + caso de uso ya copiados, hay que revisarlos y probarlos), `app/shared` (ViewModel y UI del detalle).
-- **Riesgos / notas:** las columnas de stats ya existen en `MovementSessionEntity`, así que no hace falta migración de esquema. Sesiones ya grabadas seguirán con stats vacíos: decidir si se muestran como "—".
+- **Alcance:** ~~filtrar cada ubicación con Kalman antes de acumular el recorrido~~ (B1, hecho), ~~revisar y probar `CalculateStatsUseCase`~~ (B2a, hecho), y mostrar en el detalle las métricas que ya se persisten (B2b).
+- **Módulos:** `core` (filtro hecho; caso de uso copiado, sin probar), `app/shared` (ViewModel y UI del detalle).
+- **Riesgos / notas:** las columnas de stats ya existen en `MovementSessionEntity`, así que no hace falta migración de esquema. Sesiones ya grabadas seguirán con stats vacíos: decidir si se muestran como "—". Sus distancias además quedan infladas (se grabaron sin filtro) y no se recalculan.
+- **Aprendido en B1 y B2a (aplica a C y a todo lo que toque puntos):** el pilar contempla **caminata, trote, carrera y bici**, y la app **nunca sabe cuál de ellas estás haciendo** — no hay selector y `MovementSession` no lleva tipo de actividad. A 2 s de muestreo eso son 2,8 / 5,0 / 7,8 / 14-30 m por lectura respectivamente, un orden de magnitud de diferencia, así que **cualquier umbral en metros fijos codifica en silencio una actividad y rompe las otras**. Los umbrales se expresan contra la precisión de la lectura o contra el intervalo real, nunca en metros.
+- **Segundo aprendizaje de B2a:** filtrar la señal puede **romper cosas aguas abajo que dependían del ruido**. El umbral `dist > 0.5` de `movingTime` funcionaba por accidente mientras llegaban lecturas de cuando estabas parado; en cuanto B1 dejó de entregarlas, una pausa pasó a ser un único segmento largo y contaba entera como movimiento. Al tocar el filtro, revisar quién consume los puntos.
 - **Cobertura de test:** unitaria en `core/commonTest` con trazas sintéticas (ruido conocido, subida conocida).
 
 ## C — Rutas: importar GPX, listar, detalle y navegación guiada
@@ -119,8 +123,8 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 ## Orden sugerido
 
-1. **A** — fiabilidad de la grabación (sin esto, lo demás guarda datos rotos).
-2. **B** — calidad de los datos grabados.
+1. ~~**A** — fiabilidad de la grabación (sin esto, lo demás guarda datos rotos).~~ Hecho.
+2. **B** — calidad de los datos grabados. B1 (filtro) y B2a (estadísticas) hechos; queda **B2b** (métricas en el detalle).
 3. **Deuda: migraciones SQLDelight** — justo antes de necesitar tablas nuevas.
 4. **C1 → C2 → C3** — rutas y navegación guiada.
 5. **D** — offline (además activa el `FileSource` a nivel de app).
