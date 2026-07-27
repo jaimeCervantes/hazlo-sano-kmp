@@ -628,3 +628,72 @@ Nota: `assembleDebug` y `:app:webApp:check` **chocan si se lanzan en la misma in
 **Recap:** Las cifras de una sesión pasan a derivarse de su recorrido cada vez que se abre, en vez de leerse de columnas escritas al detener. El detalle muestra ahora ocho métricas —incluidas tiempo en movimiento, descenso y altitud máx/mín— con "—" donde no se midió nada en vez de ceros que afirman terreno llano. La deuda de migraciones queda saldada con la primera migración real del proyecto, cuyo riesgo de borrado en cascada del recorrido está cerrado con un test y no con un razonamiento. Lo que esto compra de inmediato: la calibración que empieza ahora ya no invalida los datos de campo de las salidas anteriores.
 
 **Próximos pasos (opciones):** (1) instalar, comprobar que el historial sobrevive a la migración, y salir a calibrar; (2) commitear el slice; (3) mostrar pendiente media y VAM, que ya no cuestan migración.
+
+---
+
+## Primera calibración en campo — tres trazas reales
+
+Primera salida con la captura de traza activada. Tres CSV en `traces/`, reproducidos por el filtro real con `TraceReplayHarness` y `TraceDiagnosticsHarness` (ambos en `app/shared/src/jvmTest/`, solo reportan).
+
+### Qué fue cada traza (según el usuario)
+
+| | Traza 1 · 21:34 | Traza 2 · 21:38 | Traza 3 · 21:54 |
+|---|---|---|---|
+| Actividad | Quieto, dentro de casa | Bajó caminando una pendiente, luego trote/carrera | Bici todo el recorrido |
+| Pendientes | — | 2 | 3 (una extra, empinada, subida y bajada) |
+| Duración | 3m 11s | 7m 37s | 5m 12s |
+| Lecturas | 25 | 214 | 139 |
+| Intervalo real | 8,8 s | 2,0 s | 2,0 s |
+| Precisión media | 20,4 m | 4,2 m | 6,0 m |
+| Distancia cruda | 22 m | 1028 m | 1267 m |
+| Distancia grabada | **0 m** | 899 m | 1190 m |
+
+**Geometría verificada:** la traza 3 empieza a 16 m de donde acabó la 2 y termina a 3 m de donde empezó la 2 — es el regreso por la misma ruta. Los 291 m de diferencia (1190 − 899) cuadran con la pendiente extra subida y bajada, así que las distancias **no** son contradictorias. La sospecha inicial de que el paso corto medía corto se retiró por falta de evidencia; sigue sin distancia real medida para cerrarlo del todo.
+
+### Hallazgo 1 — `movingTime` se truncaba (bug del slice 9, corregido aquí)
+
+`movingSeconds += seconds.toLong()` truncaba **cada segmento** a segundos enteros. Con segmentos de ~2,7 s eso tira ~0,7 s cientos de veces por sesión.
+
+| | Suma exacta | Truncando | Perdido |
+|---|---|---|---|
+| Traza 2 | 409 s | 330 s | 79 s |
+| Traza 3 | 282 s | **232 s** | 50 s |
+
+Los 232 s son exactamente lo que la app había reportado para la traza 3, lo que confirmó el diagnóstico sin margen de duda. La pantalla presentaba la diferencia como **una pausa que no ocurrió** — y el usuario llegó a racionalizarla ("tal vez paré 80 s"), que es lo que hace peligroso a un número falso: se cree.
+
+- **Arreglo:** acumular en `Double` y redondear una vez al final.
+- **Por qué ningún test lo cazó:** las trazas sintéticas colocaban cada lectura en múltiplos exactos de 2000 ms, así que `.toLong()` no perdía nada. **El bug era invisible por construcción.** Se añadió `intervalJitterMillis` a `trace()` (con su propio `Random`, para no desplazar el ruido de las trazas existentes) y un test que lo usa.
+- **Comprobado que el test caza el fallo:** revirtiendo el arreglo, reporta 303 s de 403 s (−25 %), el mismo patrón que la bici real (232 de 312, −26 %).
+- **Efecto sobre las trazas reales:** traza 2 de 317 → **395 s** de 457; traza 3 de 232 → **282 s** de 312. Lo que queda sin movimiento en la traza 2 (62 s) son dos tramos genuinamente lentos a 0,33 y 0,39 m/s — el arranque caminando cuesta abajo.
+
+### Hallazgo 2 — La altitud del teléfono se congela (sin resolver)
+
+No es un umbral mal calibrado: **el dato no está**.
+
+| | Altitudes distintas | Racha repetida más larga |
+|---|---|---|
+| Traza 1 | **1** de 25 | 25 lecturas (192 s) |
+| Traza 2 | 111 de 214 | 97 lecturas (**207 s**) |
+| Traza 3 | **48** de 139 | 86 lecturas (**193 s**) |
+
+En la traza 3 el 65 % de las lecturas repiten altitud, con 3,2 minutos seguidos en el valor exacto 207,1 — en bici a 13,7 km/h, unos 450 m de terreno. El perfil muestra plano congelado de 60 s a 180 s y solo después la bajada. **Las pendientes que el usuario describe ocurrieron dentro de esa ventana**, y por eso el ascenso reportado es de 5,3 m.
+
+El desglose separa dónde se pierde qué (traza 2, donde la altitud sí varió): crudo +72,8 → suavizado +29,8 → con histéresis +19,8, contra ~24 m reales según el perfil. **Ahí el filtro se comporta bien.** El problema es exclusivamente la señal congelada.
+
+- **Pista concreta sin explotar:** Android expone `getVerticalAccuracyMeters()` y `hasAltitude()`, y **no los leemos** — derivamos la precisión vertical como 2× la horizontal, adivinando. Si el sistema informa de que esa altitud no es fiable, deberíamos capturarlo en la traza y en `UserLocation`, y reportar "—" en vez de un desnivel inventado.
+- **Alternativa de fondo:** barómetro (`Sensor.TYPE_PRESSURE`), que es lo que usan las apps de montaña. Slice grande.
+- Queda pendiente con gate propio.
+
+### Hallazgo 3 — El ruido sintético era mucho más pesimista que el real
+
+La traza 1 dio 22 m de recorrido crudo en 3 minutos; la traza sintética equivalente asumía **714 m en 2 minutos**. Es la correlación del error real que se avisó en el slice 8, ahora medida: el error deriva despacio, no salta. Buena noticia para la confianza, pero **el titular "714 m → 10 m" exageraba el mérito del filtro**.
+
+Además la traza 1 no fue una prueba válida de GPS parado: desde una habitación, con fix de red (precisión 20 m, muestreo cada 8,8 s, altitud congelada). Los 0 m están bien pero el caso era fácil. **Pendiente repetirla a cielo abierto.**
+
+- **Archivos tocados:** core/commonMain `usecase/CalculateStatsUseCase.kt`; core/commonTest `filter/GpsTraces.kt` (jitter de intervalo), `usecase/CalculateStatsUseCaseTest.kt` (+1); features `movement_session_statistics.feature` (+1 escenario); app/shared/jvmTest `trace/TraceReplayHarness.kt`, `trace/TraceDiagnosticsHarness.kt` (nuevos, solo reportan).
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+- **Resultados:** `:core` **56 tests, 0 fallos** (antes 55). `:app:shared:jvmTest` **96 tests, 0 fallos** (antes 94, +2 arneses). `assembleDebug`, desktop y web BUILD SUCCESSFUL.
+
+**Recap:** La primera salida de campo justificó la captura de traza en una tarde: destapó un bug de truncamiento que quitaba una cuarta parte del tiempo en movimiento de toda sesión y que ningún test sintético podía ver, porque las trazas generadas caían en segundos exactos. También mostró que el problema del desnivel no es de calibración sino de señal — la altitud de este teléfono se queda congelada durante minutos — y que el ruido real infla el recorrido mucho menos de lo que modelamos.
+
+**Próximos pasos (opciones):** (1) encuadrar el problema de la altitud, empezando por leer la precisión vertical que Android ya reporta; (2) repetir la prueba de teléfono quieto a cielo abierto y medir la ruta real para cerrar la duda de la distancia caminando; (3) commitear el arreglo del truncamiento.
