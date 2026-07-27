@@ -1,0 +1,139 @@
+package com.hazlosano.data.movement.trace
+
+import com.hazlosano.domain.feature.movement.filter.LocationFilter
+import com.hazlosano.domain.feature.movement.filter.LocationFilterResult
+import com.hazlosano.domain.feature.movement.filter.TraceRecord
+import com.hazlosano.domain.feature.movement.model.Elevation
+import com.hazlosano.domain.feature.movement.model.UserLocation
+import com.hazlosano.domain.geo.haversineMeters
+import java.io.File
+import kotlin.math.roundToInt
+import kotlin.test.Test
+
+/**
+ * Pulls apart *where* a captured trace loses climb and loses time spent moving, so a constant is
+ * changed against a measurement rather than a hunch.
+ *
+ * Climb is lost in two independent places and they need different fixes: the vertical smoothing can
+ * lag behind a real slope, and the hysteresis can swallow what is left. Reporting the naive sum over
+ * raw altitude, the naive sum over smoothed altitude and the hysteresis result side by side says
+ * which one is doing the damage.
+ *
+ * Reports only; asserts nothing.
+ */
+class TraceDiagnosticsHarness {
+
+    @Test
+    fun reportWhereClimbAndMovingTimeAreLost() {
+        traceFiles().forEach { file ->
+            val records = TraceFormat.parse(file.readLines())
+            val accepted = records.map { it.reading }.acceptedThroughFilter()
+            if (accepted.size < 2) return@forEach
+
+            println("\n══ ${file.name}")
+            reportClimb(records, accepted)
+            reportMovingTime(accepted)
+            reportAltitudeProfile(records, accepted)
+        }
+    }
+
+    private fun reportClimb(records: List<TraceRecord>, accepted: List<UserLocation>) {
+        val raw = records.map { it.reading }
+        println(
+            """
+               climb, three ways
+                 naive over raw altitude       +${raw.naiveUp().fmt()} / -${raw.naiveDown().fmt()}
+                 naive over smoothed altitude  +${accepted.naiveUp().fmt()} / -${accepted.naiveDown().fmt()}
+                 what the app reports          +${accepted.withHysteresis().first.fmt()} / -${accepted.withHysteresis().second.fmt()}
+                 threshold used                ${accepted.typicalThreshold().fmt()} per step
+            """.trimIndent(),
+        )
+    }
+
+    private fun reportMovingTime(accepted: List<UserLocation>) {
+        val segments = accepted.zipWithNext { from, to ->
+            val meters = haversineMeters(from.latitude, from.longitude, to.latitude, to.longitude)
+            val seconds = (to.timestamp - from.timestamp) / 1_000.0
+            Triple(meters, seconds, if (seconds > 0) meters / seconds else 0.0)
+        }
+        val still = segments.filter { it.third < MIN_TRAVELLING_SPEED_MPS }
+        val stillSeconds = still.sumOf { it.second }
+        val longestStill = still.maxByOrNull { it.second }
+
+        println(
+            """
+               time counted as standing still
+                 total                         ${stillSeconds.roundToInt()} s over ${still.size} segments
+                 longest single segment        ${longestStill?.second?.roundToInt() ?: 0} s
+                 segments under 0.5 m/s        ${still.size} of ${segments.size}
+                 their speeds                  ${still.take(12).joinToString(", ") { "%.2f".format(it.third) }}
+            """.trimIndent(),
+        )
+    }
+
+    /** A coarse altitude profile, so the shape of the slopes is visible rather than inferred. */
+    private fun reportAltitudeProfile(records: List<TraceRecord>, accepted: List<UserLocation>) {
+        val raw = records.map { it.reading }
+        val start = raw.first().timestamp
+        println("               altitude over time (raw -> smoothed), every ~30 s")
+        val buckets = raw.groupBy { ((it.timestamp - start) / 30_000L).toInt() }
+        buckets.toSortedMap().forEach { (bucket, readings) ->
+            val smoothed = accepted.filter { ((it.timestamp - start) / 30_000L).toInt() == bucket }
+            val rawAvg = readings.map { it.altitude }.average()
+            val smoothAvg = if (smoothed.isEmpty()) null else smoothed.map { it.altitude }.average()
+            println(
+                "                 %3ds  %6.1f -> %s".format(
+                    bucket * 30,
+                    rawAvg,
+                    smoothAvg?.let { "%6.1f".format(it) } ?: "     —",
+                ),
+            )
+        }
+    }
+
+    private fun List<UserLocation>.naiveUp(): Double =
+        zipWithNext { a, b -> (b.altitude - a.altitude).coerceAtLeast(0.0) }.sum()
+
+    private fun List<UserLocation>.naiveDown(): Double =
+        zipWithNext { a, b -> (a.altitude - b.altitude).coerceAtLeast(0.0) }.sum()
+
+    /** Reproduces what CalculateStatsUseCase accumulates, with the same threshold rule. */
+    private fun List<UserLocation>.withHysteresis(): Pair<Double, Double> {
+        var elevation = Elevation()
+        forEach { elevation = elevation.accumulating(it.altitude, it.threshold()) }
+        return elevation.ascentMeters to elevation.descentMeters
+    }
+
+    private fun List<UserLocation>.typicalThreshold(): Double =
+        map { it.threshold() }.sorted()[size / 2]
+
+    private fun UserLocation.threshold(): Double {
+        val vertical = (if (accuracy > 0f) accuracy.toDouble() else 10.0) * VERTICAL_ACCURACY_RATIO
+        return (vertical * ELEVATION_THRESHOLD_FACTOR).coerceIn(3.0, 12.0)
+    }
+
+    private fun List<UserLocation>.acceptedThroughFilter(): List<UserLocation> {
+        var filter = LocationFilter()
+        val accepted = mutableListOf<UserLocation>()
+        forEach { reading ->
+            val outcome = filter.accepting(reading)
+            filter = outcome.filter
+            if (outcome is LocationFilterResult.Accepted) accepted += outcome.location
+        }
+        return accepted
+    }
+
+    private fun Double.fmt(): String = "%.1f m".format(this)
+
+    private fun traceFiles(): List<File> =
+        File("../../traces").takeIf { it.isDirectory }
+            ?.listFiles { file -> file.name.endsWith(".csv") }
+            ?.sortedBy { it.name }
+            .orEmpty()
+
+    private companion object {
+        const val MIN_TRAVELLING_SPEED_MPS = 0.5
+        const val VERTICAL_ACCURACY_RATIO = 2.0
+        const val ELEVATION_THRESHOLD_FACTOR = 0.6
+    }
+}
