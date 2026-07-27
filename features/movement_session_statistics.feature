@@ -43,6 +43,13 @@ Feature: Trustworthy session statistics
     Then the time spent moving excludes the pause
     And the elapsed time of the session still includes it
 
+  Scenario: A session without a pause does not report one
+    Given I recorded a session travelling without stopping
+    And the receiver delivered its readings at the uneven intervals it really uses
+    When I look at the time I spent moving
+    Then it covers the session
+    And no part of the outing is quietly reported as standing still
+
   Scenario Outline: Time spent moving is measured at every pace
     Given I recorded a session travelling at <pace> without stopping
     When I look at the session statistics

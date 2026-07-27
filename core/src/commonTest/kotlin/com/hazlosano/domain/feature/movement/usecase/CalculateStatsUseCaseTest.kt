@@ -182,6 +182,31 @@ class CalculateStatsUseCaseTest {
     }
 
     @Test
+    fun theTimeSpentMovingSurvivesReadingsThatDoNotLandOnWholeSeconds() {
+        // Found on a real bike ride: the app reported 232 s of movement in a 312 s session, which
+        // the screen presented as an 80 s pause the rider never took. Every segment was being
+        // rounded down to a whole second, hundreds of times over. No synthetic trace could catch it
+        // while every reading landed on an exact two-second boundary, so this one does not.
+        val trace = trace(
+            readings = 200,
+            metersPerReading = TravelPace.CYCLING.metersPerReading,
+            accuracyMeters = 6f,
+            noiseMeters = 4.0,
+            altitudeNoiseMeters = 10.0,
+            intervalJitterMillis = 900,
+        )
+
+        val stats = trace.recordedStats()
+        val elapsed = trace.elapsedSeconds()
+        val movingTime = assertNotNull(stats.movingTime)
+
+        assertTrue(
+            movingTime >= elapsed * 0.97,
+            "riding without stopping reported $movingTime s of $elapsed s as movement",
+        )
+    }
+
+    @Test
     fun theHighestAndLowestPointsReflectTheTerrain() {
         val readings = 150
         val climbPerReading = 0.8

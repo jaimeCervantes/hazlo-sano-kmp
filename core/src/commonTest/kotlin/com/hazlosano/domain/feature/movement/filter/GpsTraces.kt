@@ -44,14 +44,21 @@ internal fun trace(
     seed: Int = 1,
     startNorthMeters: Double = 0.0,
     startAtMillis: Long = 0L,
+    intervalJitterMillis: Long = 0L,
 ): List<UserLocation> {
     val random = Random(seed)
+    // Drawn from its own generator so adding jitter to a trace does not shift the noise of every
+    // existing one.
+    val clockJitter = Random(seed + JITTER_SEED_OFFSET)
+    var atMillis = startAtMillis
+
     return (0 until readings).map { index ->
+        if (index > 0) atMillis += SAMPLING_INTERVAL_MILLIS + clockJitter.jitter(intervalJitterMillis)
         locationAt(
             northMeters = startNorthMeters + index * metersPerReading + random.noise(noiseMeters),
             eastMeters = random.noise(noiseMeters),
             accuracyMeters = accuracyMeters,
-            atMillis = startAtMillis + index * SAMPLING_INTERVAL_MILLIS,
+            atMillis = atMillis,
             altitudeMeters = startAltitudeMeters + index * climbMetersPerReading +
                 random.noise(altitudeNoiseMeters),
         )
@@ -127,6 +134,15 @@ internal fun List<UserLocation>.pathDistanceMeters(): Double =
 
 private fun Random.noise(meters: Double): Double =
     if (meters <= 0.0) 0.0 else nextDouble(-meters, meters)
+
+/**
+ * A real receiver never delivers on exact interval boundaries. Without this every synthetic reading
+ * lands on a whole number of seconds, which hides anything that mishandles the fraction.
+ */
+private fun Random.jitter(millis: Long): Long =
+    if (millis <= 0L) 0L else nextLong(-millis, millis + 1)
+
+private const val JITTER_SEED_OFFSET = 1_000
 
 private fun metersPerDegreeLongitude(): Double =
     METERS_PER_DEGREE_LATITUDE * cos(degreesToRadians(BASE_LATITUDE))

@@ -6,6 +6,7 @@ import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.geo.haversineMeters
 import kotlin.math.abs
+import kotlin.math.roundToLong
 
 /**
  * Turns the route of a finished session into the figures the app reports about it.
@@ -34,7 +35,12 @@ class CalculateStatsUseCase {
             .accumulating(points.first().altitude, points.first().elevationThreshold())
         var maxAltitude = points.first().altitude
         var minAltitude = points.first().altitude
-        var movingSeconds = 0L
+        // Accumulated as a fraction and rounded once at the end. Truncating each segment to whole
+        // seconds threw away most of a second on every one of them, and a session is hundreds of
+        // segments long: a real bike ride lost 50 s of 282, which the screen then presented as a
+        // pause the rider never took. Synthetic traces could not catch it because their readings
+        // land on exact two-second boundaries; real ones never do.
+        var movingSeconds = 0.0
         var maxSlope = 0.0
         var totalDistance = 0.0
 
@@ -48,7 +54,7 @@ class CalculateStatsUseCase {
             totalDistance += meters
 
             if (!isTravelling(meters, seconds)) return@forEach
-            movingSeconds += seconds.toLong()
+            movingSeconds += seconds
 
             // Over a short run the altitude error dwarfs the height difference, so the slope it
             // implies is noise rather than terrain.
@@ -58,7 +64,7 @@ class CalculateStatsUseCase {
         }
 
         return SessionStats(
-            movingTime = movingSeconds,
+            movingTime = movingSeconds.roundToLong(),
             avgPace = paceOver(totalDistance, totalTimeSeconds),
             maxAltitude = maxAltitude.takeIf { measuresAltitude },
             minAltitude = minAltitude.takeIf { measuresAltitude },
@@ -86,7 +92,7 @@ class CalculateStatsUseCase {
         return (seconds / SECONDS_PER_MINUTE) / (meters / METERS_PER_KILOMETER)
     }
 
-    private fun verticalSpeedPerHour(ascentMeters: Double, movingSeconds: Long): Double? {
+    private fun verticalSpeedPerHour(ascentMeters: Double, movingSeconds: Double): Double? {
         if (movingSeconds < MIN_SECONDS_FOR_VAM) return null
         return ascentMeters / (movingSeconds / SECONDS_PER_HOUR)
     }
