@@ -19,3 +19,9 @@ captures
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
 .env*
+
+# GPS traces captured on a real device for calibrating the movement filter.
+# They are raw position logs: a trace recorded at home carries the home address,
+# and committing one writes it into the history permanently. Keep them local.
+# Anonymised fixtures for tests belong in a test resources folder, not here.
+traces/
