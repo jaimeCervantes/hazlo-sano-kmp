@@ -697,3 +697,44 @@ Además la traza 1 no fue una prueba válida de GPS parado: desde una habitació
 **Recap:** La primera salida de campo justificó la captura de traza en una tarde: destapó un bug de truncamiento que quitaba una cuarta parte del tiempo en movimiento de toda sesión y que ningún test sintético podía ver, porque las trazas generadas caían en segundos exactos. También mostró que el problema del desnivel no es de calibración sino de señal — la altitud de este teléfono se queda congelada durante minutos — y que el ruido real infla el recorrido mucho menos de lo que modelamos.
 
 **Próximos pasos (opciones):** (1) encuadrar el problema de la altitud, empezando por leer la precisión vertical que Android ya reporta; (2) repetir la prueba de teléfono quieto a cielo abierto y medir la ruta real para cerrar la duda de la distancia caminando; (3) commitear el arreglo del truncamiento.
+
+---
+
+## Slice 12 — Capturar lo que el receptor dice de su propia altitud
+
+- **Objetivo:** dejar de adivinar la calidad de la altitud, para que la siguiente salida decida si una altitud rancia se puede detectar o hay que medirla de otro modo. Spec: [`movement_altitude_quality.feature`](../../features/movement_altitude_quality.feature) (6 escenarios).
+- **Alcance deliberadamente corto:** **este slice no descarta nada.** Captura lo que hoy se tira y deja de inventar una precisión vertical que nunca nos dieron. Qué hacer con la altitud congelada se decide con los datos que esto produzca — diseñar el arreglo contra datos que no tenemos es exactamente lo que llevó a calibrar el filtro contra ruido sintético cinco veces más pesimista que el real.
+
+- **Decisiones + porqué:**
+  - **`UserLocation.altitude` pasa a `Double?`.** `Location.getAltitude()` de Android devuelve `0.0` **exactamente cuando `hasAltitude()` es false**, y lo leíamos sin preguntar: un fix sin componente vertical se guardaba como una afirmación de estar al nivel del mar. Nullable en vez de un `hasAltitude: Boolean` al lado de un `0.0`, porque el booleano junto al cero es justo la ambigüedad que se quita.
+  - **`verticalAccuracy: Float?` nuevo**, leído de `getVerticalAccuracyMeters()` cuando `hasVerticalAccuracy()`. El `usableVerticalAccuracy()` usa el dato real y **cae al 2× horizontal solo como respaldo**, para receptores que no lo reporten. Antes el 2× era la única vía: una suposición razonada, pero suposición.
+  - **Una lectura sin altitud no arrastra la estimación vertical** ni recibe la anterior de vuelta. El suavizado deja el estimado intacto y el punto emitido sale sin altitud. Devolverle la última estimación sería vestir una altitud rancia de medición fresca, que es el fallo exacto que este slice existe para dejar de esconder.
+  - **`CalculateStatsUseCase` deduce "sin altitud" de la ausencia, no de comparar contra cero.** El efecto lateral bueno: una sesión en la costa deja de reportarse como "sin altitud". Hay un test para esa distinción, que antes era imposible de expresar.
+  - **Migración `2.sqm` (versión 2 → 3):** `MovementPointEntity.altitude` pasa a nullable y gana `verticalAccuracy`. Hace falta persistirla porque **el desnivel se deriva de los puntos al abrir la sesión**, y el umbral con el que se acumula sale de la calidad del fix que reportó la altitud; sin guardarla, cada lectura volvería al 2× adivinado y el slice no serviría de nada. Aquí la tabla reconstruida es la **hija** de la clave foránea, así que no hay riesgo de borrado en cascada — al revés que en `1.sqm`.
+  - **Las altitudes ya grabadas se dejan como están.** Se capturaron sin preguntar nunca si el fix tenía componente vertical, así que un `0.0` guardado es genuinamente ambiguo. Reinterpretarlo sería inventar historia.
+  - **El CSV gana una columna** (`verticalAccuracy`) y la altitud puede ir vacía. El parser acepta 7 columnas (formato viejo) y 8, tratando las viejas como "no dicen nada de su precisión vertical". Verificado sobre las tres trazas de campo: **producen exactamente los mismos números que antes del cambio.**
+
+- **Archivos tocados:**
+  - core/commonMain: `model/LocationModels.kt`, `filter/KalmanFilter.kt` (altitud nullable, `usableVerticalAccuracy()`), `usecase/CalculateStatsUseCase.kt`, `usecase/TrackNavigationUseCase.kt`
+  - core/commonTest: `filter/GpsTraces.kt` (`withAltitude`), `usecase/CalculateStatsUseCaseTest.kt` (+2)
+  - shared/commonMain: `sqldelight/.../MovementSession.sq`, `sqldelight/.../2.sqm` (nuevo), `data/movement/trace/TraceFormat.kt`, `MovementSessionMapping.kt`, `SqlDelightMovementSessionRepository.kt`
+  - shared/androidMain: `data/movement/AndroidLocationRepository.kt`
+  - shared/commonTest: `data/movement/trace/TraceFormatTest.kt` (+2)
+  - shared/jvmTest: `data/db/MovementSessionMigrationTest.kt` (+2), `SqlDelightMovementSessionRepositoryTest.kt`, los dos arneses
+  - features: `movement_altitude_quality.feature`
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+- **Resultados:** `:core` **58 tests, 0 fallos** (antes 56). `:app:shared:jvmTest` **100 tests, 0 fallos** (antes 96). `:core:check`, `assembleDebug`, desktop y web BUILD SUCCESSFUL.
+
+- **Desviación respecto al `.feature`:** salió una migración que el encuadre no mencionaba. No es opcional: sin persistir la precisión vertical, el cálculo derivado la perdería en cada lectura. Se vio al implementar, no al planificar.
+
+- **Sin cobertura de host:** que Android reporte de verdad `hasVerticalAccuracy()` en este teléfono. Es justamente la incógnita que el slice existe para resolver, y solo se responde saliendo con la captura activada.
+
+- **Seguimientos:**
+  - **La pregunta abierta:** ¿informa el sistema de que la altitud congelada es mala? Si la precisión vertical se dispara durante esas ventanas, se descarta y es un día de trabajo. Si no, hace falta barómetro (`TYPE_PRESSURE`), que es un slice grande.
+  - `onLocationResult` sigue tomando `result.lastLocation` y descartando el resto del lote. Es una pérdida real de lecturas que el sistema ya entregó; anotado, no mezclado aquí.
+  - Sigue pendiente repetir la prueba de teléfono quieto a cielo abierto y medir la ruta real.
+
+**Recap:** La app deja de adivinar lo que el receptor sabe de su propia altitud: lee `hasAltitude()` y `getVerticalAccuracyMeters()`, distingue "sin altitud" de "nivel del mar" en todo el recorrido —modelo, filtro, estadísticas, base de datos y traza—, y usa la precisión vertical real cuando la hay, dejando el 2× horizontal como respaldo. No se descarta nada todavía: eso lo decide la próxima salida, que ahora sí traerá el dato para decidirlo.
+
+**Próximos pasos (opciones):** (1) instalar y salir con la captura activada, mirando qué dice la precisión vertical en las ventanas congeladas; (2) repetir la prueba de teléfono quieto a cielo abierto y medir la ruta real; (3) commitear el slice.
