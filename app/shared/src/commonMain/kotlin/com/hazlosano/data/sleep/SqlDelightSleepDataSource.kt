@@ -1,6 +1,7 @@
 package com.hazlosano.data.sleep
 
 import com.hazlosano.data.db.HazloSanoDatabase
+import com.hazlosano.domain.model.SleepPhase
 import com.hazlosano.domain.model.SleepSession
 import com.hazlosano.domain.model.SleepSource
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,7 @@ internal class SqlDelightSleepDataSource(
                     endTime = entity.endTime,
                     source = parseSleepSource(entity.source),
                     confidence = entity.confidence.toFloat(),
+                    phase = parseSleepPhase(entity.phase),
                 )
             }
         }
@@ -33,6 +35,7 @@ internal class SqlDelightSleepDataSource(
                 endTime = session.endTime,
                 source = session.source.name,
                 confidence = session.confidence.toDouble(),
+                phase = session.phase.name,
             )
         }
 
@@ -41,5 +44,17 @@ internal class SqlDelightSleepDataSource(
             SleepSource.valueOf(raw)
         } catch (_: IllegalArgumentException) {
             SleepSource.MANUAL
+        }
+
+    /**
+     * A phase written by a later version of the app reads as UNKNOWN rather than crashing the night
+     * it belongs to. The analysis already leaves UNKNOWN out of the breakdown, so an unrecognised
+     * phase is omitted from it instead of being counted as something it is not.
+     */
+    private fun parseSleepPhase(raw: String): SleepPhase =
+        try {
+            SleepPhase.valueOf(raw)
+        } catch (_: IllegalArgumentException) {
+            SleepPhase.UNKNOWN
         }
 }

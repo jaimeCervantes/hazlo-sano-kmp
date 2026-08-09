@@ -1,9 +1,17 @@
+-- phase is what the detector said this stretch of the night was: light, deep, REM, awake. It is
+-- stored rather than derived because nothing in the app can recompute it — it comes from the
+-- Android Sleep API at the moment the segment is reported and cannot be asked for again.
+--
+-- 'UNKNOWN' is a real value, not a placeholder: a detector that reports a stretch of sleep without
+-- classifying it is saying something different from one that calls it light sleep, and the analysis
+-- leaves UNKNOWN out of the breakdown rather than guessing a phase for it.
 CREATE TABLE IF NOT EXISTS SleepSessionEntity (
     id TEXT NOT NULL PRIMARY KEY,
     startTime INTEGER NOT NULL,
     endTime INTEGER NOT NULL,
     source TEXT NOT NULL,
-    confidence REAL NOT NULL DEFAULT 1.0
+    confidence REAL NOT NULL DEFAULT 1.0,
+    phase TEXT NOT NULL DEFAULT 'UNKNOWN'
 );
 
 CREATE INDEX IF NOT EXISTS idx_sleep_start ON SleepSessionEntity(startTime);
@@ -16,8 +24,8 @@ WHERE endTime > ? AND startTime < ?
 ORDER BY startTime DESC;
 
 insertOrReplace:
-INSERT OR REPLACE INTO SleepSessionEntity(id, startTime, endTime, source, confidence)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO SleepSessionEntity(id, startTime, endTime, source, confidence, phase)
+VALUES (?, ?, ?, ?, ?, ?);
 
 deleteAll:
 DELETE FROM SleepSessionEntity;

@@ -1,0 +1,33 @@
+-- Version 3 -> 4.
+--
+-- A recorded stretch of the night can now say which phase it was.
+--
+-- SleepReceiver has been mapping the Android Sleep API status to a SleepPhase since the pillar was
+-- built, and the phase was thrown away one layer later: the table had no column for it, so every
+-- session read back was UNKNOWN. GetSleepAnalysisUseCase leaves UNKNOWN out of its breakdown, so
+-- the phase breakdown on the sleep screen was empty for every night ever recorded — not because
+-- the detector said nothing, but because what it said was never written down.
+--
+-- Nights already recorded stay UNKNOWN, which is the truth about them: the phase they were
+-- reported with is gone and the Sleep API cannot be asked about a night that has passed.
+--
+-- The CREATE below is not redundant. SleepSessionEntity is created by Schema.create() and by no
+-- migration — 1.sqm recreated the tables the old ensureNewTablesExist() helper used to add by hand
+-- and this was not among them. SQLite has no ALTER TABLE IF EXISTS, so a database arriving here
+-- without the table would fail the whole migration on the next line. Creating it first in its
+-- pre-phase shape makes the ALTER always have a target, whatever history the database came from.
+
+CREATE TABLE IF NOT EXISTS SleepSessionEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    startTime INTEGER NOT NULL,
+    endTime INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 1.0
+);
+
+CREATE INDEX IF NOT EXISTS idx_sleep_start ON SleepSessionEntity(startTime);
+CREATE INDEX IF NOT EXISTS idx_sleep_end ON SleepSessionEntity(endTime);
+
+-- Added rather than rebuilt: a column with a default breaks nothing that reads the old shape, and
+-- SleepSessionEntity is referenced by no foreign key, so there is nothing to rebuild for.
+ALTER TABLE SleepSessionEntity ADD COLUMN phase TEXT NOT NULL DEFAULT 'UNKNOWN';

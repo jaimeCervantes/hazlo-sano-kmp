@@ -26,7 +26,7 @@ class MovementSessionMigrationTest {
         driver.createSchemaAsItWasBeforeMigrations()
         driver.recordASessionTheOldWay()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
+        driver.migrateFromVersionOne()
 
         val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
         val session = repository.getAllSessions().first().single()
@@ -47,7 +47,7 @@ class MovementSessionMigrationTest {
         val driver = inMemoryDriver()
         driver.createSchemaAsItWasBeforeMigrations()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
+        driver.migrateFromVersionOne()
 
         val columns = driver.columnsOf("MovementSessionEntity")
         assertEquals(
@@ -62,7 +62,7 @@ class MovementSessionMigrationTest {
         // movement tables nor the nutrition ones, and the migration has to create both.
         val driver = inMemoryDriver()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
+        driver.migrateFromVersionOne()
 
         assertTrue(driver.columnsOf("MovementSessionEntity").isNotEmpty())
         assertTrue(driver.columnsOf("MovementPointEntity").isNotEmpty())
@@ -77,7 +77,7 @@ class MovementSessionMigrationTest {
         driver.createSchemaAsItWasBeforeMigrations()
         driver.recordASessionTheOldWay()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
+        driver.migrateFromVersionOne()
 
         val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
         val session = repository.getAllSessions().first().single()
@@ -137,7 +137,7 @@ class MovementSessionMigrationTest {
     fun `a session recorded after the migration still saves and reads back`() = runTest {
         val driver = inMemoryDriver()
         driver.createSchemaAsItWasBeforeMigrations()
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
+        driver.migrateFromVersionOne()
 
         val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
         repository.updateDistance(sessionId = 1, distanceMeters = 10.0) // no rows, must not throw
@@ -203,10 +203,6 @@ private fun SqlDriver.recordASessionTheOldWay() {
                 "VALUES (1, $seq, $latitude, -99.13, $altitude, 8.0, 0.0, ${1_000 + seq * 2_000})",
         )
     }
-}
-
-private fun SqlDriver.exec(sql: String) {
-    execute(identifier = null, sql = sql, parameters = 0)
 }
 
 private fun SqlDriver.columnsOf(table: String): Set<String> =
