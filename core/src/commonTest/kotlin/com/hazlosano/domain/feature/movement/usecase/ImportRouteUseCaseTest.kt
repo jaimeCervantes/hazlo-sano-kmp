@@ -1,8 +1,6 @@
 package com.hazlosano.domain.feature.movement.usecase
 
-import com.hazlosano.domain.feature.movement.model.MovementSession
 import com.hazlosano.domain.feature.movement.model.Route
-import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.model.WayPoint
 import com.hazlosano.domain.feature.movement.parser.GpxParser
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
@@ -95,21 +93,19 @@ class ImportRouteUseCaseTest {
             return existingRouteByFingerprint
         }
 
-        override suspend fun saveRoute(route: Route) {
+        override suspend fun saveRoute(route: Route): Long {
             savedRoutes += route
+            return if (route.id != 0L) route.id else savedRoutes.size.toLong()
+        }
+
+        override suspend fun renameRoute(routeId: Long, name: String) {
+            val index = savedRoutes.indexOfFirst { it.id == routeId }
+            if (index >= 0) savedRoutes[index] = savedRoutes[index].copy(name = name)
         }
 
         override suspend fun deleteRoute(routeId: Long) {
             savedRoutes.removeAll { it.id == routeId }
         }
-
-        override fun getAllSessions(): Flow<List<MovementSession>> = flowOf(emptyList())
-
-        override fun getSessionById(sessionId: Long): Flow<MovementSession?> = flowOf(null)
-
-        override fun getSessionPoints(sessionId: Long): Flow<List<UserLocation>> = flowOf(emptyList())
-
-        override suspend fun saveSession(session: MovementSession, rawPoints: List<UserLocation>) = Unit
     }
 
     private fun route(

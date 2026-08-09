@@ -24,11 +24,19 @@ fun Route.calculateFingerprint(): String {
             "${last.latitude}-${last.longitude}"
 }
 
+/**
+ * A point along a route.
+ *
+ * [altitude] and [timestamp] are null when the file did not carry them, never zero. GPX makes both
+ * optional — a route drawn on a map has no times, and plenty of exporters omit elevation — and a
+ * point with no elevation is not a point at sea level, the same distinction [UserLocation] makes
+ * for a reading with no vertical component.
+ */
 data class WayPoint(
     val latitude: Double,
     val longitude: Double,
-    val altitude: Double = 0.0,
-    val timestamp: Long = 0
+    val altitude: Double? = null,
+    val timestamp: Long? = null,
 )
 
 /**
@@ -45,10 +53,13 @@ fun List<WayPoint>.calculateStats(): Pair<Double, Double> {
         // Distancia Haversine
         totalDistance += calculateHaversineDistance(p1, p2)
 
-        // Desnivel positivo
-        val elevationDiff = p2.altitude - p1.altitude
-        if (elevationDiff > 0) {
-            totalElevationGain += elevationDiff
+        // Desnivel positivo. Un par de puntos sin altitud no tiene subida entre ellos: se cuenta
+        // cada ascenso tal cual, sin el umbral que usa el pilar para sus propias lecturas, porque
+        // un GPX importado no dice nada sobre la precisión de sus elevaciones contra la que medir.
+        val here = p2.altitude
+        val there = p1.altitude
+        if (here != null && there != null && here > there) {
+            totalElevationGain += here - there
         }
     }
 

@@ -1,0 +1,37 @@
+-- Version 4 -> 5.
+--
+-- Routes get somewhere to live.
+--
+-- MovementSessionEntity has carried a routeId since the movement pillar was built, and there was
+-- no table for it to point at: RouteRepository, GpxParser and ImportRouteUseCase all existed in
+-- core with no implementation wired anywhere, so every recorded session stored a null. Importing a
+-- GPX and following it was never possible, and nothing said so.
+--
+-- Two tables rather than one, matching how sessions are stored: the list of routes must draw
+-- without reading every point of every route, and the points are what the route actually is.
+--
+-- Nothing is rebuilt here and no existing row is touched, so there is no cascade to reason about:
+-- these tables did not exist before this migration.
+
+CREATE TABLE IF NOT EXISTS RouteEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    distance REAL NOT NULL,
+    elevationGain REAL NOT NULL,
+    fingerprint TEXT,
+    createdAt INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS RoutePointEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    routeId INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    altitude REAL,
+    timestamp INTEGER,
+    FOREIGN KEY(routeId) REFERENCES RouteEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_route_fingerprint ON RouteEntity(fingerprint);
+CREATE INDEX IF NOT EXISTS idx_route_point_route ON RoutePointEntity(routeId, seq);

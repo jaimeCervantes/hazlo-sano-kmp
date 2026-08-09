@@ -1,22 +1,22 @@
 package com.hazlosano.domain.feature.movement.repository
 
-import com.hazlosano.domain.feature.movement.model.MovementSession
 import com.hazlosano.domain.feature.movement.model.Route
-import com.hazlosano.domain.feature.movement.model.UserLocation
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Routes: the tracks you intend to follow, imported from a GPX file or kept from an outing you
+ * recorded. Sessions — what actually happened, reading by reading — belong to
+ * [MovementSessionRepository]; this interface used to declare both, which made every implementation
+ * owe methods it had no business owning.
+ */
 interface RouteRepository {
-    // Routes
     fun getAllRoutes(): Flow<List<Route>>
     fun getRouteWithPoints(routeId: Long): Flow<Route?>
     suspend fun getRouteByName(name: String): Route?
     suspend fun getRouteByFingerprint(fingerprint: String): Route?
-    suspend fun saveRoute(route: Route)
-    suspend fun deleteRoute(routeId: Long)
 
-    // Sessions
-    fun getAllSessions(): Flow<List<MovementSession>>
-    fun getSessionById(sessionId: Long): Flow<MovementSession?>
-    fun getSessionPoints(sessionId: Long): Flow<List<UserLocation>>
-    suspend fun saveSession(session: MovementSession, rawPoints: List<UserLocation>)
+    /** @return the id the route was stored under, whether it was inserted or replaced. */
+    suspend fun saveRoute(route: Route): Long
+    suspend fun renameRoute(routeId: Long, name: String)
+    suspend fun deleteRoute(routeId: Long)
 }
