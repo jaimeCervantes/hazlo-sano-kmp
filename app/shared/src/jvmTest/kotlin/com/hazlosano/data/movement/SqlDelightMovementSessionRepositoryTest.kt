@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 /** Integration test against an in-memory SQLite database. */
 class SqlDelightMovementSessionRepositoryTest {
@@ -41,7 +42,7 @@ class SqlDelightMovementSessionRepositoryTest {
         val savedPoints = repository.getSessionPoints(saved.id).first()
         assertEquals(2, savedPoints.size)
         assertEquals(19.4300, savedPoints.first().latitude, 1e-9)
-        assertEquals(2200.0, savedPoints.first().altitude, 1e-9)
+        assertEquals(2200.0, assertNotNull(savedPoints.first().altitude), 1e-9)
         assertEquals(90f, savedPoints.first().bearing)
     }
 

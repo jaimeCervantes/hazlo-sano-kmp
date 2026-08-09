@@ -17,14 +17,27 @@ import com.hazlosano.domain.feature.movement.model.UserLocation
  */
 object TraceFormat {
 
-    const val HEADER: String = "timestamp,latitude,longitude,altitude,accuracy,bearing,verdict"
+    const val HEADER: String =
+        "timestamp,latitude,longitude,altitude,accuracy,bearing,verdict,verticalAccuracy"
 
     private const val ACCEPTED = "ACCEPTED"
-    private const val COLUMNS = 7
+    private const val ABSENT = ""
+
+    /** The shape written before the receiver's own altitude quality was captured. */
+    private const val COLUMNS_WITHOUT_ALTITUDE_QUALITY = 7
+    private const val COLUMNS = 8
 
     fun row(record: TraceRecord): String = with(record.reading) {
-        "$timestamp,$latitude,$longitude,$altitude,$accuracy,$bearing," +
-            (record.discardReason?.name ?: ACCEPTED)
+        listOf(
+            timestamp.toString(),
+            latitude.toString(),
+            longitude.toString(),
+            altitude?.toString() ?: ABSENT,
+            accuracy.toString(),
+            bearing.toString(),
+            record.discardReason?.name ?: ACCEPTED,
+            verticalAccuracy?.toString() ?: ABSENT,
+        ).joinToString(",")
     }
 
     /**
@@ -38,15 +51,21 @@ object TraceFormat {
 
     private fun parseRow(line: String): TraceRecord? {
         val fields = line.split(',')
-        if (fields.size != COLUMNS) return null
+        // A trace captured before the altitude quality was recorded is still worth replaying: it
+        // simply says nothing about how good its altitudes were.
+        if (fields.size != COLUMNS && fields.size != COLUMNS_WITHOUT_ALTITUDE_QUALITY) return null
 
         val timestamp = fields[0].toLongOrNull() ?: return null
         val latitude = fields[1].toDoubleOrNull() ?: return null
         val longitude = fields[2].toDoubleOrNull() ?: return null
-        val altitude = fields[3].toDoubleOrNull() ?: return null
+        val altitudeField = fields[3]
+        // Blank means the receiver reported no altitude; unparseable means a broken row.
+        val altitude =
+            if (altitudeField.isBlank()) null else altitudeField.toDoubleOrNull() ?: return null
         val accuracy = fields[4].toFloatOrNull() ?: return null
         val bearing = fields[5].toFloatOrNull() ?: return null
         val verdict = fields[6]
+        val verticalAccuracy = fields.getOrNull(7)?.takeIf { it.isNotBlank() }?.toFloatOrNull()
 
         val discardReason = when (verdict) {
             ACCEPTED -> null
@@ -59,6 +78,7 @@ object TraceFormat {
                 longitude = longitude,
                 altitude = altitude,
                 accuracy = accuracy,
+                verticalAccuracy = verticalAccuracy,
                 bearing = bearing,
                 timestamp = timestamp,
             ),

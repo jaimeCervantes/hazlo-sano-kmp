@@ -79,36 +79,49 @@ class TraceDiagnosticsHarness {
         val buckets = raw.groupBy { ((it.timestamp - start) / 30_000L).toInt() }
         buckets.toSortedMap().forEach { (bucket, readings) ->
             val smoothed = accepted.filter { ((it.timestamp - start) / 30_000L).toInt() == bucket }
-            val rawAvg = readings.map { it.altitude }.average()
-            val smoothAvg = if (smoothed.isEmpty()) null else smoothed.map { it.altitude }.average()
+            val rawAvg = readings.mapNotNull { it.altitude }.averageOrNull()
+            val smoothAvg = smoothed.mapNotNull { it.altitude }.averageOrNull()
             println(
-                "                 %3ds  %6.1f -> %s".format(
+                "                 %3ds  %s -> %s".format(
                     bucket * 30,
-                    rawAvg,
-                    smoothAvg?.let { "%6.1f".format(it) } ?: "     —",
+                    rawAvg.orDash(),
+                    smoothAvg.orDash(),
                 ),
             )
         }
     }
 
     private fun List<UserLocation>.naiveUp(): Double =
-        zipWithNext { a, b -> (b.altitude - a.altitude).coerceAtLeast(0.0) }.sum()
+        zipWithNext { a, b -> climbBetween(a, b).coerceAtLeast(0.0) }.sum()
 
     private fun List<UserLocation>.naiveDown(): Double =
-        zipWithNext { a, b -> (a.altitude - b.altitude).coerceAtLeast(0.0) }.sum()
+        zipWithNext { a, b -> (-climbBetween(a, b)).coerceAtLeast(0.0) }.sum()
+
+    private fun climbBetween(from: UserLocation, to: UserLocation): Double {
+        val here = to.altitude ?: return 0.0
+        val there = from.altitude ?: return 0.0
+        return here - there
+    }
 
     /** Reproduces what CalculateStatsUseCase accumulates, with the same threshold rule. */
     private fun List<UserLocation>.withHysteresis(): Pair<Double, Double> {
         var elevation = Elevation()
-        forEach { elevation = elevation.accumulating(it.altitude, it.threshold()) }
+        forEach { point ->
+            point.altitude?.let { elevation = elevation.accumulating(it, point.threshold()) }
+        }
         return elevation.ascentMeters to elevation.descentMeters
     }
+
+    private fun List<Double>.averageOrNull(): Double? = if (isEmpty()) null else average()
+
+    private fun Double?.orDash(): String = this?.let { "%6.1f".format(it) } ?: "     —"
 
     private fun List<UserLocation>.typicalThreshold(): Double =
         map { it.threshold() }.sorted()[size / 2]
 
     private fun UserLocation.threshold(): Double {
-        val vertical = (if (accuracy > 0f) accuracy.toDouble() else 10.0) * VERTICAL_ACCURACY_RATIO
+        val vertical = verticalAccuracy?.takeIf { it > 0f }?.toDouble()
+            ?: ((if (accuracy > 0f) accuracy.toDouble() else 10.0) * VERTICAL_ACCURACY_RATIO)
         return (vertical * ELEVATION_THRESHOLD_FACTOR).coerceIn(3.0, 12.0)
     }
 

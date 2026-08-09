@@ -20,14 +20,20 @@ CREATE TABLE IF NOT EXISTS MovementSessionEntity (
     distanceTraveled REAL NOT NULL      -- meters, summary refreshed on read
 );
 
+-- altitude and verticalAccuracy are nullable because the receiver does not always report them, and
+-- storing a missing altitude as 0.0 would claim the outing passed through sea level. The vertical
+-- accuracy has to be stored alongside: the climb is derived from these points when a session is
+-- opened, and the threshold it accumulates against comes from the quality of the fix that reported
+-- the altitude.
 CREATE TABLE IF NOT EXISTS MovementPointEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sessionId INTEGER NOT NULL,
     seq INTEGER NOT NULL,               -- order within the session
     latitude REAL NOT NULL,
     longitude REAL NOT NULL,
-    altitude REAL NOT NULL,
+    altitude REAL,
     accuracy REAL NOT NULL,
+    verticalAccuracy REAL,
     bearing REAL NOT NULL,
     timestamp INTEGER NOT NULL,
     FOREIGN KEY(sessionId) REFERENCES MovementSessionEntity(id) ON DELETE CASCADE
@@ -45,9 +51,9 @@ SELECT last_insert_rowid();
 
 insertPoint:
 INSERT INTO MovementPointEntity(
-    sessionId, seq, latitude, longitude, altitude, accuracy, bearing, timestamp
+    sessionId, seq, latitude, longitude, altitude, accuracy, verticalAccuracy, bearing, timestamp
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateDistance:
 UPDATE MovementSessionEntity

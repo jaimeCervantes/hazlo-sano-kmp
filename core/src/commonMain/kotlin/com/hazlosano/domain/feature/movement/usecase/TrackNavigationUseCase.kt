@@ -56,8 +56,10 @@ class TrackNavigationUseCase(
                 if (traveledPoints.isNotEmpty()) {
                     val last = traveledPoints.last()
                     distanceTraveled += calculateDistance(last, finalLocation)
-                    val altDiff = finalLocation.altitude - last.altitude
-                    if (altDiff > 0) elevationGain += altDiff
+                    // A pair of readings without altitudes has no climb between them.
+                    val here = finalLocation.altitude
+                    val there = last.altitude
+                    if (here != null && there != null && here > there) elevationGain += here - there
                 }
                 traveledPoints.add(finalLocation)
             }

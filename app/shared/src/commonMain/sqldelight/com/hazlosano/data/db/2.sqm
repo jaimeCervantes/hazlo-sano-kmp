@@ -1,0 +1,44 @@
+-- Version 2 -> 3.
+--
+-- A recorded point can now say that it had no altitude, and can carry what the receiver said about
+-- how accurate that altitude was.
+--
+-- Both matter because the climb of a session is derived from these points when it is opened, not
+-- read from a column. Storing a missing altitude as 0.0 would put the outing at sea level, and
+-- without the vertical accuracy the threshold the climb accumulates against would fall back to a
+-- guess of twice the horizontal accuracy on every read, which is exactly the guess this change
+-- exists to stop making.
+--
+-- Altitudes already recorded stay as they are. They were captured without ever asking whether the
+-- fix had a vertical component, so a stored 0.0 is genuinely ambiguous — it is left alone rather
+-- than reinterpreted, since guessing which of them meant "sea level" and which meant "no altitude"
+-- would be inventing history.
+--
+-- MovementPointEntity is the child of the foreign key, so rebuilding it cannot cascade into
+-- anything. MovementSessionMigrationTest covers a database coming all the way from version 1.
+
+CREATE TABLE MovementPointEntityRebuilt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sessionId INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    altitude REAL,
+    accuracy REAL NOT NULL,
+    verticalAccuracy REAL,
+    bearing REAL NOT NULL,
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY(sessionId) REFERENCES MovementSessionEntity(id) ON DELETE CASCADE
+);
+
+INSERT INTO MovementPointEntityRebuilt(
+    id, sessionId, seq, latitude, longitude, altitude, accuracy, verticalAccuracy, bearing, timestamp
+)
+SELECT id, sessionId, seq, latitude, longitude, altitude, accuracy, NULL, bearing, timestamp
+FROM MovementPointEntity;
+
+DROP TABLE MovementPointEntity;
+
+ALTER TABLE MovementPointEntityRebuilt RENAME TO MovementPointEntity;
+
+CREATE INDEX IF NOT EXISTS idx_movement_point_session ON MovementPointEntity(sessionId, seq);

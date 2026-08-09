@@ -40,7 +40,6 @@ class KalmanFilter private constructor(
 
     fun smoothing(location: UserLocation): Smoothing {
         val measurementVariance = location.usableAccuracy().let { it * it }
-        val verticalMeasurementVariance = location.verticalAccuracy().let { it * it }
         val previous = estimate
             ?: return smoothingAt(
                 location = location,
@@ -49,7 +48,7 @@ class KalmanFilter private constructor(
                     longitude = location.longitude,
                     variance = measurementVariance,
                     altitude = location.altitude,
-                    altitudeVariance = verticalMeasurementVariance,
+                    altitudeVariance = location.verticalVariance(),
                     atMillis = location.timestamp,
                 ),
             )
@@ -60,9 +59,7 @@ class KalmanFilter private constructor(
         // Kalman gain: how much of the difference between measurement and estimate we adopt.
         val gain = predictedVariance / (predictedVariance + measurementVariance)
 
-        val predictedAltitudeVariance =
-            previous.altitudeVariance + elapsedSeconds * VERTICAL_DRIFT_MPS * VERTICAL_DRIFT_MPS
-        val altitudeGain = predictedAltitudeVariance / (predictedAltitudeVariance + verticalMeasurementVariance)
+        val vertical = smoothedAltitude(previous, location, elapsedSeconds)
 
         return smoothingAt(
             location = location,
@@ -70,11 +67,31 @@ class KalmanFilter private constructor(
                 latitude = previous.latitude + gain * (location.latitude - previous.latitude),
                 longitude = previous.longitude + gain * (location.longitude - previous.longitude),
                 variance = (1.0 - gain) * predictedVariance,
-                altitude = previous.altitude + altitudeGain * (location.altitude - previous.altitude),
-                altitudeVariance = (1.0 - altitudeGain) * predictedAltitudeVariance,
+                altitude = vertical.first,
+                altitudeVariance = vertical.second,
                 atMillis = maxOf(previous.atMillis, location.timestamp),
             ),
         )
+    }
+
+    /**
+     * A reading with no altitude leaves the vertical estimate untouched rather than dragging it
+     * anywhere: there is nothing to learn from it. The first reading that does carry one starts the
+     * estimate from that measurement instead of smoothing it against nothing.
+     */
+    private fun smoothedAltitude(
+        previous: Estimate,
+        location: UserLocation,
+        elapsedSeconds: Double,
+    ): Pair<Double?, Double> {
+        val measured = location.altitude ?: return previous.altitude to previous.altitudeVariance
+        val measurementVariance = location.verticalVariance()
+        val previousAltitude = previous.altitude ?: return measured to measurementVariance
+
+        val predicted = previous.altitudeVariance + elapsedSeconds * VERTICAL_DRIFT_MPS * VERTICAL_DRIFT_MPS
+        val altitudeGain = predicted / (predicted + measurementVariance)
+        return previousAltitude + altitudeGain * (measured - previousAltitude) to
+            (1.0 - altitudeGain) * predicted
     }
 
     private fun smoothingAt(location: UserLocation, estimate: Estimate): Smoothing =
@@ -83,7 +100,10 @@ class KalmanFilter private constructor(
             location = location.copy(
                 latitude = estimate.latitude,
                 longitude = estimate.longitude,
-                altitude = estimate.altitude,
+                // A reading that carried no altitude keeps none. Handing back the last estimate
+                // would dress a stale altitude up as a fresh measurement, which is the exact
+                // failure this slice exists to stop hiding.
+                altitude = if (location.altitude == null) null else estimate.altitude,
             ),
         )
 
@@ -105,7 +125,8 @@ class KalmanFilter private constructor(
         val latitude: Double,
         val longitude: Double,
         val variance: Double,
-        val altitude: Double,
+        /** Null until a reading has actually reported an altitude. */
+        val altitude: Double?,
         val altitudeVariance: Double,
         val atMillis: Long,
     )
@@ -138,11 +159,17 @@ internal fun UserLocation.usableAccuracy(): Double =
     if (accuracy > 0f) accuracy.toDouble() else ASSUMED_ACCURACY_METERS
 
 /**
- * Satellite geometry puts the receiver on one side of the sky rather than surrounding it, so the
- * vertical error of a GPS fix runs about twice its horizontal one. The provider does not hand us a
- * separate vertical accuracy, so it is derived from the horizontal one.
+ * What the reading itself says about its altitude, when it says anything.
+ *
+ * When it does not, satellite geometry puts the receiver on one side of the sky rather than
+ * surrounding it, so the vertical error of a fix runs about twice its horizontal one. That estimate
+ * is a fallback for receivers that report no vertical accuracy, not a substitute for asking.
  */
-internal fun UserLocation.verticalAccuracy(): Double = usableAccuracy() * VERTICAL_ACCURACY_RATIO
+internal fun UserLocation.usableVerticalAccuracy(): Double =
+    verticalAccuracy?.takeIf { it > 0f }?.toDouble() ?: (usableAccuracy() * VERTICAL_ACCURACY_RATIO)
+
+private fun UserLocation.verticalVariance(): Double =
+    usableVerticalAccuracy().let { it * it }
 
 internal const val ASSUMED_ACCURACY_METERS = 10.0
 internal const val VERTICAL_ACCURACY_RATIO = 2.0

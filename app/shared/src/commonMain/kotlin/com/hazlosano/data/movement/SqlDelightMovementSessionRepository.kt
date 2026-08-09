@@ -49,6 +49,7 @@ class SqlDelightMovementSessionRepository(
                         longitude = point.longitude,
                         altitude = point.altitude,
                         accuracy = point.accuracy.toDouble(),
+                        verticalAccuracy = point.verticalAccuracy?.toDouble(),
                         bearing = point.bearing.toDouble(),
                         timestamp = point.timestamp,
                     )

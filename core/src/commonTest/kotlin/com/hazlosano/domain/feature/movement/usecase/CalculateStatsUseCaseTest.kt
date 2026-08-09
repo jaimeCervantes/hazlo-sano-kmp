@@ -246,7 +246,7 @@ class CalculateStatsUseCaseTest {
             metersPerReading = TravelPace.WALKING.metersPerReading,
             accuracyMeters = 8f,
             noiseMeters = 5.0,
-            startAltitudeMeters = 0.0,
+            withAltitude = false,
         )
 
         val stats = readings.recordedStats()
@@ -258,6 +258,49 @@ class CalculateStatsUseCaseTest {
         // What did not depend on altitude is still measured.
         assertNotNull(stats.movingTime)
         assertNotNull(stats.avgPace)
+    }
+
+    @Test
+    fun aSessionAtSeaLevelIsNotMistakenForOneWithoutAltitude() {
+        // The distinction this pins used not to exist: an altitude of zero was how the code
+        // recognised a missing measurement, so a walk along the coast reported no altitude at all.
+        val readings = trace(
+            readings = 120,
+            metersPerReading = TravelPace.WALKING.metersPerReading,
+            accuracyMeters = 8f,
+            noiseMeters = 5.0,
+            startAltitudeMeters = 0.0,
+        )
+
+        val stats = readings.recordedStats()
+
+        assertNotNull(stats.maxAltitude)
+        assertNotNull(stats.minAltitude)
+        assertNotNull(stats.totalAscent)
+        assertNotNull(stats.totalDescent)
+    }
+
+    @Test
+    fun theReceiverOwnVerticalAccuracyDecidesTheThresholdWhenItReportsOne() {
+        // A receiver admitting a 40 m vertical error should not have its wander counted as climb,
+        // whatever its horizontal accuracy says.
+        val flat = trace(
+            readings = 200,
+            metersPerReading = TravelPace.WALKING.metersPerReading,
+            accuracyMeters = 4f, // good horizontally, so the 2x fallback would trust the altitude
+            noiseMeters = 3.0,
+            altitudeNoiseMeters = 18.0,
+        )
+        val honestAboutItsAltitude = flat.map { it.copy(verticalAccuracy = 40f) }
+
+        val guessed = flat.recordedStats()
+        val told = honestAboutItsAltitude.recordedStats()
+
+        assertTrue(
+            assertNotNull(told.totalAscent) < assertNotNull(guessed.totalAscent),
+            "the reported vertical accuracy changed nothing: " +
+                "${told.totalAscent} m against ${guessed.totalAscent} m",
+        )
     }
 
     @Test

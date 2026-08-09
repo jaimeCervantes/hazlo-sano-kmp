@@ -96,7 +96,7 @@ class TraceReplayHarness {
         if (size < 2) 0L else (last().reading.timestamp - first().reading.timestamp) / 1_000L
 
     private fun List<TraceRecord>.altitudeSpan(): Double {
-        val altitudes = map { it.reading.altitude }.filter { it != 0.0 }
+        val altitudes = mapNotNull { it.reading.altitude }
         if (altitudes.isEmpty()) return 0.0
         return altitudes.max() - altitudes.min()
     }

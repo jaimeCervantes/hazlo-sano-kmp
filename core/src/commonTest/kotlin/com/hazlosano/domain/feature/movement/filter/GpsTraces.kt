@@ -45,6 +45,8 @@ internal fun trace(
     startNorthMeters: Double = 0.0,
     startAtMillis: Long = 0L,
     intervalJitterMillis: Long = 0L,
+    /** False for a receiver that reports a position with no vertical component at all. */
+    withAltitude: Boolean = true,
 ): List<UserLocation> {
     val random = Random(seed)
     // Drawn from its own generator so adding jitter to a trace does not shift the noise of every
@@ -59,8 +61,12 @@ internal fun trace(
             eastMeters = random.noise(noiseMeters),
             accuracyMeters = accuracyMeters,
             atMillis = atMillis,
-            altitudeMeters = startAltitudeMeters + index * climbMetersPerReading +
-                random.noise(altitudeNoiseMeters),
+            altitudeMeters = if (!withAltitude) {
+                null
+            } else {
+                startAltitudeMeters + index * climbMetersPerReading +
+                    random.noise(altitudeNoiseMeters)
+            },
         )
     }
 }
@@ -70,7 +76,7 @@ internal fun locationAt(
     eastMeters: Double = 0.0,
     accuracyMeters: Float,
     atMillis: Long,
-    altitudeMeters: Double = BASE_ALTITUDE_METERS,
+    altitudeMeters: Double? = BASE_ALTITUDE_METERS,
 ): UserLocation = UserLocation(
     latitude = BASE_LATITUDE + northMeters / METERS_PER_DEGREE_LATITUDE,
     longitude = BASE_LONGITUDE + eastMeters / metersPerDegreeLongitude(),
@@ -81,7 +87,10 @@ internal fun locationAt(
 
 /** Climb the way the previous implementation counted it: every rise between consecutive readings. */
 internal fun List<UserLocation>.naiveAscentMeters(): Double =
-    zipWithNext { from, to -> (to.altitude - from.altitude).coerceAtLeast(0.0) }.sum()
+    zipWithNext { from, to ->
+        val climbed = (to.altitude ?: 0.0) - (from.altitude ?: 0.0)
+        climbed.coerceAtLeast(0.0)
+    }.sum()
 
 /** What the trace covered in a straight line, ignoring the noise: the number under test. */
 internal fun travelledMeters(readings: Int, metersPerReading: Double): Double =

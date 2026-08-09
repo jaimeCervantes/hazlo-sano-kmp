@@ -28,6 +28,7 @@ internal fun MovementPointEntity.toDomain(): UserLocation =
         longitude = longitude,
         altitude = altitude,
         accuracy = accuracy.toFloat(),
+        verticalAccuracy = verticalAccuracy?.toFloat(),
         bearing = bearing.toFloat(),
         timestamp = timestamp,
     )

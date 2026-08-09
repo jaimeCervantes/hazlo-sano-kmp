@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -25,7 +26,7 @@ class MovementSessionMigrationTest {
         driver.createSchemaAsItWasBeforeMigrations()
         driver.recordASessionTheOldWay()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
 
         val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
         val session = repository.getAllSessions().first().single()
@@ -37,7 +38,7 @@ class MovementSessionMigrationTest {
         val points = repository.getSessionPoints(session.id).first()
         assertEquals(3, points.size, "rebuilding the sessions table took the route with it")
         assertEquals(19.4300, points.first().latitude, 1e-9)
-        assertEquals(2_200.0, points.first().altitude, 1e-9)
+        assertEquals(2_200.0, assertNotNull(points.first().altitude), 1e-9)
         assertEquals(19.4320, points.last().latitude, 1e-9)
     }
 
@@ -46,7 +47,7 @@ class MovementSessionMigrationTest {
         val driver = inMemoryDriver()
         driver.createSchemaAsItWasBeforeMigrations()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
 
         val columns = driver.columnsOf("MovementSessionEntity")
         assertEquals(
@@ -61,7 +62,7 @@ class MovementSessionMigrationTest {
         // movement tables nor the nutrition ones, and the migration has to create both.
         val driver = inMemoryDriver()
 
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
 
         assertTrue(driver.columnsOf("MovementSessionEntity").isNotEmpty())
         assertTrue(driver.columnsOf("MovementPointEntity").isNotEmpty())
@@ -70,10 +71,73 @@ class MovementSessionMigrationTest {
     }
 
     @Test
+    fun `a route recorded before altitude quality existed keeps its altitudes`() = runTest {
+        // Chained all the way from version 1, the shape a phone installed before any of this is in.
+        val driver = inMemoryDriver()
+        driver.createSchemaAsItWasBeforeMigrations()
+        driver.recordASessionTheOldWay()
+
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
+
+        val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
+        val session = repository.getAllSessions().first().single()
+        val points = repository.getSessionPoints(session.id).first()
+
+        assertEquals(3, points.size, "rebuilding the points table took the route with it")
+        assertEquals(2_200.0, assertNotNull(points.first().altitude), 1e-9)
+        // Nothing was known about how good those altitudes were, and nothing is invented.
+        assertTrue(points.all { it.verticalAccuracy == null })
+    }
+
+    @Test
+    fun `a reading with no altitude survives being stored and read back`() = runTest {
+        val driver = inMemoryDriver()
+        HazloSanoDatabase.Schema.create(driver)
+        val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
+
+        repository.saveSession(
+            session = com.hazlosano.domain.feature.movement.model.MovementSession(
+                routeId = null,
+                name = "Sin altitud",
+                date = 1L,
+                elapsedTime = 60,
+                distanceTraveled = 100.0,
+                previewPoints = emptyList(),
+            ),
+            rawPoints = listOf(
+                com.hazlosano.domain.feature.movement.model.UserLocation(
+                    latitude = 19.43,
+                    longitude = -99.13,
+                    altitude = null,
+                    accuracy = 8f,
+                    verticalAccuracy = null,
+                    timestamp = 1_000,
+                ),
+                com.hazlosano.domain.feature.movement.model.UserLocation(
+                    latitude = 19.44,
+                    longitude = -99.13,
+                    altitude = 0.0,
+                    accuracy = 8f,
+                    verticalAccuracy = 12.5f,
+                    timestamp = 3_000,
+                ),
+            ),
+        )
+
+        val id = repository.getAllSessions().first().single().id
+        val points = repository.getSessionPoints(id).first()
+
+        assertEquals(null, points.first().altitude, "a missing altitude came back as a number")
+        // Sea level is an altitude and has to survive as one.
+        assertEquals(0.0, assertNotNull(points.last().altitude), 1e-9)
+        assertEquals(12.5f, points.last().verticalAccuracy)
+    }
+
+    @Test
     fun `a session recorded after the migration still saves and reads back`() = runTest {
         val driver = inMemoryDriver()
         driver.createSchemaAsItWasBeforeMigrations()
-        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+        HazloSanoDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 3)
 
         val repository = SqlDelightMovementSessionRepository(HazloSanoDatabase(driver))
         repository.updateDistance(sessionId = 1, distanceMeters = 10.0) // no rows, must not throw

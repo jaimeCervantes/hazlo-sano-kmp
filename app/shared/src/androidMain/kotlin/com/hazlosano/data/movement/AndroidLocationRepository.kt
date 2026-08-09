@@ -35,8 +35,18 @@ class AndroidLocationRepository(private val context: Context) : LocationReposito
                     UserLocation(
                         latitude = location.latitude,
                         longitude = location.longitude,
-                        altitude = location.altitude,
+                        // getAltitude() returns 0.0 exactly when hasAltitude() is false, so reading
+                        // it without asking turns a fix with no vertical component into a confident
+                        // claim of sea level.
+                        altitude = if (location.hasAltitude()) location.altitude else null,
                         accuracy = location.accuracy,
+                        // What the receiver says about its own altitude, rather than the estimate of
+                        // twice the horizontal accuracy the filter falls back to.
+                        verticalAccuracy = if (location.hasVerticalAccuracy()) {
+                            location.verticalAccuracyMeters
+                        } else {
+                            null
+                        },
                         bearing = location.bearing,
                         timestamp = location.time,
                     ),

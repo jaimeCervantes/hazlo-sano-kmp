@@ -1,6 +1,6 @@
 package com.hazlosano.domain.feature.movement.usecase
 
-import com.hazlosano.domain.feature.movement.filter.verticalAccuracy
+import com.hazlosano.domain.feature.movement.filter.usableVerticalAccuracy
 import com.hazlosano.domain.feature.movement.model.Elevation
 import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
@@ -29,12 +29,20 @@ class CalculateStatsUseCase {
     operator fun invoke(points: List<UserLocation>, totalTimeSeconds: Long): SessionStats {
         if (points.size < MINIMUM_POINTS) return SessionStats()
 
-        val measuresAltitude = points.any { it.altitude != 0.0 }
+        // A reading with no altitude reports none, rather than an altitude of zero. Deducing this
+        // by comparing against zero, as this used to, cannot tell a missing measurement from a
+        // session recorded at sea level.
+        val withAltitude = points.mapNotNull { point -> point.altitude?.let { point to it } }
+        val measuresAltitude = withAltitude.isNotEmpty()
 
         var elevation = Elevation()
-            .accumulating(points.first().altitude, points.first().elevationThreshold())
-        var maxAltitude = points.first().altitude
-        var minAltitude = points.first().altitude
+        var maxAltitude = Double.NEGATIVE_INFINITY
+        var minAltitude = Double.POSITIVE_INFINITY
+        withAltitude.forEach { (point, altitude) ->
+            maxAltitude = maxOf(maxAltitude, altitude)
+            minAltitude = minOf(minAltitude, altitude)
+            elevation = elevation.accumulating(altitude, point.elevationThreshold())
+        }
         // Accumulated as a fraction and rounded once at the end. Truncating each segment to whole
         // seconds threw away most of a second on every one of them, and a session is hundreds of
         // segments long: a real bike ride lost 50 s of 282, which the screen then presented as a
@@ -45,10 +53,6 @@ class CalculateStatsUseCase {
         var totalDistance = 0.0
 
         points.zipWithNext().forEach { (from, to) ->
-            maxAltitude = maxOf(maxAltitude, to.altitude)
-            minAltitude = minOf(minAltitude, to.altitude)
-            elevation = elevation.accumulating(to.altitude, to.elevationThreshold())
-
             val meters = haversineMeters(from.latitude, from.longitude, to.latitude, to.longitude)
             val seconds = (to.timestamp - from.timestamp) / MILLIS_PER_SECOND
             totalDistance += meters
@@ -57,9 +61,10 @@ class CalculateStatsUseCase {
             movingSeconds += seconds
 
             // Over a short run the altitude error dwarfs the height difference, so the slope it
-            // implies is noise rather than terrain.
+            // implies is noise rather than terrain. A pair without altitudes has no slope at all.
             if (meters < to.minimumSlopeRun()) return@forEach
-            val slope = (to.altitude - from.altitude) / meters * PERCENT
+            val climbed = (to.altitude ?: return@forEach) - (from.altitude ?: return@forEach)
+            val slope = climbed / meters * PERCENT
             if (abs(slope) > abs(maxSlope)) maxSlope = slope
         }
 
@@ -105,11 +110,11 @@ class CalculateStatsUseCase {
      * from the vertical accuracy of the fix that reported it, never from a fixed number of metres.
      */
     private fun UserLocation.elevationThreshold(): Double =
-        (verticalAccuracy() * ELEVATION_THRESHOLD_FACTOR)
+        (usableVerticalAccuracy() * ELEVATION_THRESHOLD_FACTOR)
             .coerceIn(MIN_ELEVATION_THRESHOLD_METERS, MAX_ELEVATION_THRESHOLD_METERS)
 
     private fun UserLocation.minimumSlopeRun(): Double =
-        verticalAccuracy().coerceAtLeast(MIN_SLOPE_RUN_METERS)
+        usableVerticalAccuracy().coerceAtLeast(MIN_SLOPE_RUN_METERS)
 
     private companion object {
         /** One point is a position, not a journey: nothing can be measured from it. */
