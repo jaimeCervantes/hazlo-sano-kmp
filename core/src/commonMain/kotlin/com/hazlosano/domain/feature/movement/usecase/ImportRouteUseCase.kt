@@ -3,6 +3,7 @@ package com.hazlosano.domain.feature.movement.usecase
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.feature.movement.model.calculateFingerprint
 import com.hazlosano.domain.feature.movement.model.calculateStats
+import com.hazlosano.domain.feature.movement.parser.GpxFormat
 import com.hazlosano.domain.feature.movement.parser.GpxParser
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
 
@@ -25,17 +26,22 @@ class ImportRouteUseCase(
     }
 
     /**
-     * @param name what to call the route, overriding whatever the file called itself. Null keeps
-     * the file's own track name.
+     * @param fallbackName what to call the route when the track inside the file does not name
+     * itself — the file's own name, normally. A route called "Ruta sin nombre" when the file was
+     * called something helps nobody find it again.
      */
     suspend operator fun invoke(
         data: ByteArray,
         forceOverwrite: Boolean = false,
-        name: String? = null,
+        fallbackName: String? = null,
     ): Result = try {
         val parsed = parser.parse(data)
         val (totalDistance, totalElevation) = parsed.points.calculateStats()
-        val named = name?.trim()?.takeIf { it.isNotEmpty() } ?: parsed.name
+        val named = if (parsed.name == GpxFormat.DEFAULT_ROUTE_NAME) {
+            fallbackName?.trim()?.takeIf { it.isNotEmpty() } ?: parsed.name
+        } else {
+            parsed.name
+        }
         val route = parsed
             .copy(name = named, distance = totalDistance, elevationGain = totalElevation)
             .let { it.copy(fingerprint = it.calculateFingerprint()) }

@@ -51,6 +51,8 @@ import com.hazlosano.feature.movement.detail.ui.SessionDetailScreen
 import com.hazlosano.feature.movement.history.ui.MovementHistoryScreen
 import com.hazlosano.feature.movement.presentation.MovementDestination
 import com.hazlosano.feature.movement.presentation.MovementNavState
+import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
+import com.hazlosano.feature.movement.routes.ui.RoutesScreen
 import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
@@ -99,6 +101,16 @@ fun MainScreen(
             MovementHistoryScreen(
                 onBack = { movementNav.openTracker() },
                 onOpenSession = { sessionId -> movementNav.openSessionDetail(sessionId) },
+                onOpenRoutes = { movementNav.openRoutes() },
+                modifier = Modifier.fillMaxSize(),
+            )
+            return
+        }
+
+        MovementDestination.Routes -> {
+            RoutesScreen(
+                viewModel = rememberRoutesViewModel(),
+                onBack = { movementNav.openHistory() },
                 modifier = Modifier.fillMaxSize(),
             )
             return

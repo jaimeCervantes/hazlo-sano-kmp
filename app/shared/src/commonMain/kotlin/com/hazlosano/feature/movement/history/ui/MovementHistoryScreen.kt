@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,6 +37,7 @@ import com.hazlosano.feature.movement.history.presentation.createMovementHistory
 fun MovementHistoryScreen(
     onBack: () -> Unit,
     onOpenSession: (Long) -> Unit,
+    onOpenRoutes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember { createMovementHistoryViewModel() }
@@ -43,6 +45,13 @@ fun MovementHistoryScreen(
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar(title = "Historial", showBackButton = true, onBackClick = onBack)
+
+        TextButton(
+            onClick = onOpenRoutes,
+            modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
+        ) {
+            Text("Mis rutas")
+        }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {

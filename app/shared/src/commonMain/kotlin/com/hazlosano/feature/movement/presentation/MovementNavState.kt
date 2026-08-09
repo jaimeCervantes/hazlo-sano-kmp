@@ -12,6 +12,7 @@ sealed interface MovementDestination {
     data object Closed : MovementDestination
     data object Tracker : MovementDestination
     data object History : MovementDestination
+    data object Routes : MovementDestination
     data class SessionDetail(val sessionId: Long) : MovementDestination
 }
 
@@ -33,6 +34,10 @@ class MovementNavState {
 
     fun openHistory() {
         destination = MovementDestination.History
+    }
+
+    fun openRoutes() {
+        destination = MovementDestination.Routes
     }
 
     fun openSessionDetail(sessionId: Long) {
