@@ -3,9 +3,15 @@
 This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop JVM, and a Ktor JVM server. Keep these instructions focused on persistent repository norms. Use the dedicated skills for setup, feature delivery, and reviews.
 
 ## Use the right instruction source
-- Use `.agents/skills/project-scaffold/` when the task is project initialization, missing boilerplate, Gradle/module repair, dependency setup, build wiring, platform target setup, or test-environment setup.
-- Use `.agents/skills/feature-delivery/` when the task is a feature, bugfix, Compose UI change, Ktor endpoint change, shared logic change, or any behavior change that should start from a small scenario and tests.
-- Use `.agents/skills/review-pr/` when the task is reviewing pull requests, branches, commits, staged diffs, unstaged diffs, or other local code changes.
+
+These are files to **read**, not skills to invoke. They live under `.agents/skills/`, which is the
+convention of a different agent runtime — Claude Code discovers skills in `.claude/skills/` and will
+not find these, so `Skill("feature-delivery")` does not resolve. Open the file with the Read tool
+before starting the matching kind of task; that reading is mandatory, not optional context.
+
+- Read `.agents/skills/project-scaffold/SKILL.md` when the task is project initialization, missing boilerplate, Gradle/module repair, dependency setup, build wiring, platform target setup, or test-environment setup.
+- Read `.agents/skills/feature-delivery/SKILL.md` when the task is a feature, bugfix, Compose UI change, Ktor endpoint change, shared logic change, or any behavior change that should start from a small scenario and tests.
+- Read `.agents/skills/review-pr/SKILL.md` when the task is reviewing pull requests, branches, commits, staged diffs, unstaged diffs, or other local code changes.
 
 ## Feature alignment gate (mandatory)
 - Before implementing any feature or behavior change, ask and capture:
@@ -16,9 +22,13 @@ This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, D
 - Do not write feature code/tests until the user approves that first slice.
 
 ## Autonomous delivery mode (default)
-- This is the default cadence. It reduces approval checkpoints to exactly two: (1) the alignment gate, and (2) the `features/<feature>.feature` file plus its scenarios.
-- After the `.feature` is approved, do NOT ask for further validation or authorization for anything else. Proceed autonomously through tests, implementation, and Gradle validation.
-- Only interrupt for a **very grave** action: destructive or irreversible operations (`git reset --hard`, force-push, deleting files/branches, dropping database data), writes to shared/production resources, or a security risk.
+- This is the default cadence. It reduces approval checkpoints to exactly two: (1) the alignment gate, and (2) the slice roadmap plus the `features/<feature>.feature` file and its scenarios, reviewed together.
+- Before the first slice, write a **slice roadmap** to `docs/features/<feature>.md`: the ordered slices, each slice's scope, and its acceptance criteria. This is what makes the shape of a long feature reviewable before any code exists, and it is half of checkpoint 2.
+- Write **all planned scenarios as Gherkin up front** for that review, tagged by slice (`@slice-1`, `@slice-2`, …). Scenarios of slices not built yet carry `@future` so they neither run nor block. Only the current slice's scenarios are detailed and wired to tests; future ones stay coarse — do not add detail you will rewrite once the current slice teaches you something. Specs up front is not implementation up front.
+- After checkpoint 2 is approved, do NOT ask for further validation or authorization for anything else. Proceed autonomously through tests, implementation, and Gradle validation.
+- Only interrupt for a **very grave** action — something genuinely irreversible: destroying or overwriting data that is not yours (dropping tables, deleting a branch, `git reset --hard`, force-push), applying a migration to a shared or production database, exposing or rotating secrets, publishing to an external service, or a discovery that invalidates the agreed model or scope.
+- **NOT grave — do it and report it, never ask first:** running any Gradle task or test suite; deleting code that git already tracks (dead files, unreachable implementations — git is the undo); creating and removing your own scratch or fixture files; reversible refactors; adding a dependency the plan already implies; and every routine blocker, tooling hiccup, or "which option" choice. Pick the sensible default and say which one you picked in the report.
+- When a run wrote to a shared resource, say plainly in the report what was written and how to undo it. **The report replaces the question**; do not ask permission first and do not wait for an answer afterwards.
 - The "Artifact checkpoint gate" (stopping for acceptance after every artifact-changing step) applies ONLY when the user explicitly asks for step-by-step mode (e.g. "pregúntame en cada paso").
 - This governs the skills' checkpoints; it does not change Claude Code's own tool-permission prompts, which are configured in `.claude/settings.json`.
 
@@ -81,6 +91,53 @@ This repository is a Kotlin Multiplatform project targeting Android, iOS, Web, D
 - Ensure text and controls fit on desktop, mobile, and web viewports without overlap.
 - Keep layout dimensions stable for toolbars, controls, grids, and repeated UI elements.
 - Avoid business logic in `@Composable` functions; move it to `core` or presentation state in `shared`.
+
+## Component placement (mandatory)
+
+**Never write a new component before searching for an existing one.** Grep the three homes below for
+the concern first. If something close already exists, extend or parameterize it; if two screens are
+about to grow the same component, extract one reusable version instead of copying. A second
+near-duplicate component is a design failure, not a shortcut.
+
+Placement follows **how widely the component can be used**, and is decided when it is created. All
+paths are under `app/shared/src/commonMain/kotlin/com/hazlosano/`:
+
+| Reach | Home | Examples |
+| --- | --- | --- |
+| Reusable anywhere, carries no app knowledge | `core/ui/components/atomic/` | `LeafCard`, `HazloAsyncImage`, `SectionHeader`, `PillarBadge` |
+| Specific to this app, shared by several screens | `core/ui/components/cards/`, `core/ui/components/sections/` | `HazloProductCard`, `HazloChampionsSection` |
+| Usable **only** in one screen | `feature/<area>/ui/` | `TrackerScreen`, `RoutesScreen`, `SessionDetailScreen` |
+
+- A component in `atomic/` must not import `com.hazlosano.domain.*`. If it needs to know what a post,
+  a session or a seller is, it is not atomic — it belongs one row down. (`SleepSummaryCard` currently
+  sits in `atomic/` while taking a `SleepAnalysis`; that is known debt, not a precedent to copy.)
+- A component under one screen's `ui/` that a second screen starts wanting is the signal to promote
+  it. Promote it; do not import across features.
+- **Promotion is a move, not a copy.** Leave no duplicate behind.
+- Known debt this rule names, to be cleared when the surrounding area is next touched:
+  `core/ui/components/atomic/HazloHeader.kt` is an unused near-duplicate of `HazloTopAppBar.kt`, and
+  `FeedPostCard` is private inside `feature/home/ui/HomeScreen.kt` when it belongs in
+  `core/ui/components/cards/`.
+
+## Internationalization rules
+
+The app ships in Spanish only today, and the mechanism is already here: Compose resources, read as
+`Res.string.*`, with the catalog in `app/shared/src/commonMain/composeResources/values/strings.xml`.
+It is currently used in about a third of the places it should be.
+
+- **No user-visible string is hardcoded in a `@Composable`.** Every label, button, empty state and
+  error comes from `Res.string.*`. This applies to everything you touch from now on.
+- **`core/` holds no user-visible copy.** A target-neutral module cannot reach Compose resources, so
+  a label that lives there can never be translated. Domain types expose a **stable key**; the UI maps
+  key to resource. (`PillarType.label`, `SleepPhase.label` and the Spanish month names in
+  `MovementFormat` predate this rule — the first two are being moved to keys; the month names stay,
+  because they are formatting rather than copy.)
+- **ViewModels do not produce user-visible text.** They expose a sealed message type, not a `String`
+  that has already been worded. A ViewModel returning `"Ruta importada: …"` puts copy in the
+  presentation layer where no catalog can reach it, and forces tests to assert on wording.
+- **`core/ui/components/atomic/` never reads resources.** It has to be renderable from anywhere,
+  including previews and tests with no resource environment. Take the string as a parameter and let
+  the caller resolve it.
 
 ## Dependency rules
 - Add plugin aliases and library aliases in `gradle/libs.versions.toml`.

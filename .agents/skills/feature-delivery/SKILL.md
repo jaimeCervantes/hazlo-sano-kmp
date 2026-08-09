@@ -7,16 +7,31 @@ description: Implement or change Kotlin Multiplatform behavior in a Gradle proje
 
 Use this skill for behavior changes. Work **outside-in (double-loop)**: when it is worth it for the scenario, first write a failing e2e/integration test that **guides the design**, then implement **bottom-up** — drive out the unit tests (where most coverage lives), then component tests, building until the outer e2e/integration test passes green. Keep a pyramid shape: many unit tests, few e2e.
 
+## Branching (mandatory)
+
+**Every feature or behavior change starts on its own branch.** Never commit onto `main` directly.
+
+- Create it before the first artifact-changing step: `git checkout -b feat/<feature>` (or
+  `fix/<bug>`, `chore/<area>`). Name it after the feature area, not the slice — one branch carries a
+  roadmap's slices, each as its own commit.
+- If work has already started on `main`, branch immediately: uncommitted changes follow you across
+  `git checkout -b`, so nothing is lost.
+- **Commit per slice or per zone, never one giant commit.** A commit whose message needs "and" twice
+  is two commits.
+- Push and open the PR **only when the user asks**. A finished branch sitting locally is a normal
+  end state for a slice; an unrequested PR is not.
+
 ## Default workflow
 
 > **Cadence is governed by `AGENTS.md` → "Autonomous delivery mode" (the default).** It reduces the
-> only approval checkpoints to (1) the alignment gate and (2) the `.feature` + its scenarios. After the
-> `.feature` is approved, do NOT ask for validation/authorization for anything else — only interrupt for
-> a **very grave** action (destructive/irreversible, a write to shared/prod resources, or a security
-> risk). Step 8 and the "Artifact checkpoint gate (Conditional)" section apply ONLY when the user
-> explicitly asks for step-by-step mode.
+> only approval checkpoints to (1) the alignment gate and (2) the slice roadmap in
+> `docs/features/<feature>.md` together with the `.feature` and its scenarios. After that is approved,
+> do NOT ask for validation/authorization for anything else — only interrupt for a **very grave**
+> action (genuinely irreversible, a migration against a shared/prod database, or exposing secrets).
+> Running tests, deleting tracked dead code and reversible refactors are explicitly **not** grave: do
+> them and report. Step 8 and the "Artifact checkpoint gate (Conditional)" section apply ONLY when the
+> user explicitly asks for step-by-step mode.
 
-- **ALL NEW CHANGES MUST BE MADE IN A NEW BRANCH AND A PULL REQUEST MUST BE CREATED.** Do not commit directly to the main branch.
 0. Alignment gate (mandatory, no exceptions):
    1. Ask the user for:
       - **Problem:** What real friction exists?
@@ -88,6 +103,45 @@ Feature: [Feature Name]
   I want to [action]
   So that [benefit]
 ```
+
+### Scenario writing rules (mandatory)
+
+- **The `Context:` block lives inside the `.feature` itself**, not only in `docs/features/<feature>.md`.
+  A reader who never opens another document must still know the Problem, the Savings and the Why.
+- **Use concrete, real data — never placeholders.** Take the values from the app, the seeds, a
+  captured GPS trace or the real catalogue: `"Pechuga de pollo a la naranja"` at `105`, a fix with
+  `accuracy = 20.9` and no altitude — not `"a product"` at `"some price"`. Concrete data exposes
+  disagreements about the model that abstract wording hides.
+- **Use `Scenario Outline` + `Examples` whenever the rule has more than one case.** This is the desk
+  check ("corrida de escritorio"): input columns and the expected result, so the rule can be verified
+  by reading the table. Reach for it for enum-by-enum mappings, per-target behavior, boundary values,
+  and anything phrased as "X when …, Y when …".
+
+```gherkin
+@slice-1
+Scenario Outline: La fase que reporta el detector sobrevive a guardarse
+  Given una noche registrada con la fase "<fase>"
+  When se vuelve a leer del almacenamiento
+  Then la fase sigue siendo "<fase>"
+  And el desglose <cuenta> esa noche
+
+  Examples:
+    | fase    | cuenta |
+    | LIGHT   | cuenta |
+    | DEEP    | cuenta |
+    | REM     | cuenta |
+    | AWAKE   | omite  |
+    | UNKNOWN | omite  |
+```
+
+- **Name the `Examples` blocks** when one outline covers accepted and rejected input
+  (`Examples: rechazados — una altitud ausente nunca se guarda como cero`). A trailing `reason`
+  column that no step consumes is fine: it documents why each row exists.
+- **Use a data table in a `Then`** to desk-check stored state — field/value rows read better than a
+  chain of `And the X is Y`.
+- **Tag every scenario by slice** (`@slice-1`, `@slice-2`, …). Scenarios of slices not built yet carry
+  `@future` so they neither run nor block. Add `@androidTest` when only an instrumented test can
+  cover it, with a comment saying why.
 
 Do not skip this framing stage for genuinely end-to-end scenarios. Skip the `.feature` only for pure unit-level bug fixes with no observable behavior change, and state explicitly why it was skipped. If context is incomplete, ask concise clarification questions and wait for explicit agreement on scope and the first scenario.
 
