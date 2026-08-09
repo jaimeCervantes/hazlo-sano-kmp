@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,10 +42,32 @@ private const val METRICS_PER_ROW = 4
 fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val viewModel = remember(sessionId) { createSessionDetailViewModel(sessionId) }
     val state by viewModel.state.collectAsState()
+    val saveRouteMessage by viewModel.saveRouteMessage.collectAsState()
+    var namingRoute by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val title = (state as? SessionDetailUiState.Detail)?.session?.name ?: "Sesión"
         HazloTopAppBar(title = title, showBackButton = true, onBackClick = onBack)
+
+        if (viewModel.canSaveAsRoute && state is SessionDetailUiState.Detail) {
+            TextButton(
+                onClick = { namingRoute = true },
+                modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
+            ) {
+                Text("Guardar como ruta")
+            }
+        }
+
+        saveRouteMessage?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm),
+            )
+        }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {
@@ -62,6 +87,46 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
             }
         }
     }
+
+    if (namingRoute) {
+        val suggested = (state as? SessionDetailUiState.Detail)?.session?.name.orEmpty()
+        NameRouteDialog(
+            suggestedName = suggested,
+            onDismiss = { namingRoute = false },
+            onConfirm = { name ->
+                viewModel.consumeSaveRouteMessage()
+                viewModel.saveAsRoute(name)
+                namingRoute = false
+            },
+        )
+    }
+}
+
+/**
+ * The name is asked for rather than taken from the session: "Salida del 9 ago" is what happened
+ * that day, not what the route is called. The session name is offered as a starting point.
+ */
+@Composable
+private fun NameRouteDialog(
+    suggestedName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by remember(suggestedName) { mutableStateOf(suggestedName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Guardar como ruta") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text("Nombre de la ruta") },
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("Guardar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
 }
 
 @Composable

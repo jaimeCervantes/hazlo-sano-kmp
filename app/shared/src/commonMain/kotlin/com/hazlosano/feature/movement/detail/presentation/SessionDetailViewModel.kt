@@ -9,6 +9,7 @@ import com.hazlosano.domain.feature.movement.model.SessionDetail
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.usecase.GetSessionDetailUseCase
 import com.hazlosano.domain.feature.movement.usecase.RefreshSessionSummaryUseCase
+import com.hazlosano.domain.feature.movement.usecase.SaveRouteFromSessionUseCase
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -74,6 +75,7 @@ class SessionDetailViewModel(
     private val sessionId: Long,
     private val getSessionDetail: GetSessionDetailUseCase,
     private val refreshSessionSummary: RefreshSessionSummaryUseCase,
+    private val saveRouteFromSession: SaveRouteFromSessionUseCase? = null,
     private val traceStore: TraceStore = createTraceStore(),
     private val timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel() {
@@ -81,8 +83,35 @@ class SessionDetailViewModel(
     private val _state = MutableStateFlow<SessionDetailUiState>(SessionDetailUiState.Loading)
     val state: StateFlow<SessionDetailUiState> = _state.asStateFlow()
 
+    /** What saving this outing as a route had to say, once. Null when nothing has been said. */
+    private val _saveRouteMessage = MutableStateFlow<String?>(null)
+    val saveRouteMessage: StateFlow<String?> = _saveRouteMessage.asStateFlow()
+
+    /** Hidden where routes cannot be stored at all, rather than failing when pressed. */
+    val canSaveAsRoute: Boolean = saveRouteFromSession != null
+
     init {
         observeSessionDetail()
+    }
+
+    /**
+     * Keeps this outing as a route to follow again, under a name the person chooses. The name is
+     * asked for rather than taken from the session: "Salida del 9 ago" is what happened that day,
+     * not what the route is called.
+     */
+    fun saveAsRoute(name: String) {
+        val useCase = saveRouteFromSession ?: return
+        viewModelScope.launch {
+            _saveRouteMessage.value = when (val result = useCase(sessionId, name)) {
+                is SaveRouteFromSessionUseCase.Result.Success ->
+                    "Ruta guardada: ${result.route.name}"
+                is SaveRouteFromSessionUseCase.Result.Error -> result.message
+            }
+        }
+    }
+
+    fun consumeSaveRouteMessage() {
+        _saveRouteMessage.value = null
     }
 
     private fun observeSessionDetail() {
