@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 class GpxFormatTest {
 
     @Test
-    fun `a track is read with its name, positions, elevations and times`() {
+    fun `a track is read with its name and the position elevation and time of each point`() {
         val route = GpxFormat.parse(
             """
             <?xml version="1.0" encoding="UTF-8"?>

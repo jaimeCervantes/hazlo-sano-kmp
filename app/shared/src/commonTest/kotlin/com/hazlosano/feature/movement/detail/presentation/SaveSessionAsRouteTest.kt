@@ -34,7 +34,7 @@ class SaveSessionAsRouteTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `an outing is kept under the name that was chosen, not the session's own`() = runTest {
+    fun `an outing is kept under the name that was chosen rather than the session's own`() = runTest {
         val routes = FakeRoutes()
         val viewModel = buildViewModel(routes)
 

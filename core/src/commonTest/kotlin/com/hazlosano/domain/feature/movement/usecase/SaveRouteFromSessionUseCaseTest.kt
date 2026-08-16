@@ -55,7 +55,7 @@ class SaveRouteFromSessionUseCaseTest {
     }
 
     @Test
-    fun `a single reading is a place, not a route`() = runTest {
+    fun `a single reading is a place rather than a route`() = runTest {
         val routes = FakeRouteRepository()
         val onePoint = listOf(reading(19.43, -99.13, altitude = 2200.0, at = 0))
         val useCase = SaveRouteFromSessionUseCase(routes, FakeSessions(onePoint))

@@ -85,7 +85,7 @@ class RoutesViewModelTest {
     }
 
     @Test
-    fun `confirming the replacement keeps one route, not two`() = runTest(dispatcher) {
+    fun `confirming the replacement keeps one route rather than two`() = runTest(dispatcher) {
         val repository = FakeRoutes()
         val viewModel = viewModel(repository)
         viewModel.import("cerro.gpx", gpxNamed("Subida al cerro"))
