@@ -738,3 +738,79 @@ Además la traza 1 no fue una prueba válida de GPS parado: desde una habitació
 **Recap:** La app deja de adivinar lo que el receptor sabe de su propia altitud: lee `hasAltitude()` y `getVerticalAccuracyMeters()`, distingue "sin altitud" de "nivel del mar" en todo el recorrido —modelo, filtro, estadísticas, base de datos y traza—, y usa la precisión vertical real cuando la hay, dejando el 2× horizontal como respaldo. No se descarta nada todavía: eso lo decide la próxima salida, que ahora sí traerá el dato para decidirlo.
 
 **Próximos pasos (opciones):** (1) instalar y salir con la captura activada, mirando qué dice la precisión vertical en las ventanas congeladas; (2) repetir la prueba de teléfono quieto a cielo abierto y medir la ruta real; (3) commitear el slice.
+
+---
+
+## Slice 13 (migración C1) — Las rutas dejan de ser una promesa vacía
+
+> **Nota sobre esta entrada:** está escrita **después**, reconstruida desde los tres commits que la
+> entregaron (`be68da2`, `28585c9`, `2665585`) y desde el código, no durante el slice. Las decisiones
+> y sus porqués salen de los mensajes de commit y del código; los números de validación son de una
+> corrida hecha al escribirla, sobre `HEAD`, no de la corrida de cada commit. Se anota porque una
+> bitácora que no distingue lo registrado en el momento de lo reconstruido después engaña sobre su
+> propia fiabilidad.
+
+- **Objetivo:** que un GPX se pueda abrir y que una salida grabada se pueda repetir. Spec: [`movement_routes_gpx.feature`](../../features/movement_routes_gpx.feature) (7 escenarios).
+
+- **Qué había antes, y por qué esto no era "conectar lo que ya estaba":** `RouteRepository`, `GpxParser` e `ImportRouteUseCase` llevaban en `core` desde que se construyó el pilar **sin una sola implementación conectada**. No había tabla de rutas, así que `MovementSessionEntity.routeId` guardaba `null` en cada sesión jamás grabada, y el único `GpxParserImpl` vivía en `core/src/jvmMain` bajo un paquete que **no coincidía con su propia carpeta** — inalcanzable desde la app en todos los targets, JVM incluido. Importar un GPX y seguirlo nunca fue posible, y nada lo decía. Es exactamente el aviso que el backlog llevaba escrito: que el archivo exista no significa que la funcionalidad esté migrada.
+
+- **Se entregó en tres commits**, no en tres slices: un solo `.feature` los cubre. `be68da2` (dominio, formato GPX y persistencia) · `28585c9` (pantalla de rutas) · `2665585` (guardar una salida del historial como ruta).
+
+- **Decisiones + porqué:**
+  - **`GpxFormat` en `commonMain`, sin librería XML.** Un solo lector sirve a Android, iOS, escritorio y web. Entiende **la rebanada de GPX que es una ruta**: el track, su nombre, y de cada punto su posición, elevación y hora. Todo lo demás se **ignora en vez de rechazarse**, porque un archivo exportado por un reloj o por Strava viene lleno de extensiones sobre las que esta app no tiene opinión y aun así tiene que abrirse. Lee etiquetas con namespace, puntos auto-cerrados y `rtept` además de `trkpt`.
+  - **Un archivo sin puntos es un fallo que se reporta, no una lista vacía que se devuelve.** Una ruta sin puntos no se puede seguir, ni dibujar, ni medir; descubrirlo tres pantallas más tarde es peor que decirlo al abrir.
+  - **Un punto sin elevación no se inventa una.** `WayPoint.altitude` y `timestamp` son nullable y se escriben **sin** su elemento, no con un cero — la misma distinción que el slice 12 hizo para las lecturas del receptor. Una ruta exportada y vuelta a leer dice exactamente lo que decía, y eso es lo que fija el test de ida y vuelta.
+  - **El duplicado se pregunta, no se decide.** Importar un track ya guardado devuelve `AlreadyExists` con **las dos rutas** y la pantalla levanta un diálogo con ambos nombres, en vez de quedarse con dos copias en silencio o pisar lo que había. El reconocimiento va por `fingerprint` **primero** (distancia-desnivel-primer/último punto), que es lo que ve el mismo track bajo otro nombre; la comparación por nombre va después y no puede ver ese caso.
+  - **El nombre del archivo como respaldo, y decidido dentro del caso de uso.** `fallbackName` sustituyó al override de nombre que no usaba nadie: **solo el caso de uso sabe si el track se nombró a sí mismo**, así que decidirlo fuera obligaba a parsear dos veces o a adivinar. Una ruta llamada "Ruta sin nombre" cuando el archivo decía más que eso no ayuda a nadie a encontrarla otra vez.
+  - **Lo único detrás de `expect`/`actual` es abrir y escribir archivos** (`GpxFileAccess`): dame los bytes, toma estos bytes. Es la única parte que ningún target hace igual.
+  - **Android va por el Storage Access Framework, así que importar y exportar no necesitan permiso de almacenamiento ninguno:** el usuario elige el archivo y el permiso viaja con la URI que eligió.
+  - **El filtro del selector es deliberadamente ancho.** Muchos proveedores de archivos reportan un GPX como `text/xml` o como nada; filtrar estrictamente por `application/gpx+xml` escondería justo los archivos que esto existe para abrir. **Lo que decide si un archivo es una ruta es el parser**, no el tipo MIME que alguien declaró.
+  - **Escritorio, iOS y web no tienen acceso a archivos todavía y lo dicen** con `gpxFileAccessAvailable = false`; la pantalla **esconde** ambas acciones en lugar de ofrecer botones que no hacen nada. Grabar sigue siendo solo de Android, así que un build de escritorio tampoco tiene rutas propias que exportar.
+  - **`RouteRepository` pierde sus métodos de sesión.** Declaraba rutas **y** sesiones a la vez, lo que obligaba a cada implementación a deber métodos que no le tocaban y duplicaba `MovementSessionRepository` — cuyo propio comentario ya decía que los dos estaban para segregarse. Es el mismo ISP que se aplicó allí.
+  - **Guardar una salida como ruta pide nombre, y sin nombre no guarda nada.** "Salida del 9 ago" es lo que pasó ese día, no cómo se llama la ruta; el nombre de la sesión se ofrece como punto de partida y nada más. Menos de dos puntos tampoco se guarda: **un punto es un lugar, no una ruta**.
+  - **Sesión y ruta se guardan aparte porque responden preguntas distintas:** una sesión es lo que pasó y pertenece a un día; una ruta es lo que pretendes repetir y **sobrevive a la salida que la produjo**.
+  - **La opción se esconde donde las rutas no se pueden guardar en absoluto**, en vez de reportar éxito y no guardar nada: la factory no pasa el caso de uso cuando no hay base de datos, y la pantalla lee `canSaveAsRoute`.
+
+- **La migración (`4.sqm`, versión 4 → 5):**
+  - `RouteEntity` y `RoutePointEntity`. **Dos tablas y no una**, igual que las sesiones y por el mismo motivo: la lista de rutas tiene que pintarse **sin leer todos los puntos de todas las rutas**, así que distancia y desnivel se guardan como resumen, y los puntos son lo que la ruta realmente es.
+  - **Borrar una ruta borra sus puntos explícitamente**, los puntos primero y dentro de una transacción. No se confía en el `ON DELETE CASCADE` declarado, porque **este proyecto no activa claves foráneas en ningún driver**; confiar en él dejaría huérfanos, para siempre, todos los puntos de cada ruta borrada. La declaración se deja como documentación de la relación, no como mecanismo.
+  - **Aquí no se reconstruye ninguna tabla ni se toca una fila existente** — estas tablas no existían antes de esta migración —, así que no hay cascada que razonar, al revés que en `1.sqm`.
+  - Nota de numeración: entre el slice 12 y este, el arreglo del pilar de sueño (`9f8ad5b`) se llevó la versión 3 → 4 con su `3.sqm`, así que a las rutas les tocó la 4 → 5.
+
+- **Archivos tocados:**
+  - core/commonMain: `parser/GpxFormat.kt` (nuevo, reemplaza a `GpxParserImpl`), `model/Route.kt` (`WayPoint` nullable, `calculateStats`, `calculateFingerprint`), `repository/RouteRepository.kt` (segregado), `usecase/ImportRouteUseCase.kt` (reescrito), `usecase/ExportRouteAsGpxUseCase.kt` (nuevo), `usecase/SaveRouteFromSessionUseCase.kt` (nuevo)
+  - core/jvmMain: `parser/GpxParserImpl.kt` (**borrado**, 72 líneas inalcanzables)
+  - core/commonTest: `parser/GpxFormatTest.kt` (nuevo, 15), `usecase/SaveRouteFromSessionUseCaseTest.kt` (nuevo, 5), `usecase/ImportRouteUseCaseTest.kt` (adaptado, 4)
+  - shared/commonMain sqldelight: `Route.sq` (nuevo), `4.sqm` (nuevo)
+  - shared/commonMain: `data/movement/SqlDelightRouteRepository.kt`, `RouteRepositoryProvider.kt` (nuevos, con `NoOpRouteRepository`), `feature/movement/routes/presentation/RoutesViewModel.kt`, `RoutesViewModelFactory.kt`, `routes/ui/RoutesScreen.kt`, `routes/ui/GpxFileAccess.kt` (nuevos), `feature/movement/presentation/MovementNavState.kt` (destino `Routes`), `feature/main/ui/MainScreen.kt`, `feature/movement/history/ui/MovementHistoryScreen.kt` (entrada "Mis rutas"), `feature/movement/detail/presentation/SessionDetailViewModel.kt`, `SessionDetailViewModelFactory.kt`, `detail/ui/SessionDetailScreen.kt`
+  - shared/androidMain: `routes/ui/GpxFileAccess.android.kt` (nuevo, SAF)
+  - shared/{jvm,js,ios}Main: `routes/ui/GpxFileAccess.<target>.kt` (nuevos, no-op declarado)
+  - shared/commonTest: `routes/presentation/RoutesViewModelTest.kt` (nuevo, 9), `detail/presentation/SaveSessionAsRouteTest.kt` (nuevo, 4)
+  - shared/jvmTest: `data/movement/SqlDelightRouteRepositoryTest.kt` (nuevo, 10)
+  - features: `movement_routes_gpx.feature`
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+
+- **Resultados de validación (corrida al escribir esta entrada, sobre `HEAD`):** `:core` **78 tests, 0 fallos** (antes 58, +20). `:app:shared:jvmTest` **128 tests, 0 fallos** (+23 de este slice; los otros 5 respecto a los 100 del slice 12 son del arreglo de sueño `9f8ad5b`, ajeno a este slice). `assembleDebug`, `:app:desktopApp:check` y `:app:webApp:check` BUILD SUCCESSFUL.
+
+- **Lo que esa corrida destapó — `:core:check` llevaba rojo desde este slice:** `compileTestKotlinIosSimulatorArm64` fallaba con `Name contains illegal characters: ","`. **Kotlin/Native no admite comas en un nombre de función entre backticks**, y cuatro tests de `commonTest` escritos en este slice las llevaban. En JVM compilan sin protestar, así que `:core:jvmTest` y `:app:shared:jvmTest` seguían verdes y el fallo pasó inadvertido: **solo lo ve un comando de validación que este slice no llegó a ejecutar.** Arreglado renombrando los cuatro (`GpxFormatTest`, `SaveRouteFromSessionUseCaseTest`, `SaveSessionAsRouteTest`, `RoutesViewModelTest`), sin tocar lo que prueban. La quinta coma vive en `SqlDelightRouteRepositoryTest`, que es `jvmTest` y no compila para iOS: se deja, porque ahí es legal.
+  - **La lección, que es de proceso y no de Kotlin:** los comandos de validación por defecto están en `AGENTS.md` precisamente porque cada uno ve algo que los otros no. Correr solo los dos de JVM porque son los rápidos deja fuera el único que compila el código común para los targets nativos.
+
+- **Desviaciones respecto al `.feature`:** ninguna en comportamiento; los 7 escenarios tienen test. Sí hay dos desviaciones respecto a reglas del repositorio, y se anotan aquí en vez de dejarlas calladas: `RoutesScreen` lleva **todo el texto en duro** en lugar de `Res.string.*`, y `RoutesViewModel` expone `message: String` ya redactado en vez de un tipo de mensaje. Ambas reglas se escribieron en el commit **siguiente** (`0d45b7c`), así que no estaban vigentes al escribir esto — pero la deuda es real y `RoutesViewModelTest` la paga ya: sus aserciones son sobre la redacción exacta, que es justo el coste que la regla predice.
+
+- **Sin cobertura de host (dicho explícitamente):**
+  - `GpxFileAccess.android.kt` — el selector, la URI, escribir el archivo — es código Android y no se prueba en JVM. Lo que sí está probado es **qué** se lee y **qué** se escribe (`GpxFormatTest`) y todas las decisiones del ViewModel.
+  - `RoutesScreen` y su diálogo de duplicado no tienen test: `runComposeUiTest` sigue sin configurarse (deuda transversal ya anotada).
+  - `4.sqm` se prueba sobre SQLite en memoria vía JDBC, no sobre `AndroidSqliteDriver`. Hay un test que guarda y lee una ruta **después de migrar** una base preexistente.
+  - **Comprobación manual al instalar:** abrir "Mis rutas", importar un GPX de un reloj o de Strava, exportarlo y volver a importarlo.
+
+- **Seguimientos:**
+  - **C2 y C3 siguen pendientes, y son lo que hace que una ruta sirva:** verla en el mapa, y seguirla con aviso de desvío. `MovementDestination` no tiene todavía destino de detalle de ruta.
+  - **`MovementSessionEntity.routeId` sigue guardando `null` en cada sesión.** Ahora existe la tabla a la que apunta, pero nada ata todavía una grabación a la ruta que iba siguiendo. Eso llega con C3.
+  - **Código muerto en `core` que este slice no limpió:** `TrackNavigationUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, `NavigationController` y `OfflineMapRepository`. `GetRouteDetailUseCase` quedó además **redundante**: `ExportRouteAsGpxUseCase` va directo a `RouteRepository.getRouteWithPoints`.
+  - **El fingerprint es heredado de la referencia y no se revisó aquí:** `distancia-desnivel-lat1-lon1-latN-lonN` con la distancia truncada a entero. Dos rutas distintas que empiecen y acaben en el mismo sitio con el mismo total colisionan. Como el duplicado se **pregunta** en vez de decidirse, una colisión molesta pero no destruye nada.
+  - i18n de `RoutesScreen` y el mensaje redactado de `RoutesViewModel`, según la regla nueva.
+
+**Recap:** Las rutas dejan de ser tres archivos en `core` que nadie llamaba. Hay un lector y escritor de GPX en código común que abre lo que exporta un reloj o Strava e ignora lo que no entiende, dos tablas nuevas con su migración, y una pantalla desde la que se importa, se renombra, se exporta y se borra. Una salida del historial se guarda como ruta con el nombre que tú elijas, y sale en GPX como cualquier otra. Lo que **no** hay todavía es lo que convierte una ruta en algo que se sigue: verla en el mapa y saber si te estás saliendo.
+
+**Próximos pasos (opciones):** (1) C2 — la ruta en el mapa, que es el destino que falta en `MovementNavState`; (2) barrer el código muerto de `core` que este slice dejó al descubierto; (3) pagar la deuda de i18n de la pantalla de rutas antes de que crezca.

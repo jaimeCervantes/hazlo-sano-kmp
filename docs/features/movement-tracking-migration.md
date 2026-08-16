@@ -4,11 +4,15 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 **Cómo se usa este documento**
 - Es el inventario y el encuadre (Problem / Savings / Why) de cada pendiente, no la especificación.
-- Cada slice se ejecuta con su propio `features/<nombre>.feature` (escrito y aprobado **en ese momento**, no por adelantado) y su entrada en [`movement-tracker-bitacora.md`](movement-tracker-bitacora.md).
-- Al cerrar un slice: marcar aquí su estado y enlazar el `.feature`.
+- Cada slice se ejecuta con su propio `features/<nombre>.feature` y deja su entrada en [`movement-tracker-bitacora.md`](movement-tracker-bitacora.md).
+- **Cambio de cadencia desde `0d45b7c`:** `AGENTS.md` pide ahora escribir **todos** los escenarios de una feature por adelantado, etiquetados por slice (`@slice-1`, `@slice-2`, …) y con `@future` los que aún no se construyen, para que la forma completa sea revisable antes de que exista código. Este documento se escribió bajo la regla anterior —un `.feature` por slice, redactado en su momento— y ningún `.feature` del pilar usa todavía esas etiquetas. Lo que venga de C2 en adelante sigue la regla nueva.
+- Al cerrar un slice: marcar aquí su estado y enlazar el `.feature`. **La entrada de bitácora se escribe al cerrar, no semanas después**: el slice 13 se documentó tarde y hubo que reconstruirlo desde los commits, que es más caro y menos fiable.
 - La referencia es **fuente de APIs y comportamiento, no de calidad**: se re-expresa aplicando Clean Architecture, SOLID y las reglas de `AGENTS.md`, y se cubre con tests. No se copia tal cual.
 
-**Aviso sobre `core`**: varios archivos ya están copiados en `core/src/commonMain/.../feature/movement/` pero **nadie los usa** — `GpxParser`, `TrackNavigationUseCase`, `ImportRouteUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, y las interfaces `RouteRepository`, `NavigationController`, `OfflineMapRepository`. (`KalmanFilter` ya está reescrito, en uso y probado desde el slice 8; `CalculateStatsUseCase` se invoca al detener pero sigue sin un solo test.) Que el archivo exista no significa que la funcionalidad esté migrada: falta implementarlos, conectarlos y probarlos.
+**Aviso sobre `core`**: varios archivos se copiaron a `core/src/commonMain/.../feature/movement/` sin que nadie los usara. Que el archivo exista no significa que la funcionalidad esté migrada: falta implementarlos, conectarlos y probarlos. Estado a día de hoy:
+
+- **Ya en uso y probados:** `KalmanFilter` (reescrito en el slice 8), `CalculateStatsUseCase` (probado desde el slice 9, reformulado en el 11), `ImportRouteUseCase`, `RouteRepository` y el lector de GPX — que dejó de ser `GpxParserImpl` en `jvmMain` y pasó a ser `GpxFormat` en `commonMain` (slice 13).
+- **Siguen sin un solo consumidor:** `TrackNavigationUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, `NavigationController`, `OfflineMapRepository`. Los tres primeros se resuelven con C2/C3; `GetRouteDetailUseCase` quedó además redundante con `RouteRepository.getRouteWithPoints`, que es lo que usa el export. Candidatos a borrado si C3 no los necesita tal cual.
 
 ---
 
@@ -23,8 +27,14 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Detalle de sesión con la ruta en el mapa | Hecho (slice 6) |
 | Render del mapa en dispositivo | Corregido tras el slice 6 (ver bitácora, entrada de corrección) |
 | Grabación en segundo plano | Hecho (slice 7, punto A del backlog), validado en dispositivo |
-| Filtrado de la señal antes de acumular distancia | Hecho (slice 8, punto B1), probado en caminata, trote, carrera y bici. Sin validar en dispositivo |
-| Estadísticas ciertas (desnivel, tiempo en movimiento) | Hecho (slice 9, punto B2a). Sin validar en dispositivo |
+| Filtrado de la señal antes de acumular distancia | Hecho (slice 8, punto B1), probado en caminata, trote, carrera y bici |
+| Estadísticas ciertas (desnivel, tiempo en movimiento) | Hecho (slice 9, punto B2a) |
+| Captura de la traza cruda para calibrar | Hecho (slice 10). Usada en la primera salida de campo |
+| Cifras derivadas del recorrido + primera migración real | Hecho (slice 11, punto B2b). Salda la deuda de migraciones |
+| Calidad de altitud que reporta el receptor | Hecho (slice 12). **La pregunta que abrió sigue sin respuesta**: hace falta una salida con la captura activada |
+| Rutas: importar GPX, listar, renombrar, exportar, guardar una salida como ruta | Hecho (slice 13, punto C1) |
+
+**Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. Del 10 en adelante, nada se ha probado en una salida real.
 
 ---
 
@@ -42,28 +52,32 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 ## B — Filtro Kalman y estadísticas reales
 
-- **Estado:** partido en tres. **B1 (filtro de posición) hecho** en el slice 8 — spec: [`movement_location_smoothing.feature`](../../features/movement_location_smoothing.feature). **B2a (estadísticas ciertas) hecho** en el slice 9 — spec: [`movement_session_statistics.feature`](../../features/movement_session_statistics.feature). **B2b (mostrar las métricas en el detalle) pendiente.** Ninguno de los dos está validado en dispositivo: las constantes se calibraron contra ruido sintético, no contra un GPS real — y en el caso de la altitud eso importa más, porque el error vertical real está correlacionado y el sintético no.
-- **Problem:** la distancia se acumula con haversine sobre puntos **crudos**, así que el ruido del GPS infla los kilómetros, y ese error contamina también las estadísticas derivadas. (`CalculateStatsUseCase` ya se invoca al detener y sus columnas se persisten — lo que falta es filtrar la señal antes de acumular, y mostrar las métricas que ya se guardan.)
+- **Estado: hecho, con una incógnita abierta que no es de código.** B1 (filtro de posición) en el slice 8 — spec: [`movement_location_smoothing.feature`](../../features/movement_location_smoothing.feature). B2a (estadísticas ciertas) en el slice 9 — spec: [`movement_session_statistics.feature`](../../features/movement_session_statistics.feature). B2b en el slice 11, **replanteado**: en vez de mostrar unas columnas guardadas, las cifras pasan a **derivarse del recorrido cada vez que se abre la sesión** — spec: [`movement_session_metrics.feature`](../../features/movement_session_metrics.feature).
+- **Lo que queda de B, y es lo más importante del pilar ahora mismo:** la primera calibración de campo mostró que **la altitud de este teléfono se congela durante minutos** (65 % de lecturas repetidas en una traza, 3,2 min seguidos en el mismo valor). No es calibración: el dato no está. El slice 12 instrumentó la app para leer `hasAltitude()` y `getVerticalAccuracyMeters()`, pero **la pregunta sigue sin responder** — ¿avisa el sistema de que esa altitud es mala? Se responde saliendo con la captura de traza activada. Si la precisión vertical se dispara en esas ventanas, descartarla es un día de trabajo; si no, hace falta barómetro (`Sensor.TYPE_PRESSURE`), que es un slice grande.
+- **Problem (encuadre original, conservado):** la distancia se acumula con haversine sobre puntos **crudos**, así que el ruido del GPS infla los kilómetros, y ese error contamina también las estadísticas derivadas.
 - **Savings:** datos en los que se puede confiar sin repetir la medición ni corregirla a mano; evita rehacer el historial más adelante con métricas distintas.
 - **Why:** el pilar promete ver progreso; con distancias infladas y estadísticas vacías, el progreso mostrado es ficción.
 - **Referencia:** `domain/filter/KalmanFilter.kt` (68 líneas, ruido de proceso base 3 m/s) y `domain/usecase/CalculateStatsUseCase.kt` (105 líneas: altitud máx/mín, ascenso/descenso, pendientes, VAM, ritmo actual y medio, tiempo en movimiento).
-- **Alcance:** ~~filtrar cada ubicación con Kalman antes de acumular el recorrido~~ (B1, hecho), ~~revisar y probar `CalculateStatsUseCase`~~ (B2a, hecho), y mostrar en el detalle las métricas que ya se persisten (B2b).
-- **Módulos:** `core` (filtro hecho; caso de uso copiado, sin probar), `app/shared` (ViewModel y UI del detalle).
-- **Riesgos / notas:** las columnas de stats ya existen en `MovementSessionEntity`, así que no hace falta migración de esquema. Sesiones ya grabadas seguirán con stats vacíos: decidir si se muestran como "—". Sus distancias además quedan infladas (se grabaron sin filtro) y no se recalculan.
+- **Alcance:** ~~filtrar cada ubicación con Kalman antes de acumular el recorrido~~ (B1, hecho), ~~revisar y probar `CalculateStatsUseCase`~~ (B2a, hecho), ~~mostrar en el detalle las métricas~~ (B2b, hecho — derivándolas, no leyéndolas).
+- **Módulos:** `core` (filtro y caso de uso, ambos probados), `app/shared` (ViewModel y UI del detalle).
+- **Riesgos / notas:** resuelto lo que aquí se anotaba. Las cifras ya no son columnas guardadas sino funciones de los puntos, así que **retocar una constante mejora también las salidas anteriores** y no quedan sesiones viejas con números congelados. Lo que sigue sin recalcularse es el resumen de la lista de una sesión que nunca se abra.
 - **Aprendido en B1 y B2a (aplica a C y a todo lo que toque puntos):** el pilar contempla **caminata, trote, carrera y bici**, y la app **nunca sabe cuál de ellas estás haciendo** — no hay selector y `MovementSession` no lleva tipo de actividad. A 2 s de muestreo eso son 2,8 / 5,0 / 7,8 / 14-30 m por lectura respectivamente, un orden de magnitud de diferencia, así que **cualquier umbral en metros fijos codifica en silencio una actividad y rompe las otras**. Los umbrales se expresan contra la precisión de la lectura o contra el intervalo real, nunca en metros.
 - **Segundo aprendizaje de B2a:** filtrar la señal puede **romper cosas aguas abajo que dependían del ruido**. El umbral `dist > 0.5` de `movingTime` funcionaba por accidente mientras llegaban lecturas de cuando estabas parado; en cuanto B1 dejó de entregarlas, una pausa pasó a ser un único segmento largo y contaba entera como movimiento. Al tocar el filtro, revisar quién consume los puntos.
 - **Cobertura de test:** unitaria en `core/commonTest` con trazas sintéticas (ruido conocido, subida conocida).
 
 ## C — Rutas: importar GPX, listar, detalle y navegación guiada
 
-- **Estado:** pendiente. El bloque más grande; conviene partirlo en al menos tres slices.
-- **Problem:** no se puede seguir una ruta planificada: no hay forma de traer un GPX, verlo, ni saber si te estás saliendo del trazado.
+- **Estado: C1 hecho** en el slice 13 — spec: [`movement_routes_gpx.feature`](../../features/movement_routes_gpx.feature). **C2 y C3 pendientes**, y son las que convierten una ruta en algo que se sigue.
+  - **Hecho (C1):** `GpxFormat` en `commonMain` (lee y escribe, sin librería XML, tolera lo que no entiende), tablas `RouteEntity`/`RoutePointEntity` con su migración `4.sqm`, pantalla "Mis rutas" para importar, renombrar, exportar y borrar, y guardar una salida del historial como ruta con nombre. Importar y exportar no piden permiso de almacenamiento: van por el Storage Access Framework. Escritorio, iOS y web esconden ambas acciones porque todavía no tienen acceso a archivos.
+  - **Pendiente (C2):** ver la ruta en el mapa. Falta el destino en `MovementNavState`; el repositorio ya expone `getRouteWithPoints`.
+  - **Pendiente (C3):** navegación siguiendo la ruta con aviso de desvío. Aquí es donde `MovementSessionEntity.routeId` deja por fin de guardar `null` en cada sesión: hoy la tabla a la que apunta ya existe, pero nada ata una grabación a la ruta que iba siguiendo.
+- **Problem:** no se puede seguir una ruta planificada: no hay forma de verla en el mapa ni de saber si te estás saliendo del trazado.
 - **Savings:** evita depender de otra app para seguir rutas y el riesgo de perderse o desviarse sin darse cuenta.
 - **Why:** "recorrer rutas" es la promesa central del pilar en la referencia; la sesión libre es solo la mitad.
 - **Referencia:** `domain/parser/GpxParser.kt`, `domain/usecase/ImportRouteUseCase.kt`, `TrackNavigationUseCase.kt` (166 líneas: *smart snap* al trazado, distancia mínima a la ruta, proyección de punto sobre segmento, detección de desvío), `data/repository/RouteRepositoryImpl.kt`, `ui/RouteImportScreen.kt`, `ui/RouteDetailScreen.kt`, `ui/RouteViewModel.kt` (160 líneas).
-- **Sub-slices sugeridos:** C1 importar un GPX y listarlo · C2 detalle de ruta en el mapa · C3 navegación siguiendo la ruta con aviso de desvío.
-- **Módulos:** `core` (parser y casos de uso copiados, sin probar), `app/shared` (tablas `MovementRouteEntity`/`MovementWayPointEntity`, repositorio, UI), `app/androidApp` (selector de archivos).
-- **Riesgos / notas:** requiere **tablas nuevas** → primera vez que hará falta resolver la deuda de migraciones SQLDelight (hoy hay un hack `ensureNewTablesExist`). La referencia detecta duplicados por `fingerprint` (distancia-desnivel-primer/último punto). Nuestro `RouteRepository` copiado mezcla rutas y sesiones: segregarlo antes de implementarlo.
+- **Sub-slices:** ~~C1 importar un GPX y listarlo~~ (hecho, y llegó más lejos: exportar, renombrar, borrar y guardar una salida como ruta) · C2 detalle de ruta en el mapa · C3 navegación siguiendo la ruta con aviso de desvío.
+- **Módulos:** `core` (`TrackNavigationUseCase` sigue copiado y sin probar; el resto ya implementado), `app/shared` (falta la UI de detalle y navegación).
+- **Riesgos / notas:** las notas de riesgo de C1 quedaron resueltas — la deuda de migraciones se pagó en el slice 11 y `RouteRepository` se segregó al implementarlo. Lo que queda anotado: el `fingerprint` heredado de la referencia (`distancia-desnivel-lat1-lon1-latN-lonN`, distancia truncada a entero) hace colisionar dos rutas distintas con el mismo inicio, fin y total; como el duplicado **se pregunta** en vez de decidirse, una colisión molesta pero no destruye nada.
 - **Cobertura de test:** parser y navegación son lógica pura → `core/commonTest`; repositorio con SQLDelight en memoria como en los slices 4–6.
 
 ## D — Mapas offline
@@ -113,24 +127,31 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 | Deuda | Detalle | Bloquea |
 |---|---|---|
-| Migraciones SQLDelight reales | Sustituir el hack `ensureNewTablesExist` de `DriverFactory.android.kt` por migraciones versionadas | C (tablas nuevas) |
-| Tests instrumentados | El render del mapa no tiene cobertura en host; el fallo de render sobrevivió tres slices sin detectarse | A, C, D, E |
-| Tests de Compose UI | `runComposeUiTest` no está configurado; hoy solo cubrimos ViewModel/estado/formato | todos |
-| Robolectric + `withHostTest` | Los `actual` de Android no se pueden probar en JVM | A, D |
+| ~~Migraciones SQLDelight reales~~ | **Saldada en el slice 11**: `ensureNewTablesExist` borrado, migraciones versionadas activas. Van ya por `4.sqm` (versión 5) | — |
+| Tests instrumentados | El render del mapa no tiene cobertura en host; el fallo de render sobrevivió tres slices sin detectarse | C2, D, E |
+| Tests de Compose UI | `runComposeUiTest` no está configurado; hoy solo cubrimos ViewModel/estado/formato. `RoutesScreen` y su diálogo de duplicado entraron sin test de UI | todos |
+| Robolectric + `withHostTest` | Los `actual` de Android no se pueden probar en JVM. Ahora también afecta al acceso a archivos por SAF | A, C1, D |
 | `SecurityException` de Google Play Services | Visto en logcat (`GoogleApiManager: Unknown calling package name`); afecta al proveedor de ubicación fusionada | A, B |
+| i18n de la pantalla de rutas | `RoutesScreen` va con el texto en duro y `RoutesViewModel` expone `message: String` ya redactado; ambas cosas contra las reglas que `AGENTS.md` fijó justo después. Sus tests afirman sobre la redacción | C2, C3 (crece con cada pantalla nueva) |
+| Código muerto en `core` | `TrackNavigationUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, `NavigationController`, `OfflineMapRepository`: copiados de la referencia, sin consumidor | — (confunde el inventario) |
+| `:app:shared:check` en rojo | `verifyCommonMainHazloSanoDatabaseMigration` no arranca: `NoSuchMethodError: void org.sqlite.core.NativeDB._open_utf8(byte[], int)`. La clase Java de sqlite-jdbc y la DLL nativa que carga no son de la misma versión — el plugin de SQLDelight 2.0.2 trae la suya y el módulo declara `org.xerial:sqlite-jdbc 3.49.1.0`. **No es un fallo del esquema**: los tests de migración pasan en `jvmTest`, que sí carga bien el nativo. Efecto real: **las migraciones no se verifican en el build**, justo ahora que van por la quinta | Toda migración futura (C3, D) |
 
 ---
 
 ## Orden sugerido
 
 1. ~~**A** — fiabilidad de la grabación (sin esto, lo demás guarda datos rotos).~~ Hecho.
-2. **B** — calidad de los datos grabados. B1 (filtro) y B2a (estadísticas) hechos; queda **B2b** (métricas en el detalle).
-3. **Deuda: migraciones SQLDelight** — justo antes de necesitar tablas nuevas.
-4. **C1 → C2 → C3** — rutas y navegación guiada.
-5. **D** — offline (además activa el `FileSource` a nivel de app).
-6. **E** — satélite.
-7. **F** — dashboard.
+2. ~~**B** — calidad de los datos grabados (B1 filtro, B2a estadísticas, B2b cifras derivadas).~~ Hecho en código.
+3. ~~**Deuda: migraciones SQLDelight.**~~ Saldada en el slice 11.
+4. ~~**C1** — importar, listar y exportar rutas.~~ Hecho en el slice 13.
+5. **Salir con la captura de traza activada** y mirar qué dice la precisión vertical en las ventanas de altitud congelada. **No es código y va primero**: decide si el desnivel se puede arreglar descartando lecturas (un día) o hace falta barómetro (slice grande), y ninguna de las dos se puede planificar sin ese dato.
+6. **C2 → C3** — la ruta en el mapa, y luego seguirla con aviso de desvío.
+7. **D** — offline (además activa el `FileSource` a nivel de app).
+8. **E** — satélite.
+9. **F** — dashboard.
 
-**G** (sobrevivir a que el sistema mate el proceso) no tiene posición fija: depende de si en uso real Android está matando la app durante las grabaciones. Si ocurre, sube justo detrás de A; si no, puede esperar.
+**G** (sobrevivir a que el sistema mate el proceso) no tiene posición fija: depende de si en uso real Android está matando la app durante las grabaciones. Si ocurre, sube al principio; si no, puede esperar.
+
+También pendiente de campo, arrastrado desde la primera calibración: repetir la prueba de teléfono quieto **a cielo abierto** (la primera se hizo en interior con fix de red, así que el 0 m salió por el caso fácil) y medir una ruta real para cerrar la duda de la distancia caminando.
 
 El orden es una recomendación, no un compromiso: cada slice se aprueba en su momento con su encuadre y su `.feature`.
