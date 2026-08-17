@@ -83,9 +83,12 @@ internal class SqlDelightProductDataSource(
             productQueries.countAll().executeAsOne()
         }
 
-    override suspend fun deleteAll() =
+    override suspend fun deleteAll(): Unit =
         withContext(Dispatchers.Default) {
+            // The generated mutator returns how many rows it touched; the contract here is "they
+            // are gone", so the count is dropped rather than widened into the interface.
             productQueries.deleteAll()
+            Unit
         }
 
     private fun com.hazlosano.data.db.ProductEntity.toDomain(): HazloProduct = HazloProduct(

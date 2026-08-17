@@ -27,7 +27,7 @@ internal class SqlDelightSleepDataSource(
             }
         }
 
-    override suspend fun saveSleepSession(session: SleepSession) =
+    override suspend fun saveSleepSession(session: SleepSession): Unit =
         withContext(Dispatchers.Default) {
             queries.insertOrReplace(
                 id = session.id,
@@ -37,6 +37,7 @@ internal class SqlDelightSleepDataSource(
                 confidence = session.confidence.toDouble(),
                 phase = session.phase.name,
             )
+            Unit
         }
 
     private fun parseSleepSource(raw: String): SleepSource =
