@@ -3,11 +3,8 @@ package com.hazlosano.feature.main.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Bedtime
@@ -26,25 +23,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSanoGreen
 import com.hazlosano.core.ui.theme.PillarMind
 import com.hazlosano.core.ui.theme.PillarMovement
 import com.hazlosano.core.ui.theme.PillarNutrition
 import com.hazlosano.core.ui.theme.PillarSleep
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.repository.SleepSessionRepository
 import com.hazlosano.domain.usecase.GetSleepHistoryUseCase
+import com.hazlosano.feature.catalog.ui.PillarCatalogScreen
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
-import com.hazlosano.feature.nutrition.presentation.NutritionViewModel
-import com.hazlosano.feature.nutrition.ui.NutritionScreen
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
 import com.hazlosano.feature.movement.detail.ui.SessionDetailScreen
@@ -73,7 +67,6 @@ enum class BottomTab(val label: String, val icon: ImageVector, val color: Color)
 fun MainScreen(
     homeViewModel: HomeViewModel,
     sleepViewModel: SleepViewModel,
-    nutritionViewModel: NutritionViewModel,
     sleepAnalysis: SleepAnalysis? = null,
     onRefreshSleep: (() -> Unit)? = null,
     sleepSessionRepository: SleepSessionRepository? = null,
@@ -185,37 +178,15 @@ fun MainScreen(
                         onRefresh = onRefreshSleep,
                         onCardClick = navigateToSleepHistory,
                     )
-                    BottomTab.Nutricion -> NutritionScreen(viewModel = nutritionViewModel)
-                    else -> PlaceholderScreen(tab = selectedTab)
+                    // Cada pestaña de pilar enseña su propio catálogo. Movimiento y Mente eran dos
+                    // placeholders; el tracker se sigue alcanzando desde Inicio, que es donde
+                    // estaba — esta pestaña es lo publicado del pilar, no la herramienta.
+                    BottomTab.Nutricion -> PillarCatalogScreen(pillar = PillarType.NUTRITION)
+                    BottomTab.Movimiento -> PillarCatalogScreen(pillar = PillarType.MOVEMENT)
+                    BottomTab.Mente -> PillarCatalogScreen(pillar = PillarType.MIND)
                 }
             }
         }
-        }
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(tab: BottomTab) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = tab.icon,
-                contentDescription = null,
-                tint = tab.color,
-                modifier = Modifier.size(64.dp),
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = tab.label,
-                style = MaterialTheme.typography.headlineMedium,
-                color = tab.color,
-                fontWeight = FontWeight.Bold,
-            )
         }
     }
 }

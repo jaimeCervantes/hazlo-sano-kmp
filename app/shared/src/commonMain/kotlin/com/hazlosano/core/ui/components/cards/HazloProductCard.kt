@@ -51,15 +51,22 @@ object HazloProductCardDefaults {
     const val distanceContentDescription: String = "Distance"
 }
 
+/**
+ * [price] es nulable desde que el catálogo trae los cuatro tipos de publicación: un anuncio no se
+ * vende y un evento gratis tampoco tiene precio. Cuando falta se pinta [priceFallbackLabel], que el
+ * llamante resuelve del catálogo de cadenas — la tarjeta no lee recursos para seguir siendo
+ * dibujable desde una preview o un test sin entorno.
+ */
 @Composable
 fun HazloProductCard(
     title: String,
     description: String,
-    price: Double,
+    price: Double?,
     isFavorite: Boolean,
     distanceMeters: Double?,
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier,
+    priceFallbackLabel: String? = null,
     accentColor: Color = HazloProductCardDefaults.accentColor,
     favoriteContentDescription: String = HazloProductCardDefaults.favoriteContentDescription,
     distanceContentDescription: String = HazloProductCardDefaults.distanceContentDescription,
@@ -135,7 +142,7 @@ fun HazloProductCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = formatHazloProductPrice(price),
+                        text = price?.let(::formatHazloProductPrice) ?: priceFallbackLabel.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = accentColor,

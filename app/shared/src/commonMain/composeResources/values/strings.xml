@@ -69,4 +69,26 @@
     <string name="permission_denied_message">Sin el permiso de Actividad Física, la app no puede medir tu sueño automáticamente. Puedes activarlo manualmente en Ajustes > Aplicaciones > Hazlo Sano > Permisos.</string>
     <string name="permission_go_settings">Ir a Ajustes</string>
     <string name="permission_cancel">Cancelar</string>
+
+    <!-- Pillar names. The key that picks one lives in PillarType; the wording lives here. -->
+    <string name="pillar_sleep">Sueño</string>
+    <string name="pillar_nutrition">Alimentación</string>
+    <string name="pillar_movement">Movimiento</string>
+    <string name="pillar_mind">Mente y Espíritu</string>
+
+    <!-- Catalogue -->
+    <string name="catalog_search_placeholder">Buscar en %s…</string>
+    <string name="catalog_empty">Todavía no hay publicaciones en este pilar</string>
+    <string name="catalog_unavailable_title">Sin catálogo todavía</string>
+    <string name="catalog_unavailable_message">Necesitas conexión la primera vez para descargar las publicaciones de este pilar.</string>
+    <string name="catalog_failed_title">No se pudo cargar</string>
+    <string name="catalog_failed_message">Vuelve a intentarlo en un momento.</string>
+    <string name="catalog_stale_notice">Sin conexión — mostrando lo último que se descargó</string>
+    <string name="catalog_retry">Reintentar</string>
+
+    <!-- Publication kinds -->
+    <string name="publication_kind_event">Evento</string>
+    <string name="publication_kind_service">Servicio</string>
+    <string name="publication_duration_minutes">%d min</string>
+    <string name="publication_price_free">Gratis</string>
 </resources>

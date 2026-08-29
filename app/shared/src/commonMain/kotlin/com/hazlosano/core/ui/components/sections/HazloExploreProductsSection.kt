@@ -10,6 +10,10 @@ import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
 import com.hazlosano.core.ui.components.cards.HazloProductCard
 import com.hazlosano.core.ui.components.cards.HazloProductCardImagePlaceholder
 import com.hazlosano.domain.model.HazloProduct
+import com.hazlosano.domain.model.PublicationKind
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.publication_price_free
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HazloExploreProductsSection(
@@ -26,11 +30,16 @@ fun HazloExploreProductsSection(
     isLoading: Boolean = false,
     error: String? = null,
 ) {
+    // Un evento sin precio es gratis y se dice; un anuncio sin precio simplemente no se vende, y
+    // ahí la línea se queda vacía en lugar de anunciar un "Gratis" que no significa nada.
+    val freeLabel = stringResource(Res.string.publication_price_free)
+
     val productContent: @Composable (HazloProduct, Modifier) -> Unit = { product, itemModifier ->
         HazloProductCard(
             title = product.name,
             description = product.description,
             price = product.price,
+            priceFallbackLabel = freeLabel.takeIf { product.kind == PublicationKind.EVENT },
             isFavorite = product.isFavorite,
             distanceMeters = product.distanceMeters,
             onFavoriteClick = { onFavoriteClick(product) },

@@ -15,16 +15,10 @@ import com.hazlosano.feature.home.presentation.HomeViewModel
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.data.repository.MockHomeRepository
 import com.hazlosano.data.repository.MockSleepRepository
-import com.hazlosano.data.product.SeedProducts
-import com.hazlosano.data.product.createProductDataSource
-import com.hazlosano.data.repository.ProductRepositoryImpl
 import com.hazlosano.data.sleep.SleepSessionRepositoryImpl
 import com.hazlosano.data.sleep.createSleepDataSource
-import com.hazlosano.domain.repository.ProductRepository
 import com.hazlosano.domain.usecase.GetSleepAnalysisUseCase
-import com.hazlosano.domain.usecase.SearchProductsUseCase
 import com.hazlosano.domain.repository.SleepSessionRepository
-import com.hazlosano.feature.nutrition.presentation.NutritionViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -48,25 +42,11 @@ fun App() {
     }
     val sleepAnalysis by sleepViewModel.sleepAnalysis.collectAsState()
 
-    val productRepository: ProductRepository = remember {
-        ProductRepositoryImpl(createProductDataSource())
-    }
-    val searchProductsUseCase = remember {
-        SearchProductsUseCase(productRepository)
-    }
-    val nutritionViewModel = remember {
-        NutritionViewModel(searchProductsUseCase)
-    }
-
     val scope = rememberCoroutineScope()
 
+    // El catálogo ya no se siembra aquí: cada pestaña de pilar lo pide al sitio cuando se abre, y
+    // guarda lo leído para poder abrirse sin red la próxima vez.
     LaunchedEffect(Unit) {
-        try {
-            SeedProducts.seedIfEmpty()
-        } catch (e: Exception) {
-            // non-fatal: products already seeded or DB temporarily unavailable
-        }
-        nutritionViewModel.refresh()
         delay(3000L)
         sleepViewModel.refresh()
         delay(5000L)
@@ -82,7 +62,6 @@ fun App() {
             MainScreen(
                 homeViewModel = viewModel,
                 sleepViewModel = sleepViewModel,
-                nutritionViewModel = nutritionViewModel,
                 sleepAnalysis = sleepAnalysis,
                 onRefreshSleep = onRefreshSleep,
                 sleepSessionRepository = sleepSessionRepository,
