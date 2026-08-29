@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -161,7 +162,7 @@ private fun PillarBoard(
         // El aviso va encima de todo: enterarse de que el tablero es viejo después de leerlo no
         // sirve de nada.
         if (fromCache) {
-            item { StaleNotice(message = stringResource(Res.string.catalog_stale_notice)) }
+            item { CatalogStaleNotice() }
             item { Spacer(modifier = Modifier.height(HazloSpaces.sm)) }
         }
 
@@ -192,39 +193,105 @@ private fun PillarBoard(
             )
         }
 
-        // Cada carrusel se dibuja solo si tiene algo. Un encabezado sobre una fila vacía es peor
-        // que la ausencia de la sección: promete contenido que no llega.
-        publicationCarousel(
-            tag = PillarCatalogTags.EVENTS,
-            titleRes = Res.string.catalog_section_upcoming_events,
-            publications = sections.upcomingEvents,
-            accent = accent,
-        )
-        publicationCarousel(
-            tag = PillarCatalogTags.SERVICES,
-            titleRes = Res.string.catalog_section_services,
-            publications = sections.services,
-            accent = accent,
-        )
-        publicationCarousel(
-            tag = PillarCatalogTags.NEARBY,
-            titleRes = Res.string.catalog_section_nearby,
-            publications = sections.nearby,
-            accent = accent,
-        )
+        pillarCatalogSections(pillar = pillar, sections = sections)
+    }
+}
 
-        item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
+/**
+ * Los carruseles y la rejilla de un pilar, para insertarlos en cualquier `LazyColumn`.
+ *
+ * Está aparte del tablero porque la pantalla de sueño los pinta debajo de su propio panel de
+ * análisis, que es una funcionalidad real y no un hueco. Extraerlos fue mover, no copiar: el
+ * tablero los sigue usando desde aquí.
+ *
+ * No incluye la tarjeta de resumen: quien ya tiene un encabezado propio no quiere un segundo héroe
+ * a mitad de la pantalla.
+ */
+fun LazyListScope.pillarCatalogSections(
+    pillar: PillarType,
+    sections: CatalogSections,
+) {
+    val accent = pillarColor(pillar)
 
-        item {
-            HazloExploreProductsSection(
-                products = sections.all,
-                modifier = Modifier
-                    .padding(horizontal = HazloSpaces.gutter)
-                    .testTag(PillarCatalogTags.GRID),
-                title = stringResource(Res.string.catalog_section_all),
-                placeholderText = stringResource(Res.string.catalog_search_placeholder, label),
-                emptyText = stringResource(Res.string.catalog_empty),
-                accentColor = accent,
+    // Cada carrusel se dibuja solo si tiene algo. Un encabezado sobre una fila vacía es peor
+    // que la ausencia de la sección: promete contenido que no llega.
+    publicationCarousel(
+        tag = PillarCatalogTags.EVENTS,
+        titleRes = Res.string.catalog_section_upcoming_events,
+        publications = sections.upcomingEvents,
+        accent = accent,
+    )
+    publicationCarousel(
+        tag = PillarCatalogTags.SERVICES,
+        titleRes = Res.string.catalog_section_services,
+        publications = sections.services,
+        accent = accent,
+    )
+    publicationCarousel(
+        tag = PillarCatalogTags.NEARBY,
+        titleRes = Res.string.catalog_section_nearby,
+        publications = sections.nearby,
+        accent = accent,
+    )
+
+    item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
+
+    item {
+        HazloExploreProductsSection(
+            products = sections.all,
+            modifier = Modifier
+                .padding(horizontal = HazloSpaces.gutter)
+                .testTag(PillarCatalogTags.GRID),
+            title = stringResource(Res.string.catalog_section_all),
+            placeholderText = stringResource(
+                Res.string.catalog_search_placeholder,
+                pillarLabel(pillar),
+            ),
+            emptyText = stringResource(Res.string.catalog_empty),
+            accentColor = accent,
+        )
+    }
+}
+
+/**
+ * Qué enseñar del catálogo cuando todavía no hay tablero, dentro de una pantalla que **sí** tiene
+ * contenido propio.
+ *
+ * Un pilar sin catálogo no puede dejar en blanco la pantalla de sueño: su panel de análisis sigue
+ * siendo útil. Por eso esto ocupa una fila y no la pantalla entera.
+ */
+fun LazyListScope.pillarCatalogPlaceholder(
+    state: PillarCatalogUiState,
+    accent: androidx.compose.ui.graphics.Color,
+    onRetry: () -> Unit,
+) {
+    when (state) {
+        is PillarCatalogUiState.Ready -> Unit
+
+        PillarCatalogUiState.Loading -> item {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(HazloSpaces.md),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = accent)
+            }
+        }
+
+        PillarCatalogUiState.Unavailable -> item {
+            CatalogMessage(
+                title = stringResource(Res.string.catalog_unavailable_title),
+                message = stringResource(Res.string.catalog_unavailable_message),
+                onRetry = onRetry,
+                modifier = Modifier.fillMaxWidth().testTag(PillarCatalogTags.UNAVAILABLE),
+            )
+        }
+
+        PillarCatalogUiState.Failed -> item {
+            CatalogMessage(
+                title = stringResource(Res.string.catalog_failed_title),
+                message = stringResource(Res.string.catalog_failed_message),
+                onRetry = onRetry,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -234,7 +301,7 @@ private fun PillarBoard(
  * Un carrusel horizontal de publicaciones, con el mismo ritmo que las secciones de sueño:
  * encabezado con margen de gutter, y la fila sangrando hasta el borde.
  */
-private fun androidx.compose.foundation.lazy.LazyListScope.publicationCarousel(
+private fun LazyListScope.publicationCarousel(
     tag: String,
     titleRes: org.jetbrains.compose.resources.StringResource,
     publications: List<HazloProduct>,
@@ -316,14 +383,20 @@ private fun HazloProduct.overlineLabel(): String? = when {
     else -> null
 }
 
+/**
+ * Lo viejo se enseña, pero se enseña **diciendo que es viejo**.
+ *
+ * Sin este aviso, un precio de hace una semana y uno de hace un segundo se ven igual, que es la
+ * forma silenciosa de mentir que este pilar del roadmap vino a quitar.
+ */
 @Composable
-private fun StaleNotice(message: String) {
+fun CatalogStaleNotice(modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.fillMaxWidth().testTag(PillarCatalogTags.STALE_NOTICE),
+        modifier = modifier.fillMaxWidth().testTag(PillarCatalogTags.STALE_NOTICE),
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Text(
-            text = message,
+            text = stringResource(Res.string.catalog_stale_notice),
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
