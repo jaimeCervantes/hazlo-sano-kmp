@@ -77,7 +77,9 @@
     <string name="pillar_mind">Mente y Espíritu</string>
 
     <!-- Catalogue -->
-    <string name="catalog_search_placeholder">Buscar en %s…</string>
+    <!-- Los argumentos van posicionales (%1$s, %1$d): compose-resources no sustituye un %s ni un
+         %d sueltos, los deja tal cual en la pantalla sin que nada falle. -->
+    <string name="catalog_search_placeholder">Buscar en %1$s…</string>
     <string name="catalog_empty">Todavía no hay publicaciones en este pilar</string>
     <string name="catalog_unavailable_title">Sin catálogo todavía</string>
     <string name="catalog_unavailable_message">Necesitas conexión la primera vez para descargar las publicaciones de este pilar.</string>
@@ -89,6 +91,16 @@
     <!-- Publication kinds -->
     <string name="publication_kind_event">Evento</string>
     <string name="publication_kind_service">Servicio</string>
-    <string name="publication_duration_minutes">%d min</string>
+    <string name="publication_duration_minutes">%1$d min</string>
     <string name="publication_price_free">Gratis</string>
+
+    <!-- Pillar board -->
+    <string name="catalog_metric_publications">Publicaciones</string>
+    <string name="catalog_metric_events">Eventos</string>
+    <string name="catalog_metric_services">Servicios</string>
+    <string name="catalog_section_upcoming_events">Próximos eventos</string>
+    <string name="catalog_section_services">Servicios</string>
+    <string name="catalog_section_nearby">Cerca de ti</string>
+    <string name="catalog_section_all">Todo el catálogo</string>
+    <string name="catalog_refresh">Actualizar</string>
 </resources>

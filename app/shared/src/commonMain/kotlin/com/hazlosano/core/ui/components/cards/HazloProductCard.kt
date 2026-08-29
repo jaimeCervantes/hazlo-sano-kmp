@@ -67,6 +67,13 @@ fun HazloProductCard(
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier,
     priceFallbackLabel: String? = null,
+    /**
+     * Una línea corta encima del título: cuándo ocurre un evento, cuánto dura un servicio.
+     *
+     * La resuelve el llamante y no la tarjeta, por la misma razón que [priceFallbackLabel]: así
+     * esto se sigue pudiendo dibujar sin entorno de recursos.
+     */
+    overlineLabel: String? = null,
     accentColor: Color = HazloProductCardDefaults.accentColor,
     favoriteContentDescription: String = HazloProductCardDefaults.favoriteContentDescription,
     distanceContentDescription: String = HazloProductCardDefaults.distanceContentDescription,
@@ -119,6 +126,17 @@ fun HazloProductCard(
             }
 
             Column(modifier = Modifier.padding(12.dp)) {
+                if (overlineLabel != null) {
+                    Text(
+                        text = overlineLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = accentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,

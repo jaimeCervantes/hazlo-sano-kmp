@@ -1,7 +1,13 @@
 package com.hazlosano.feature.catalog.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.hazlosano.core.ui.theme.PillarMind
 import com.hazlosano.core.ui.theme.PillarMovement
 import com.hazlosano.core.ui.theme.PillarNutrition
@@ -41,4 +47,18 @@ fun pillarColor(pillar: PillarType): Color = when (pillar) {
     PillarType.NUTRITION -> PillarNutrition
     PillarType.MOVEMENT -> PillarMovement
     PillarType.MIND -> PillarMind
+}
+
+/**
+ * El icono del pilar — los mismos cuatro que ya usa la barra inferior.
+ *
+ * Se repiten aquí en vez de leerse de `BottomTab` porque ese enum vive en la feature `main` y
+ * dependería una feature de otra. Cuando `BottomTab` se pase a claves y recursos, los dos sitios
+ * deberían leer de uno solo; está anotado con el resto de esa deuda.
+ */
+fun pillarIcon(pillar: PillarType): ImageVector = when (pillar) {
+    PillarType.SLEEP -> Icons.Filled.Bedtime
+    PillarType.NUTRITION -> Icons.Filled.Restaurant
+    PillarType.MOVEMENT -> Icons.AutoMirrored.Filled.DirectionsRun
+    PillarType.MIND -> Icons.Filled.SelfImprovement
 }
