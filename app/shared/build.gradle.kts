@@ -104,6 +104,12 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
         }
         jvmTest.dependencies {
+            // Compose UI tests live here and not in commonTest: runComposeUiTest needs a real
+            // toolkit to compose against, and a common test also runs on the browser target, where
+            // every one of them fails. The desktop artifact is that toolkit.
+            @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
+            implementation(compose.uiTest)
+            implementation(compose.desktop.currentOs)
         }
         jsMain.dependencies {
             implementation(libs.ktor.client.js)
