@@ -65,7 +65,7 @@ class PillarCatalogViewModelTest {
         val state = viewModel(StubRepository(CatalogPage.Fresh(onePublication))).uiState.value
 
         val ready = assertIs<PillarCatalogUiState.Ready>(state)
-        assertEquals("Suero natural", ready.publications.single().name)
+        assertEquals("Suero natural", ready.sections.all.single().name)
         assertFalse(ready.fromCache)
     }
 

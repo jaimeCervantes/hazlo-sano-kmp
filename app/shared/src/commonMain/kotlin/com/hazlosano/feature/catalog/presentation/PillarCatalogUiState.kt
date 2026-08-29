@@ -1,7 +1,5 @@
 package com.hazlosano.feature.catalog.presentation
 
-import com.hazlosano.domain.model.HazloProduct
-
 /**
  * En qué estado está el catálogo de un pilar.
  *
@@ -15,11 +13,13 @@ sealed interface PillarCatalogUiState {
     data object Loading : PillarCatalogUiState
 
     /**
-     * Hay algo que enseñar. [fromCache] distingue lo que está publicado ahora de lo que se leyó la
-     * última vez que hubo red — la pantalla lo avisa en lugar de hacerlos pasar por lo mismo.
+     * Hay algo que enseñar, ya repartido en las secciones del tablero.
+     *
+     * [fromCache] distingue lo que está publicado ahora de lo que se leyó la última vez que hubo
+     * red — la pantalla lo avisa en lugar de hacerlos pasar por lo mismo.
      */
     data class Ready(
-        val publications: List<HazloProduct>,
+        val sections: CatalogSections,
         val fromCache: Boolean = false,
     ) : PillarCatalogUiState
 

@@ -3,9 +3,11 @@ package com.hazlosano.feature.catalog.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.model.CatalogPage
+import com.hazlosano.domain.model.HazloProduct
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.VisitorLocation
 import com.hazlosano.domain.usecase.GetPillarCatalogUseCase
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +24,11 @@ class PillarCatalogViewModel(
     private val pillar: PillarType,
     private val getPillarCatalog: GetPillarCatalogUseCase,
     private val readLocation: suspend () -> VisitorLocation?,
+    /**
+     * El reloj entra por constructor para que un test pueda situarse antes o después de un evento
+     * sin esperar a que llegue la fecha.
+     */
+    private val now: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<PillarCatalogUiState>(PillarCatalogUiState.Loading)
@@ -49,8 +56,14 @@ class PillarCatalogViewModel(
     }
 
     private fun CatalogPage.toUiState(): PillarCatalogUiState = when (this) {
-        is CatalogPage.Fresh -> PillarCatalogUiState.Ready(publications, fromCache = false)
-        is CatalogPage.Cached -> PillarCatalogUiState.Ready(publications, fromCache = true)
+        is CatalogPage.Fresh -> ready(publications, fromCache = false)
+        is CatalogPage.Cached -> ready(publications, fromCache = true)
         CatalogPage.Unavailable -> PillarCatalogUiState.Unavailable
     }
+
+    private fun ready(publications: List<HazloProduct>, fromCache: Boolean) =
+        PillarCatalogUiState.Ready(
+            sections = catalogSections(publications, now()),
+            fromCache = fromCache,
+        )
 }
