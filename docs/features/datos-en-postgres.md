@@ -1,6 +1,7 @@
 # Feature: los datos del app viven en el Postgres compartido
 
 Roadmap de slices. Escrito el **2026-08-16**, con el estado de los tres repos a esa fecha.
+**Re-auditado el 2026-08-29** — ver "Qué cambió desde el 2026-08-16" al final.
 Spec: [`features/datos_en_postgres.feature`](../../features/datos_en_postgres.feature).
 
 ## Problema / Savings / Why
@@ -176,27 +177,59 @@ Lo que convierte "funciona" en "es de fiar". Se separa del slice 1 para que el 1
 - Retirar una sesión desde el web deja al app fuera en la siguiente petición, sin tocar la sesión del
   navegador.
 
-### Slice 3 — El catálogo se lee del web, no de un seed
+### Slice 3 — El catálogo se lee del web, no de un seed — **HECHO (2026-08-29)**
 
-**Solo toca este repo, y no depende del login** — el catálogo es público. Se puede adelantar en
-cualquier momento sin bloquear nada; queda aquí porque el login pesa más.
+**Solo toca este repo, y no depende del login** — el catálogo es público. Se adelantó respecto al
+orden previsto, por decisión del usuario.
 
-- Un origen remoto lee `GET /api/posts/page/{n}/pageSize/{m}?locale=es`; `ProductEntity` pasa a ser
-  **caché** para que el app siga abriendo sin red; se borra `SeedProducts.kt` y su llamada en `App.kt`.
-- Dependencias nuevas: `ktor-client-core`, `content-negotiation` y `kotlinx-serialization` en
-  `app/shared` commonMain.
+**El alcance creció al auditar el sitio antes de construirlo.** Lo planificado el 2026-08-16 era "el
+catálogo de productos". La auditoría del 2026-08-29 encontró dos cosas que no existían al escribir
+esto:
 
-**Criterios de aceptación**
+1. El endpoint **ganó filtro por pilar** (`?pillar=sleep|nutrition|movement|mindSpirit`), y esos
+   cuatro son exactamente los cuatro pilares del app.
+2. `posts.kind` publica **cuatro tipos** — `anuncio`, `producto`, `evento`, `servicio` — y solo dos
+   garantizan precio.
 
-- Con red, el catálogo muestra lo publicado en el web, con su nombre y su precio.
-- Sin red, muestra lo último que leyó — no una lista vacía y no el seed.
-- Sin red y sin haber leído nunca, dice que todavía no hay catálogo en vez de inventar datos.
-- Un precio corregido en el web se ve sin publicar una versión.
+Decidido con el usuario: traer **todo lo publicado**, repartido por pilar, con la ubicación del
+teléfono viajando para que salga por cercanía.
 
-**Riesgo declarado:** ese endpoint está modelado para el scroll infinito del web
-(`mapPostsToCardsForLocale`, ubicación leída de una cookie); **no es un contrato público**. Si el web
-cambia el mapper, el app se entera rompiéndose. Mitigación: todo el mapeo vive en un único archivo
-del app. Si molesta, el remedio es un endpoint versionado propio.
+- Un origen remoto lee `GET /api/posts/page/{n}/pageSize/{m}?locale=es&pillar={pilar}`;
+  `ProductEntity` pasa a ser **caché por pilar**; se borró `SeedProducts.kt` (144 líneas) y su
+  llamada en `App.kt`.
+- `HazloProduct.price` pasa a **nulable**, y el modelo gana `kind`, `pillar`, `startsAt`, `endsAt` y
+  `durationMinutes`. Migración `5.sqm` (versión 5 → 6).
+- **Cada pestaña de pilar enseña su catálogo.** `PillarCatalogScreen` es una sola pantalla
+  parametrizada; Movimiento y Mente dejan de ser placeholders.
+- Dependencias nuevas: `ktor-client-core`, `content-negotiation`, `kotlinx-serialization-json` en
+  `app/shared` commonMain, más los motores de JVM (okhttp) y JS.
+
+**Criterios de aceptación** — todos con test:
+
+- Con red, el catálogo muestra lo publicado en el web, con su nombre y su precio. ✔
+- Sin red, muestra lo último que leyó — no una lista vacía y no el seed — **y avisa de que es
+  viejo**. ✔
+- Sin red y sin haber leído ese pilar, dice que todavía no hay catálogo en vez de inventar datos. ✔
+- Un precio corregido en el web se ve sin publicar una versión. ✔
+- Un anuncio sin precio no se pinta como gratis; un evento sin precio sí. ✔
+- Un tipo de publicación desconocido se enseña igual en vez de esconderse. ✔
+- Con ubicación, el catálogo sale por cercanía; sin ella, por fecha. ✔
+- Lo que el sitio retira desaparece de la caché al siguiente refresco. ✔
+
+**La ubicación viaja como la cookie `hs_location`** (`lat,lng,ts`), que es lo que el sitio ya sabe
+leer — `readVisitorLocation` la parsea de la cabecera y **valida lo que llegue**, con su propio
+comentario diciendo que «una cookie la escribe cualquiera». En Android sale de `lastLocation`, sin
+encender el GPS. Los demás targets no la mandan.
+
+**Riesgos declarados:**
+
+- Ese endpoint está modelado para el scroll infinito del web (`mapPostsToCardsForLocale`); **no es un
+  contrato público**. Mitigación aplicada: todo el mapeo vive en `CatalogDto.kt` + `CatalogMapper.kt`
+  y en ningún otro sitio.
+- El acoplamiento a la cookie es al nombre y al formato de algo interno del web. **El fallo es
+  suave**: si cambia, `parseFix` devuelve nulo y el listado sale por fecha. **Seguimiento anotado:**
+  endpoint versionado propio con `lat`/`lng` explícitos como query params, que es la forma honesta y
+  exige un cambio en `comida-justa`.
 
 ### Slice 4 — El sueño sube
 
@@ -242,3 +275,54 @@ robusto. El 2 lo sigue porque un login sin revocación ni rotación es un login 
 cae al 3 aunque sea el más barato: no depende de nada, así que se puede adelantar el día que
 convenga. El sueño antes que las salidas porque prueba la sincronización con una fila por noche en
 vez de con 3.600 puntos.
+
+---
+
+## Qué cambió desde el 2026-08-16 (re-auditoría del 2026-08-29)
+
+Los tres repos se movieron entre una fecha y otra, así que antes de construir el slice 3 se volvió a
+leer todo en lugar de fiarse de lo escrito arriba. Lo que sigue es lo comprobado, no lo recordado.
+
+### Lo que cambió
+
+- **Alembic pasó de 45 a 46 migraciones.** La nueva es `0046_2026-08-18_add_event_attendances.py`.
+  No toca nada de lo que este roadmap planifica.
+- **El endpoint del catálogo ganó filtro por pilar**: `?pillar=sleep|nutrition|movement|mindSpirit`,
+  resueltos contra las categorías `sueno_y_descanso`, `alimentacion`, `movimiento_y_ejercicio` y
+  `mente_y_espiritu`. Esto es lo que hizo crecer el slice 3.
+- El web sumó bastantes commits de producto (hábitos, cercanía, pedidos, comentarios) que no afectan
+  a este plan.
+
+### Lo que se confirmó igual
+
+- **NextAuth intacto**: `DrizzleAdapter`, Google + Microsoft Entra ID, `strategy: "database"`,
+  `basePath` desde `CJ_AUTH_PATH`.
+- **Siguen siendo 5 rutas de API** en el web.
+- **`app_sessions` y `app_auth_codes` no existen todavía**: el slice 1 no ha tocado la base.
+- **El esquema sigue sin nada de lo que el app graba**: ni sesiones de movimiento, ni puntos GPS, ni
+  sueño.
+
+### Dos preguntas abiertas que quedan cerradas
+
+1. **Alembic manda en el DDL — confirmado con evidencia, ya no es deducción.** La última migración de
+   Drizzle es del **2026-06-21**; la última de Alembic, del **2026-08-18**. Y `post_routes` (Alembic
+   `0043`) y `event_attendances` (Alembic `0046`) están **declaradas en el schema de Drizzle sin
+   migración Drizzle propia** (`src/infra/dataAccess/db/schema/posts.ts:197` y `:163`). Drizzle
+   declara lo que Alembic creó.
+2. **La URL base estaba en el código del sitio**: `https://hazlosano.com`, en
+   `src/infra/constants/index.ts` (`NEXT_PUBLIC_BASE_URL`, con `CANONICAL_URL` igual). No hacía
+   falta preguntarla. El app apunta a producción; es solo lectura de un endpoint público.
+
+### Un hallazgo que abarató el slice 3
+
+`readVisitorLocation()` **devuelve `null` limpiamente** cuando no hay cookie: el listado sale por
+fecha y `distanceMeters` llega nulo. El app no necesita fingir un navegador para que el endpoint le
+conteste — y cuando sí manda la cookie, `PostgresPostQueryRepository` calcula `ST_Distance` y ordena
+por `distance_meters ASC NULLS LAST, p.created_at DESC`.
+
+### Lo que sigue pendiente del usuario
+
+- **Aprobar el slice 1** (el login) y sus migraciones contra la base compartida. Sigue siendo la
+  acción grave que se pregunta antes, siempre.
+- **`assetlinks.json`** en el dominio para los App Links. No bloquea: con PKCE el esquema propio ya
+  es seguro.

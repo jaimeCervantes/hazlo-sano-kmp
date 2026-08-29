@@ -100,31 +100,102 @@ Feature: Los datos del app viven en el Postgres compartido
 
   # ─────────────────── Slice 3 — el catálogo se lee del web ───────────────────
 
-  @slice-3 @future
+  Note: el alcance creció respecto a lo escrito el 2026-08-16. Entonces se planificó "el catálogo de
+  productos"; al auditar el sitio antes de construirlo resultó que el endpoint había ganado filtro
+  por pilar y que `posts.kind` publica cuatro tipos, de los que solo dos garantizan precio. Se
+  decidió traer los cuatro y repartirlos por pilar.
+
+  Note: la ubicación viaja como la cookie `hs_location` que el sitio ya sabe leer, en formato
+  `lat,lng,ts`. Es un acoplamiento declarado a algo interno del web; el fallo, si cambia, es suave
+  —se pierde el orden por cercanía, no el catálogo—. El remedio anotado es un endpoint propio con
+  `lat` y `lng` explícitos.
+
+  @slice-3
   Scenario: El catálogo que se ve es el que está publicado
-    Given que en el sitio está publicada "Pechuga de pollo a la naranja en bistec" a 105
+    Given que en el sitio está publicada "Suero natural" a 45
     When abro el catálogo del app con red
-    Then veo "Pechuga de pollo a la naranja en bistec" con precio 105
+    Then veo "Suero natural" con precio 45
     And no veo ninguna publicación que solo exista dentro del código del app
 
-  @slice-3 @future
+  @slice-3
   Scenario Outline: Qué se ve cuando no hay red
     Given que el app <estado previo>
     When abro el catálogo sin red
     Then <resultado>
 
     Examples:
-      | estado previo              | resultado                              |
-      | ya había leído el catálogo | veo lo último que se leyó              |
-      | nunca ha leído el catálogo | se me dice que todavía no hay catálogo |
+      | estado previo                     | resultado                              |
+      | ya había leído ese pilar          | veo lo último que se leyó              |
+      | nunca ha leído ese pilar          | se me dice que todavía no hay catálogo |
+      | solo había leído un pilar distinto | se me dice que todavía no hay catálogo |
 
-  @slice-3 @future
+  @slice-3
+  Scenario: Lo que se enseña sin red dice que puede estar desactualizado
+    Given que abro un pilar que ya había leído
+    When no hay red
+    Then veo lo último que se descargó
+    And se me avisa de que es lo último descargado y no lo publicado ahora
+
+  @slice-3
   Scenario: Un precio corregido en el sitio llega sin publicar una versión
-    Given que "Pechuga de pollo a la naranja en bistec" figuraba a 105 la última vez que el app leyó
-    When su precio pasa a 120 en el sitio
+    Given que "Suero natural" figuraba a 45 la última vez que el app leyó
+    When su precio pasa a 60 en el sitio
     And vuelvo a abrir el catálogo con red
-    Then veo 120
+    Then veo 60
     And no ha hecho falta instalar una versión nueva del app
+
+  @slice-3
+  Scenario Outline: Cada pilar enseña lo suyo
+    Given que abro la pestaña "<pilar>"
+    When hay red
+    Then veo solo publicaciones de ese pilar
+
+    Examples:
+      | pilar       |
+      | Sueño       |
+      | Nutrición   |
+      | Movimiento  |
+      | Mente       |
+
+  @slice-3
+  Scenario Outline: Los cuatro tipos de publicación se enseñan sin inventarles precio
+    Given una publicación de tipo "<tipo>" <precio en el sitio>
+    When la veo en el catálogo
+    Then <lo que se pinta>
+
+    Examples:
+      | tipo      | precio en el sitio | lo que se pinta               |
+      | producto  | con precio         | su precio                     |
+      | servicio  | con precio         | su precio                     |
+      | evento    | sin precio         | que es gratis                 |
+      | anuncio   | sin precio         | nada donde iría el precio     |
+
+  @slice-3
+  Scenario: Un tipo de publicación que este app no conoce no desaparece
+    Given que el sitio publica un tipo que esta versión del app no conoce
+    When abro el catálogo
+    Then esa publicación se ve igual, con su título y su imagen
+    And no se esconde por no saber decorarla
+
+  @slice-3
+  Scenario: Con ubicación el catálogo sale por cercanía
+    Given que el teléfono conoce su última ubicación
+    When abro un pilar con red
+    Then las publicaciones salen de la más cercana a la más lejana
+    And cada una dice a qué distancia está
+
+  @slice-3
+  Scenario: Sin ubicación el catálogo sigue saliendo
+    Given que el aparato no sabe dónde está o no me pidió el permiso
+    When abro un pilar con red
+    Then veo el catálogo ordenado por fecha
+    And no se me exige compartir mi ubicación para verlo
+
+  @slice-3
+  Scenario: Lo que el sitio retira deja de verse
+    Given que un pilar tenía guardada una publicación que ya se retiró del sitio
+    When vuelvo a abrir ese pilar con red
+    Then esa publicación ya no aparece
 
   # ─────────────────── Slices siguientes (aún sin detallar) ───────────────────
 
