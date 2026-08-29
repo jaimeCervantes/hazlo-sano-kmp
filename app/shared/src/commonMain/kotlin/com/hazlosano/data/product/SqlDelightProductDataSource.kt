@@ -3,6 +3,8 @@ package com.hazlosano.data.product
 import com.hazlosano.data.db.HazloSanoDatabase
 import com.hazlosano.domain.model.HazloProduct
 import com.hazlosano.domain.model.HazloSeller
+import com.hazlosano.domain.model.PillarType
+import com.hazlosano.domain.model.PublicationKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -38,24 +40,30 @@ internal class SqlDelightProductDataSource(
             productQueries.selectById(id).executeAsOneOrNull()?.toDomain()
         }
 
+    override suspend fun getByPillar(pillar: PillarType, limit: Int, offset: Int): List<HazloProduct> =
+        withContext(Dispatchers.Default) {
+            productQueries.selectByPillar(pillar.key, limit.toLong(), offset.toLong())
+                .executeAsList()
+                .map { it.toDomain() }
+        }
+
+    override suspend fun countByPillar(pillar: PillarType): Long =
+        withContext(Dispatchers.Default) {
+            productQueries.countByPillar(pillar.key).executeAsOne()
+        }
+
+    override suspend fun replacePillar(pillar: PillarType, publications: List<HazloProduct>): Unit =
+        withContext(Dispatchers.Default) {
+            database.transaction {
+                productQueries.deleteByPillar(pillar.key)
+                publications.forEach { productQueries.insert(it) }
+            }
+        }
+
     override suspend fun saveProducts(products: List<HazloProduct>) =
         withContext(Dispatchers.Default) {
             database.transaction {
-                products.forEach { product ->
-                    productQueries.insertOrReplace(
-                        id = product.id,
-                        name = product.name,
-                        price = product.price,
-                        isAvailable = if (product.isAvailable) 1L else 0L,
-                        description = product.description,
-                        category = product.category,
-                        subCategory = product.subCategory,
-                        tags = product.tags.joinToString(prefix = "[", postfix = "]") { "\"$it\"" },
-                        imageUrl = product.imageUrl,
-                        productUrl = product.productUrl,
-                        sellerId = product.sellerId,
-                    )
-                }
+                products.forEach { productQueries.insert(it) }
             }
         }
 
@@ -91,6 +99,27 @@ internal class SqlDelightProductDataSource(
             Unit
         }
 
+    private fun com.hazlosano.data.db.ProductEntityQueries.insert(product: HazloProduct) {
+        insertOrReplace(
+            id = product.id,
+            name = product.name,
+            price = product.price,
+            isAvailable = if (product.isAvailable) 1L else 0L,
+            description = product.description,
+            category = product.category,
+            subCategory = product.subCategory,
+            tags = product.tags.joinToString(prefix = "[", postfix = "]") { "\"$it\"" },
+            imageUrl = product.imageUrl,
+            productUrl = product.productUrl,
+            sellerId = product.sellerId,
+            kind = product.kind.key,
+            pillar = product.pillar?.key,
+            startsAt = product.startsAtEpochMillis,
+            endsAt = product.endsAtEpochMillis,
+            durationMinutes = product.durationMinutes?.toLong(),
+        )
+    }
+
     private fun com.hazlosano.data.db.ProductEntity.toDomain(): HazloProduct = HazloProduct(
         id = id,
         name = name,
@@ -98,6 +127,8 @@ internal class SqlDelightProductDataSource(
         price = price,
         imageUrl = imageUrl ?: "",
         isFavorite = false,
+        // La distancia no se guarda: se midió desde donde estaba el teléfono al leer, y enseñarla
+        // días después desde otra ciudad sería peor que no enseñarla.
         distanceMeters = null,
         category = category,
         subCategory = subCategory,
@@ -105,6 +136,11 @@ internal class SqlDelightProductDataSource(
         productUrl = productUrl,
         sellerId = sellerId,
         isAvailable = isAvailable != 0L,
+        kind = PublicationKind.fromKey(kind),
+        pillar = PillarType.fromKey(pillar),
+        startsAtEpochMillis = startsAt,
+        endsAtEpochMillis = endsAt,
+        durationMinutes = durationMinutes?.toInt(),
     )
 
     private fun parseTags(raw: String): List<String> {

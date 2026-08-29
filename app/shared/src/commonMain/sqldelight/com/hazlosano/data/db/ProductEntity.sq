@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS ProductEntity (
     id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
-    price REAL NOT NULL,
+    price REAL,
     isAvailable INTEGER NOT NULL DEFAULT 1,
     description TEXT,
     category TEXT NOT NULL,
@@ -10,11 +10,17 @@ CREATE TABLE IF NOT EXISTS ProductEntity (
     imageUrl TEXT,
     productUrl TEXT,
     sellerId TEXT,
+    kind TEXT NOT NULL DEFAULT 'anuncio',
+    pillar TEXT,
+    startsAt INTEGER,
+    endsAt INTEGER,
+    durationMinutes INTEGER,
     FOREIGN KEY (sellerId) REFERENCES SellerEntity(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_product_category ON ProductEntity(category);
 CREATE INDEX IF NOT EXISTS idx_product_seller ON ProductEntity(sellerId);
+CREATE INDEX IF NOT EXISTS idx_product_pillar ON ProductEntity(pillar);
 
 searchByText:
 SELECT *
@@ -39,17 +45,37 @@ WHERE isAvailable = 1
 ORDER BY name ASC
 LIMIT ? OFFSET ?;
 
+-- The cached page of one pillar, in the order the site sent it.
+--
+-- No ORDER BY on purpose: the site already ordered these by distance when it knew where the reader
+-- was, and by date when it did not. Re-sorting by name here would throw away the only ordering the
+-- app cannot reproduce offline, which is the whole reason the location travels.
+selectByPillar:
+SELECT *
+FROM ProductEntity
+WHERE pillar = ?
+LIMIT ? OFFSET ?;
+
+countByPillar:
+SELECT COUNT(*) FROM ProductEntity WHERE pillar = ?;
+
 selectById:
 SELECT *
 FROM ProductEntity
 WHERE id = ?;
 
 insertOrReplace:
-INSERT OR REPLACE INTO ProductEntity(id, name, price, isAvailable, description, category, subCategory, tags, imageUrl, productUrl, sellerId)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO ProductEntity(id, name, price, isAvailable, description, category, subCategory, tags, imageUrl, productUrl, sellerId, kind, pillar, startsAt, endsAt, durationMinutes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 countAll:
 SELECT COUNT(*) FROM ProductEntity;
 
 deleteAll:
 DELETE FROM ProductEntity;
+
+-- Replacing a pillar's cache is a delete plus an insert inside one transaction. Without the delete,
+-- a publication unpublished on the site would live in the cache forever: INSERT OR REPLACE only
+-- ever refreshes what still comes back.
+deleteByPillar:
+DELETE FROM ProductEntity WHERE pillar = ?;

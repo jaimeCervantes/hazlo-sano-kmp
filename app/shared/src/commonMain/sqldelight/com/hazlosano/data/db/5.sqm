@@ -1,0 +1,57 @@
+-- Version 5 -> 6.
+--
+-- ProductEntity stops being the catalogue and becomes a cache of it.
+--
+-- Until now the table held 144 lines of hardcoded rows seeded from SeedProducts.kt at startup, and
+-- the app showed those and nothing else. The catalogue now comes from the site, which serves four
+-- kinds of publication, not just products: an announcement has no price, an event has dates and a
+-- service has a duration.
+--
+-- Three things happen here.
+--
+-- First, price becomes nullable. SQLite cannot relax NOT NULL on an existing column, so the table
+-- is rebuilt. Keeping it NOT NULL would have forced every announcement to carry a 0.0 that is
+-- indistinguishable from something that is genuinely free.
+--
+-- Second, the columns the other three kinds need are added, plus the pillar each publication
+-- belongs to, so a cached pillar can be read back on its own without re-deriving it from the
+-- category.
+--
+-- Third — and this is the part that is deliberate rather than mechanical — THE SEEDED ROWS ARE NOT
+-- COPIED. They are not cache: nothing ever read them from anywhere, they were fiction compiled into
+-- the app. Carrying them over would make "with no network, show the last thing read" a lie, because
+-- a device that has never reached the site would show the seed and call it the catalogue. An empty
+-- cache is what lets the app say "there is no catalogue yet" honestly, which is the acceptance
+-- criterion this migration exists to make true.
+--
+-- ProductEntity is referenced by nothing, so dropping it takes no other table with it. The
+-- SellerEntity foreign key is redeclared as documentation of the relation, not as a mechanism:
+-- this project enables foreign keys on no driver.
+
+CREATE TABLE ProductEntityRebuilt (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    price REAL,
+    isAvailable INTEGER NOT NULL DEFAULT 1,
+    description TEXT,
+    category TEXT NOT NULL,
+    subCategory TEXT,
+    tags TEXT NOT NULL DEFAULT '[]',
+    imageUrl TEXT,
+    productUrl TEXT,
+    sellerId TEXT,
+    kind TEXT NOT NULL DEFAULT 'anuncio',
+    pillar TEXT,
+    startsAt INTEGER,
+    endsAt INTEGER,
+    durationMinutes INTEGER,
+    FOREIGN KEY (sellerId) REFERENCES SellerEntity(id)
+);
+
+DROP TABLE ProductEntity;
+
+ALTER TABLE ProductEntityRebuilt RENAME TO ProductEntity;
+
+CREATE INDEX IF NOT EXISTS idx_product_category ON ProductEntity(category);
+CREATE INDEX IF NOT EXISTS idx_product_seller ON ProductEntity(sellerId);
+CREATE INDEX IF NOT EXISTS idx_product_pillar ON ProductEntity(pillar);
