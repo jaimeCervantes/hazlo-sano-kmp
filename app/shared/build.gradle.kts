@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
 }
 
@@ -57,6 +58,10 @@ kotlin {
             implementation(projects.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.contentNegotiation)
+            implementation(libs.ktor.serialization.kotlinxJson)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines)
             implementation(libs.compose.runtime)
@@ -75,6 +80,7 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.ktor.client.mock)
         }
         androidMain.dependencies {
             implementation(libs.sqldelight.android.driver)
@@ -95,10 +101,12 @@ kotlin {
         jvmMain.dependencies {
             implementation(libs.sqldelight.jdbc.driver)
             implementation(libs.sqlite.jdbc)
+            implementation(libs.ktor.client.okhttp)
         }
         jvmTest.dependencies {
         }
         jsMain.dependencies {
+            implementation(libs.ktor.client.js)
         }
     }
 }
