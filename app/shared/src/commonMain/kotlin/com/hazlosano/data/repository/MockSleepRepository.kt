@@ -52,43 +52,5 @@ class MockSleepRepository : SleepRepository {
                 imageUrl = "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=800",
             ),
         ),
-        productsAndServices = listOf(
-            HazloProduct(
-                id = "sleep-product-mask",
-                name = "Antifaz de descanso",
-                description = "Bloqueo suave de luz para noches mas profundas.",
-                price = 18.0,
-                imageUrl = "https://images.unsplash.com/photo-1511295742362-92c96b1cf484?q=80&w=600",
-                isFavorite = true,
-                distanceMeters = 850.0,
-            ),
-            HazloProduct(
-                id = "sleep-service-consult",
-                name = "Consulta de sueño",
-                description = "Sesion local para ajustar habitos y ambiente nocturno.",
-                price = 45.0,
-                imageUrl = "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?q=80&w=600",
-                isFavorite = false,
-                distanceMeters = 2100.0,
-            ),
-            HazloProduct(
-                id = "sleep-product-pillow",
-                name = "Almohada ergonomica",
-                description = "Soporte cervical para descanso lateral o boca arriba.",
-                price = 64.0,
-                imageUrl = "https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?q=80&w=600",
-                isFavorite = false,
-                distanceMeters = 1600.0,
-            ),
-            HazloProduct(
-                id = "sleep-service-sound",
-                name = "Terapia sonora nocturna",
-                description = "Servicio guiado para relajacion y conciliacion del sueño.",
-                price = 28.0,
-                imageUrl = "https://images.unsplash.com/photo-1516280440614-37939bbacd81?q=80&w=600",
-                isFavorite = false,
-                distanceMeters = 3200.0,
-            ),
-        ),
     )
 }

@@ -19,6 +19,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,7 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.repository.SleepSessionRepository
 import com.hazlosano.domain.usecase.GetSleepHistoryUseCase
+import com.hazlosano.feature.catalog.presentation.rememberPillarCatalogViewModel
 import com.hazlosano.feature.catalog.ui.PillarCatalogScreen
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
@@ -173,11 +175,20 @@ fun MainScreen(
                         onRefreshSleep = onRefreshSleep,
                         onSleepCardClick = navigateToSleepHistory,
                     )
-                    BottomTab.Sueno -> SleepScreen(
-                        viewModel = sleepViewModel,
-                        onRefresh = onRefreshSleep,
-                        onCardClick = navigateToSleepHistory,
-                    )
+                    // Sueño es la única pestaña de pilar que no delega entera en
+                    // PillarCatalogScreen: ya tiene su propio encabezado —el resumen de la última
+                    // noche— y sólo le faltaban las secciones del catálogo, que ahora comparte.
+                    BottomTab.Sueno -> {
+                        val sleepCatalog = rememberPillarCatalogViewModel(PillarType.SLEEP)
+                        val sleepCatalogState by sleepCatalog.uiState.collectAsState()
+                        SleepScreen(
+                            viewModel = sleepViewModel,
+                            catalogState = sleepCatalogState,
+                            onRetryCatalog = sleepCatalog::refresh,
+                            onRefresh = onRefreshSleep,
+                            onCardClick = navigateToSleepHistory,
+                        )
+                    }
                     // Cada pestaña de pilar enseña su propio catálogo. Movimiento y Mente eran dos
                     // placeholders; el tracker se sigue alcanzando desde Inicio, que es donde
                     // estaba — esta pestaña es lo publicado del pilar, no la herramienta.

@@ -10,5 +10,4 @@ data class SleepContent(
     val heroImageUrl: String,
     val weeklyChampions: List<HazloChampion>,
     val activeChallenges: List<HazloChallenge>,
-    val productsAndServices: List<HazloProduct>,
 )

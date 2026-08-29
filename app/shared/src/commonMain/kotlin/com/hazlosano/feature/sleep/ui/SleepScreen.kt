@@ -30,19 +30,35 @@ import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.components.atomic.SleepSummaryCard
 import com.hazlosano.core.ui.components.sections.HazloChallengesSection
 import com.hazlosano.core.ui.components.sections.HazloChampionsSection
-import com.hazlosano.core.ui.components.sections.HazloExploreProductsSection
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.theme.PillarSleep
 import com.hazlosano.core.ui.util.formatClockTime
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.model.SleepContent
 import com.hazlosano.domain.model.SleepSession
+import com.hazlosano.feature.catalog.presentation.PillarCatalogUiState
+import com.hazlosano.feature.catalog.ui.CatalogStaleNotice
+import com.hazlosano.feature.catalog.ui.pillarCatalogPlaceholder
+import com.hazlosano.feature.catalog.ui.pillarCatalogSections
 import com.hazlosano.feature.sleep.presentation.SleepUiState
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 
+/**
+ * El pilar de sueño: su panel de análisis arriba y el catálogo del pilar debajo.
+ *
+ * Es la única pestaña de pilar que no usa `PillarCatalogScreen` entera, porque ya tiene un
+ * encabezado propio —el resumen de la última noche, que es funcionalidad real— y un segundo héroe a
+ * mitad de pantalla sobraría. Lo que sí comparte son las secciones del catálogo.
+ *
+ * [catalogState] entra por parámetro en lugar de construirse aquí para que la pantalla se pueda
+ * componer en un test con un catálogo cualquiera.
+ */
 @Composable
 fun SleepScreen(
     viewModel: SleepViewModel,
+    catalogState: PillarCatalogUiState,
+    onRetryCatalog: () -> Unit,
     onRefresh: (() -> Unit)? = null,
     onCardClick: (() -> Unit)? = null,
 ) {
@@ -54,6 +70,8 @@ fun SleepScreen(
         is SleepUiState.Success -> SleepDashboardContent(
             content = state.content,
             sleepAnalysis = state.sleepAnalysis,
+            catalogState = catalogState,
+            onRetryCatalog = onRetryCatalog,
             onRefresh = onRefresh,
             onCardClick = onCardClick ?: {},
         )
@@ -80,10 +98,13 @@ private fun ErrorContent(message: String) {
     }
 }
 
+/** Internal para poder componerlo en un test sin levantar un `SleepViewModel` entero. */
 @Composable
-private fun SleepDashboardContent(
+internal fun SleepDashboardContent(
     content: SleepContent,
     sleepAnalysis: SleepAnalysis?,
+    catalogState: PillarCatalogUiState,
+    onRetryCatalog: () -> Unit,
     onRefresh: (() -> Unit)?,
     onCardClick: () -> Unit,
 ) {
@@ -121,16 +142,22 @@ private fun SleepDashboardContent(
             )
         }
 
-        item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
+        // El catálogo del pilar, ahora leído del sitio. Hasta aquí esta sección enseñaba una lista
+        // escrita en `MockSleepRepository` —un antifaz a 18.0 que no existía en ninguna parte—, que
+        // era la misma ficción que el seed que el catálogo remoto vino a quitar.
+        if (catalogState is PillarCatalogUiState.Ready && catalogState.fromCache) {
+            item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
+            item { CatalogStaleNotice() }
+        }
 
-        item {
-            HazloExploreProductsSection(
-                products = content.productsAndServices,
-                placeholderText = "Antifaz, consulta, almohada...",
-                emptyText = "No hay productos o servicios de sueño con ese nombre.",
-                modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
-                accentColor = PillarSleep,
-            )
+        pillarCatalogPlaceholder(
+            state = catalogState,
+            accent = PillarSleep,
+            onRetry = onRetryCatalog,
+        )
+
+        if (catalogState is PillarCatalogUiState.Ready) {
+            pillarCatalogSections(pillar = PillarType.SLEEP, sections = catalogState.sections)
         }
     }
 }
