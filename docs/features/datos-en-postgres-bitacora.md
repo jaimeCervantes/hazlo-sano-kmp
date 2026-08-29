@@ -425,3 +425,89 @@ cazó dos cadenas mal formateadas que se habrían publicado enseñando `%d` y `%
 falta al slice 3; (2) escribir el test de pantalla de `RoutesScreen`, que ya es posible y sigue sin
 cobertura; (3) el slice 1, el login, que sigue esperando aprobación y bloquea todo lo que viene
 después.
+
+---
+
+## Slice 3c — El pilar de Sueño enseña el catálogo de verdad (2026-08-29)
+
+- **Objetivo:** cerrar lo único que le faltaba al slice 3. Spec: los cuatro escenarios de Sueño en
+  [`catalogo_por_pilar.feature`](../../features/catalogo_por_pilar.feature).
+
+### Lo que resultó ser, que no era lo que yo había dicho
+
+En las dos entradas anteriores dejé escrito que a Sueño «le falta decidir dónde poner el catálogo»,
+como si fuera una pantalla sin hueco. Al abrirla resultó que **ya tenía uno, y estaba lleno de
+mentira**: `HazloExploreProductsSection` alimentada por `content.productsAndServices`, que sale de
+`MockSleepRepository` — un «Antifaz de descanso» a 18.0, una «Consulta de sueño» a 45.0 y dos cosas
+más, escritas dentro del código con fotos de Unsplash.
+
+Es exactamente la misma ficción que `SeedProducts`, que el slice 3 vino a quitar, sobreviviendo en
+la única pestaña que el slice no tocó. Así que esto no fue «añadir el catálogo debajo del análisis»
+sino **sustituir el catálogo falso por el real**, que es un cambio bastante mejor: se va más ficción
+de la que entra código.
+
+`productsAndServices` se borra de `SleepContent`, de `MockSleepRepository` y de la pantalla. Sólo lo
+usaban esos tres sitios.
+
+### Decisiones + porqué
+
+- **Sueño no usa `PillarCatalogScreen` entera, y es la única.** Ya tiene encabezado propio —el
+  resumen de la última noche, que es funcionalidad real y no un hueco—, así que meterle además la
+  tarjeta de resumen del pilar habría puesto un segundo héroe a mitad de pantalla. Hay un test que
+  afirma justo eso: `PillarCatalogTags.SUMMARY` **no existe** dentro del tablero de sueño.
+- **Las secciones se extrajeron a `LazyListScope.pillarCatalogSections()`, moviendo y no copiando.**
+  Es la regla de promoción de `AGENTS.md` aplicada en cuanto una segunda pantalla las quiso: el
+  tablero de pilar las sigue usando desde ahí, no hay dos versiones.
+- **Un catálogo que no se puede leer no vacía la pantalla.** `pillarCatalogPlaceholder()` ocupa una
+  fila, no la pantalla: el análisis del sueño no depende de la red y seguir viéndolo es lo correcto
+  cuando no hay cobertura. En `PillarCatalogScreen`, donde el catálogo **es** la pantalla, el mismo
+  estado sí ocupa todo.
+- **`SleepDashboardContent` pasa a `internal`** para poder componerlo en un test sin levantar un
+  `SleepViewModel` con sus tres dependencias. Mismo seam que `PillarCatalogContent`.
+- **El ViewModel del catálogo de sueño se crea en `MainScreen`**, no dentro de `SleepScreen`, para
+  que la pantalla siga recibiendo un estado y siga siendo testable.
+
+### Archivos tocados
+
+- core/commonMain: `model/SleepContent.kt` (pierde `productsAndServices`)
+- shared/commonMain: `data/repository/MockSleepRepository.kt` (−38 líneas de catálogo inventado),
+  `feature/sleep/ui/SleepScreen.kt` (recibe el estado del catálogo; `SleepDashboardContent` internal),
+  `feature/catalog/ui/PillarCatalogScreen.kt` (`pillarCatalogSections`, `pillarCatalogPlaceholder` y
+  `CatalogStaleNotice` extraídos y hechos públicos), `feature/main/ui/MainScreen.kt` (cableado)
+- shared/jvmTest: `feature/sleep/ui/SleepScreenCatalogTest` (4, nuevo)
+- `features/catalogo_por_pilar.feature`: 4 escenarios más
+
+### Comandos y resultados
+
+`.\gradlew.bat :core:jvmTest` · `:app:shared:jvmTest` · `:core:check` · `:app:shared:check` ·
+`:app:androidApp:assembleDebug` · `:app:desktopApp:check` · `:app:webApp:check` · `:server:test`
+
+`:core` **92 tests, 0 fallos** (sin cambio). `:app:shared:jvmTest` **198 tests, 0 fallos** (antes
+194, +4). Todo lo demás BUILD SUCCESSFUL. Los cuatro tests nuevos pasaron a la primera.
+
+### Sin cobertura de host
+
+- El orden vertical —que el catálogo quede **debajo** del análisis y no encima— no lo comprueba
+  nada: los tests afirman que ambos existen, no dónde. Comprobación manual al abrir la pestaña.
+- **Comprobación manual al instalar:** abrir Sueño con red y ver publicaciones reales donde antes
+  estaba el antifaz inventado; en modo avión con caché, que el aviso salga en la parte del catálogo
+  y el análisis siga entero; sin caché, que el análisis siga y sólo el catálogo pida conexión.
+
+### Deuda que queda
+
+- **`BottomTab` sigue con nombres e iconos en duro** y `pillarIcon()` los repite. Sin cambios.
+- **`RoutesScreen` sigue sin test de pantalla**, ahora que ya se puede.
+- **`history_trend_prefix` sigue con `%s` suelto** en `strings.xml`: no lo usa nadie, pero romperá
+  el día que se use.
+- **`MockHomeRepository` y el resto de `MockSleepRepository`** siguen alimentando el inicio y los
+  campeones con datos inventados. No es de este slice, pero ahora que el catálogo es real, son lo
+  que queda de ficción en la app.
+
+**Recap:** Los cuatro pilares enseñan ya el catálogo del sitio. Sueño era el que faltaba, y resultó
+que no le faltaba sitio sino que el que tenía estaba ocupado por una lista de productos escrita en
+el código; ahora enseña lo publicado debajo de su análisis, sin un segundo encabezado, y si no hay
+red se queda sin catálogo pero no sin pantalla. El slice 3 queda cerrado.
+
+**Próximos pasos (opciones):** (1) el slice 1, el login, que sigue esperando aprobación y bloquea
+los slices 4, 5 y 6; (2) el test de pantalla de `RoutesScreen`, que ya es posible; (3) quitar
+`MockHomeRepository` del inicio, que es la ficción que queda.

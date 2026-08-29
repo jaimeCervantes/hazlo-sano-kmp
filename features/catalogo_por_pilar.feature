@@ -87,3 +87,35 @@ Feature: El catálogo de un pilar se lee como un tablero, no como una lista
     When lo abro sin red
     Then no veo ni tarjeta de resumen ni secciones
     And se me dice que hace falta conexión la primera vez
+
+  # ─────────── Sueño: el único pilar que ya tenía encabezado propio ───────────
+
+  Note: hasta aquí la pestaña de Sueño enseñaba una lista de productos escrita en
+  `MockSleepRepository` —un antifaz a 18.0 que no existe en ninguna parte—, que es la misma ficción
+  que el seed que el catálogo remoto vino a quitar.
+
+  @slice-3
+  Scenario: El pilar de Sueño enseña el catálogo del sitio
+    Given que en el sitio hay publicaciones del pilar de sueño
+    When abro la pestaña de Sueño con red
+    Then debajo de mi resumen de anoche veo esas publicaciones
+    And no veo ningún producto que solo exista dentro del código del app
+
+  @slice-3
+  Scenario: Sueño no pinta un segundo encabezado
+    Given que la pestaña de Sueño ya tiene el resumen de la última noche
+    When se le añade el catálogo del pilar
+    Then no aparece una segunda tarjeta de resumen a mitad de pantalla
+
+  @slice-3
+  Scenario: Un catálogo que no se puede leer no vacía la pantalla de Sueño
+    Given un pilar de sueño que nunca se descargó
+    When abro la pestaña sin red
+    Then sigo viendo mi análisis de sueño y los campeones de la semana
+    And solo la parte del catálogo dice que hace falta conexión
+
+  @slice-3
+  Scenario: El aviso de desactualizado también aparece dentro de Sueño
+    Given un catálogo de sueño que ya se había descargado
+    When abro la pestaña sin red
+    Then la parte del catálogo avisa de que es lo último descargado
