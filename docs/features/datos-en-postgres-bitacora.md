@@ -291,3 +291,137 @@ pantallas vacías.
 **Próximos pasos (opciones):** (1) decidir dónde va el catálogo de Sueño, que es lo único que queda
 del slice; (2) el slice 1, el login, que sigue esperando aprobación y es el cuello de botella de
 todo lo demás; (3) pagar la deuda de i18n de `BottomTab` y `RoutesViewModel`, que ya son dos.
+
+---
+
+## Slice 3b — El pilar se lee como un tablero, no como una lista (2026-08-29)
+
+- **Objetivo:** que Nutrición, Movimiento y Mente usen el mismo lenguaje visual que Sueño e Inicio.
+  La queja fue literal: «el único que veo más o menos bien es la sección del home y el sueño».
+  Spec nueva: [`catalogo_por_pilar.feature`](../../features/catalogo_por_pilar.feature) (10 escenarios).
+
+### Antes de nada, dos desviaciones de proceso que este slice corrige
+
+1. **El skill de entrega no se había leído.** `AGENTS.md` manda abrir
+   `.agents/skills/feature-delivery/SKILL.md` antes de una tarea de comportamiento, y el slice 3 se
+   entregó sin hacerlo. La causa es concreta: Claude Code solo descubre skills en `.claude/skills/`,
+   y ese directorio no existía. Ahora `.claude/skills/` es una copia de `.agents/skills/`, ignorada
+   por git para que no haya dos copias versionadas que se separen — `.agents/skills/` sigue siendo
+   la fuente. Se recrea con `cp -r .agents/skills/. .claude/skills/`.
+2. **Rama equivocada.** El skill exige `feat/<feature>` por cambio de comportamiento, y los cinco
+   commits del catálogo se hicieron en `chore/agent-instructions`, que es de otra cosa. Este slice
+   va en `feat/pillar-catalog-design`. Los cinco anteriores se quedan donde están: moverlos ahora
+   reescribiría historia ya commiteada para arreglar una etiqueta.
+
+### La deuda de tests de UI, saldada
+
+`runComposeUiTest` llevaba sin configurar desde el slice 6, y la bitácora lo arrastraba como «deuda
+transversal» en cada entrada. El skill dice pedir aprobación de tooling **una vez**; se pidió y se
+aprobó. Ya no vuelve a preguntarse.
+
+- `compose.uiTest` + `compose.desktop.currentOs` en **`jvmTest`, no en `commonTest`**. Puestos en
+  común, los mismos tests corren también contra ChromeHeadless en el target de navegador, donde
+  `runComposeUiTest` no compone nada y **fallaron los nueve**. El skill ya lo decía —«Compose UI
+  test on the JVM»— y costó una corrida de `:app:shared:check` aprenderlo.
+- **Es la primera pantalla del proyecto con cobertura.** Hasta ahora ninguna la tenía, que es cómo
+  el render del mapa pudo estar roto tres slices sin que nada fallara.
+
+### Decisiones + porqué
+
+- **Se copió el esqueleto de Sueño, no se inventó uno.** `LazyColumn` con `contentPadding` de
+  `top = default` y `bottom = xl`, tarjeta de resumen arriba con margen `gutter`, secciones
+  separadas por `Spacer(md)`, cada una con `SectionHeader` a `gutter` y un `LazyRow` que sangra
+  hasta el borde con `contentPadding` de `gutter`. Parecerse era el objetivo, no un atajo.
+- **`PillarSummaryCard` no conoce el dominio.** Recibe `List<PillarMetric>` con textos ya resueltos,
+  en lugar de un tipo del dominio. `SleepSummaryCard` toma un `SleepAnalysis` y por eso `AGENTS.md`
+  la señala como deuda; copiar el aspecto no obligaba a copiar el error.
+- **Los carruseles reutilizan `HazloProductCard` con ancho fijo.** Una tarjeta nueva para el
+  carrusel habría sido el segundo componente casi idéntico que `AGENTS.md` llama fallo de diseño.
+  Lo único que el carrusel necesita de verdad es un ancho; lo que sí se le añadió a la tarjeta es un
+  `overlineLabel` opcional, resuelto por el llamante para que la tarjeta siga sin leer recursos.
+- **La agrupación en secciones es una función pura fuera del Composable.** `catalogSections()` toma
+  las publicaciones y `nowEpochMillis`. Qué cuenta como «próximo» es una regla, y una regla dentro
+  de un `@Composable` no se puede probar sin levantar una pantalla. El reloj entra por parámetro:
+  una función que consulta la hora por su cuenta no se puede situar antes ni después de un evento.
+- **Un evento sigue vigente hasta que termina, no hasta que empieza.** Un taller de tres horas al
+  que llegas a la segunda sigue en curso; descartarlo al empezar lo escondería justo cuando más
+  sirve. Sin hora de fin, el inicio hace de final — igual que hace el sitio.
+- **Un evento sin fecha va al final y no al principio.** `sortedBy` habría puesto el nulo delante,
+  tapando lo que de verdad ocurre pronto.
+- **Una sección sin contenido no se dibuja.** Un encabezado sobre una fila vacía promete contenido
+  que no llega, que es peor que no estar.
+- **El aviso de «sin conexión» va encima de todo**, incluida la tarjeta de resumen: enterarse de que
+  el tablero es viejo después de haberlo leído no sirve de nada.
+- **Un evento pasado desaparece de «Próximos eventos» pero sigue en la rejilla.** Dejar de
+  anunciarlo no es esconderlo.
+- **Las fechas se componen con `formatDate` y `formatClockTime`**, que ya estaban en
+  `core/ui/util`. Escribir otro formateador aquí habría dado dos formas de pintar el mismo día en
+  la misma app.
+
+### El fallo que el test de UI cazó, y que ningún otro habría cazado
+
+`publication_duration_minutes` estaba escrito como `%d min`. **compose-resources no sustituye un
+`%d` ni un `%s` sueltos**: los deja literales en la pantalla, sin lanzar, sin avisar y sin que
+ningún test unitario lo note. El test e2e falló al no encontrar «60 min» y ahí salió. Los
+argumentos tienen que ser **posicionales** (`%1$d`, `%1$s`).
+
+**`catalog_search_placeholder` tenía el mismo defecto** (`Buscar en %s…`) y se habría publicado
+enseñando `%s` literal en el buscador de las cuatro pestañas. No lo cazó su propio test —no lo
+tiene— sino arreglar el otro y mirar si había más.
+
+### Archivos tocados
+
+- `.gitignore`, `.claude/skills/` (copia ignorada de `.agents/skills/`)
+- `features/catalogo_por_pilar.feature` (nuevo, 10 escenarios)
+- shared/commonMain: `feature/catalog/presentation/CatalogSections.kt` (nuevo),
+  `PillarCatalogUiState.kt` (ahora lleva `CatalogSections`), `PillarCatalogViewModel.kt` (reloj
+  inyectable), `feature/catalog/ui/PillarSummaryCard.kt` (nuevo), `PillarCatalogScreen.kt`
+  (reescrito como tablero), `PillarText.kt` (+ `pillarIcon`),
+  `core/ui/components/cards/HazloProductCard.kt` (+ `overlineLabel`)
+- shared/commonTest: `CatalogSectionsTest` (13, nuevo)
+- shared/jvmTest: `feature/catalog/ui/PillarCatalogScreenTest` (9, nuevo — primer test de pantalla
+  del proyecto)
+- `composeResources/values/strings.xml`: 8 cadenas nuevas y **2 corregidas a posicionales**
+- `app/shared/build.gradle.kts`: `compose.uiTest` y `compose.desktop.currentOs` en `jvmTest`
+
+### Comandos y resultados
+
+`.\gradlew.bat :core:jvmTest` · `:app:shared:jvmTest` · `:core:check` · `:app:shared:check` ·
+`:app:androidApp:assembleDebug` · `:app:desktopApp:check` · `:app:webApp:check` · `:server:test`
+
+`:core` **92 tests, 0 fallos** (sin cambio). `:app:shared:jvmTest` **194 tests, 0 fallos** (antes
+172, +22). Todo lo demás BUILD SUCCESSFUL, `:app:shared:check` incluido — que es el que compila para
+los targets nativos y el que destapó lo del navegador.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- `PillarSummaryCard` no tiene test propio: se ejerce a través del tablero, que afirma sus cifras.
+- El aspecto —colores, tipografías, márgenes— no lo comprueba nada. Los tests afirman **estructura**
+  (qué secciones existen) y **contenido derivado de datos** (cifras, «60 min»), nunca la redacción
+  del catálogo de cadenas, que puede cambiar sin que el tablero esté roto.
+- **Comprobación manual al instalar:** abrir las cuatro pestañas y comparar con Sueño; con un pilar
+  sin eventos, comprobar que no aparece un encabezado suelto; en modo avión, que el aviso sale
+  encima del resumen.
+
+### Desviaciones y deuda
+
+- **El pilar de Sueño sigue sin catálogo.** Ahora que existe `PillarCatalogContent`, componerlo bajo
+  `SleepScreen` es más barato que antes, pero sigue siendo una decisión de UI sin tomar.
+- **`BottomTab` sigue con nombres e iconos en duro**, y `pillarIcon()` los repite. Los dos sitios
+  deberían leer de uno solo; se promueve `pillarLabel`/`pillarIcon` a `core/ui/` cuando se pague.
+- **`SleepScreen` y `RoutesScreen` ya podrían tener test de pantalla** y no lo tienen. La tooling
+  está puesta; es trabajo, no bloqueo.
+- **`history_trend_prefix` sigue con `%s` suelto** en `strings.xml`. Hoy no lo usa nadie, así que no
+  rompe nada, pero está mal escrito y romperá el día que se use.
+
+**Recap:** Las tres pestañas que se veían como pantallas de relleno ahora son tableros con el mismo
+lenguaje que Sueño: resumen con las cifras del pilar arriba, carruseles de próximos eventos,
+servicios y lo más cercano, y la rejilla completa debajo. Las secciones vacías no se pintan, un
+evento pasado deja de anunciarse sin desaparecer, y el aviso de contenido descargado va antes de
+todo lo demás. De paso el proyecto tiene su primer test de pantalla, que en su primera ejecución
+cazó dos cadenas mal formateadas que se habrían publicado enseñando `%d` y `%s` literales.
+
+**Próximos pasos (opciones):** (1) decidir dónde va el catálogo de Sueño, que es lo único que le
+falta al slice 3; (2) escribir el test de pantalla de `RoutesScreen`, que ya es posible y sigue sin
+cobertura; (3) el slice 1, el login, que sigue esperando aprobación y bloquea todo lo que viene
+después.
