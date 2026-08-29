@@ -2,6 +2,13 @@
 .kotlin
 .gradle
 .claude/settings.local.json
+
+# Mirror of .agents/skills/, copied so Claude Code discovers them: it only looks
+# in .claude/skills/, while .agents/skills/ is another runtime's convention.
+# .agents/skills/ stays the single source under version control — tracking the
+# copy too would let the two drift and leave no way to tell which one is stale.
+# Recreate it with: cp -r .agents/skills/. .claude/skills/
+.claude/skills/
 **/build/
 xcuserdata
 !src/**/build/
