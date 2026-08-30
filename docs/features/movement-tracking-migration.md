@@ -33,6 +33,7 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Cifras derivadas del recorrido + primera migración real | Hecho (slice 11, punto B2b). Salda la deuda de migraciones |
 | Calidad de altitud que reporta el receptor | Hecho (slice 12). **Pregunta respondida en la segunda calibración de campo, y la respuesta es "no sirve"**: el receptor declara ±1,8 m verticales sobre una altitud congelada seis minutos |
 | Rutas: importar GPX, listar, renombrar, exportar, guardar una salida como ruta | Hecho (slice 13, punto C1) |
+| Detalle de una ruta guardada en el mapa | Hecho (punto C2). Primera pantalla del pilar con test de host |
 | Que el ruido del receptor no se convierta en kilómetros | Hecho (slice 14, punto B3). De 2 832 m a ~165 con el teléfono quieto media hora, sin costarle distancia a las salidas reales |
 
 **Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. El slice 12 se contrastó contra una cuarta traza en la segunda calibración, que respondió su pregunta y destapó B3. Los slices 10, 11 y 13 no se han probado en una salida real.
@@ -101,14 +102,14 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 - **Estado: C1 hecho** en el slice 13 — spec: [`movement_routes_gpx.feature`](../../features/movement_routes_gpx.feature). **C2 y C3 pendientes**, y son las que convierten una ruta en algo que se sigue.
   - **Hecho (C1):** `GpxFormat` en `commonMain` (lee y escribe, sin librería XML, tolera lo que no entiende), tablas `RouteEntity`/`RoutePointEntity` con su migración `4.sqm`, pantalla "Mis rutas" para importar, renombrar, exportar y borrar, y guardar una salida del historial como ruta con nombre. Importar y exportar no piden permiso de almacenamiento: van por el Storage Access Framework. Escritorio, iOS y web esconden ambas acciones porque todavía no tienen acceso a archivos.
-  - **Pendiente (C2):** ver la ruta en el mapa. Falta el destino en `MovementNavState`; el repositorio ya expone `getRouteWithPoints`.
+  - **Hecho (C2):** ver la ruta en el mapa — spec: [`movement_route_detail.feature`](../../features/movement_route_detail.feature). Se toca una ruta de la lista y se abre con su trazado encuadrado y sus tres cifras. Reutiliza `MovementMap` con `fitPathInView`, que ya dibujaba el recorrido de una sesión terminada. **Destapó una mentira heredada:** `calculateStats` acumula un desnivel de 0.0 cuando ningún punto trae altitud, y ese cero se guarda en la fila indistinguible de un llano real; la pantalla lo recupera mirando los puntos y pinta "—". Primera pantalla del pilar con test de host.
   - **Pendiente (C3):** navegación siguiendo la ruta con aviso de desvío. Aquí es donde `MovementSessionEntity.routeId` deja por fin de guardar `null` en cada sesión: hoy la tabla a la que apunta ya existe, pero nada ata una grabación a la ruta que iba siguiendo.
 - **Problem:** no se puede seguir una ruta planificada: no hay forma de verla en el mapa ni de saber si te estás saliendo del trazado.
 - **Savings:** evita depender de otra app para seguir rutas y el riesgo de perderse o desviarse sin darse cuenta.
 - **Why:** "recorrer rutas" es la promesa central del pilar en la referencia; la sesión libre es solo la mitad.
 - **Referencia:** `domain/parser/GpxParser.kt`, `domain/usecase/ImportRouteUseCase.kt`, `TrackNavigationUseCase.kt` (166 líneas: *smart snap* al trazado, distancia mínima a la ruta, proyección de punto sobre segmento, detección de desvío), `data/repository/RouteRepositoryImpl.kt`, `ui/RouteImportScreen.kt`, `ui/RouteDetailScreen.kt`, `ui/RouteViewModel.kt` (160 líneas).
-- **Sub-slices:** ~~C1 importar un GPX y listarlo~~ (hecho, y llegó más lejos: exportar, renombrar, borrar y guardar una salida como ruta) · C2 detalle de ruta en el mapa · C3 navegación siguiendo la ruta con aviso de desvío.
-- **Módulos:** `core` (`TrackNavigationUseCase` sigue copiado y sin probar; el resto ya implementado), `app/shared` (falta la UI de detalle y navegación).
+- **Sub-slices:** ~~C1 importar un GPX y listarlo~~ (hecho, y llegó más lejos: exportar, renombrar, borrar y guardar una salida como ruta) · ~~C2 detalle de ruta en el mapa~~ (hecho) · C3 navegación siguiendo la ruta con aviso de desvío.
+- **Módulos:** `core` (`TrackNavigationUseCase` sigue copiado y sin probar), `app/shared` (falta la UI de navegación; la de detalle ya está).
 - **Riesgos / notas:** las notas de riesgo de C1 quedaron resueltas — la deuda de migraciones se pagó en el slice 11 y `RouteRepository` se segregó al implementarlo. Lo que queda anotado: el `fingerprint` heredado de la referencia (`distancia-desnivel-lat1-lon1-latN-lonN`, distancia truncada a entero) hace colisionar dos rutas distintas con el mismo inicio, fin y total; como el duplicado **se pregunta** en vez de decidirse, una colisión molesta pero no destruye nada.
 - **Cobertura de test:** parser y navegación son lógica pura → `core/commonTest`; repositorio con SQLDelight en memoria como en los slices 4–6.
 

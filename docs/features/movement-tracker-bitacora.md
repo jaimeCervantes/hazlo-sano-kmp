@@ -1022,3 +1022,110 @@ El plan que esta bitácora dejaba escrito —"si la precisión vertical se dispa
 **Recap:** Una grabación olvidada ahora se nota mientras pasa —en el tracker y, sobre todo, en la notificación, que es lo que se ve con el teléfono en el bolsillo— y deja de guardarse como si la espera fuera parte de la salida: la sesión termina donde se movió por última vez. Todo ello apoyado en una distinción que el modelo no hacía y que es la que evita mentir en el otro sentido: quedarse sin señal no es quedarse quieto, así que una sesión que perdió el GPS conserva su duración entera y nunca se le dice al usuario que no se ha movido cuando nadie ha podido verlo.
 
 **Próximos pasos (opciones):** (1) la puerta de innovación en el Kalman, que cierra los ~165 m que quedan; (2) B4, la altitud rancia; (3) instalar y salir: medir una ruta conocida y comprobar los avisos en el teléfono; (4) C2, la ruta en el mapa.
+
+---
+
+## Punto C2 — Una ruta guardada se puede ver antes de salir con ella (2026-08-30)
+
+- **Objetivo:** que una ruta importada deje de ser una fila con dos cifras y se pueda mirar. Spec:
+  [`movement_route_detail.feature`](../../features/movement_route_detail.feature) (6 escenarios).
+
+- **Encuadre** (del backlog, sin cambios): **Problem** — importas un GPX y no hay forma de comprobar
+  que el archivo es el que creías; un track equivocado se descubre en el monte. **Savings** — dejar
+  de depender de otra app para mirar una ruta y no gastar una salida siguiendo lo que no era.
+  **Why** — "recorrer rutas" es la promesa central del pilar; sin poder verla, una ruta guardada es
+  una fila en una lista.
+
+### Lo que hizo el slice barato
+
+**`MovementMap` ya existía con `fitPathInView`**, escrito en el slice 6 para encuadrar el recorrido
+de una sesión terminada. Una ruta y una sesión son cosas distintas, pero dibujarlas es lo mismo, así
+que C2 fue conectar lo que había: un destino nuevo, un ViewModel que observa `getRouteWithPoints`
+—que también existía— y una pantalla.
+
+### Decisiones + porqué
+
+- **Se observa el repositorio, no se lee una vez.** Si la ruta se borra o se renombra desde la lista
+  mientras el detalle la enseña, lo que se ve deja de ser una foto vieja. `Missing` es un estado de
+  primera clase por eso, no sólo por un id inválido.
+- **Toda la tarjeta de la lista abre la ruta**, con `LeafCard(onClick=)`, que ya lo soportaba. Los
+  tres botones de dentro siguen funcionando: en Compose el hijo se queda el toque, así que no hizo
+  falta excluirlos a mano.
+- **Dos puntos para dibujar, no uno.** `hasPath` exige `size >= 2`: un punto es un lugar, no un
+  trazado. Es la misma regla que el slice 13 puso al guardar una salida como ruta.
+- **Las cifras se enseñan aunque no haya trazado.** Que no se pueda dibujar no borra lo que la ruta
+  sabe de sí misma.
+- **La pantalla nace en `Res.string.*`**, no en duro. `RoutesScreen`, que es su vecina, lleva todo el
+  texto en el código desde el slice 13 — esa deuda sigue, pero no se amplía.
+- **`RouteDetailUiState` no lleva texto redactado.** Los rótulos los pone la pantalla; lo que viaja
+  ya convertido son las cifras, que es formato y no copia — la misma distinción que `AGENTS.md` hace
+  con los nombres de mes de `MovementFormat`.
+
+### La mentira heredada que esto destapó
+
+`calculateStats` acumula **0.0 de desnivel cuando ningún punto trae altitud**, y ese cero se guarda
+en `RouteEntity.elevationGain` **indistinguible de un llano de verdad**. Un GPX sin elevaciones no
+describe una ruta plana: no dice nada sobre su desnivel, y pintar «0 m» es afirmar algo que
+probablemente es falso.
+
+La pantalla lo recupera mirando los puntos —si ninguno trae altitud, el desnivel es desconocido— y
+`MovementFormat.elevation(null)` ya sabía pintar «—» por la misma razón, desde el slice 12. Es la
+tercera vez que este pilar tropieza con lo mismo: **un dato ausente guardado como cero**. La primera
+fue la altitud de las lecturas (slice 12), la segunda la altitud de los `WayPoint` al escribir GPX
+(slice 13), y esta es la tercera. Lo que queda mal es **la columna**, no la pantalla: se arregla
+donde se escribe, no donde se lee. Anotado como seguimiento.
+
+### Archivos tocados
+
+- shared/commonMain: `feature/movement/routes/presentation/RouteDetailUiState.kt` (nuevo, con la
+  función pura `routeDetail`), `RouteDetailViewModel.kt` (nuevo, con su factory),
+  `feature/movement/routes/ui/RouteDetailScreen.kt` (nuevo),
+  `feature/movement/presentation/MovementNavState.kt` (destino `RouteDetail`),
+  `feature/movement/routes/ui/RoutesScreen.kt` (la fila abre la ruta),
+  `feature/main/ui/MainScreen.kt` (cableado)
+- `composeResources/values/strings.xml`: 6 cadenas nuevas
+- shared/commonTest: `RouteDetailUiStateTest` (10, nuevo)
+- shared/jvmTest: `RouteDetailScreenTest` (8, nuevo)
+- `features/movement_route_detail.feature` (nuevo)
+
+### Comandos y resultados
+
+`.\gradlew.bat :core:jvmTest` · `:app:shared:jvmTest` · `:core:check` · `:app:shared:check` ·
+`:app:androidApp:assembleDebug` · `:app:desktopApp:check` · `:app:webApp:check` · `:server:test`
+
+`:core` **104 tests, 0 fallos** (sin cambio por este slice). `:app:shared:jvmTest` **221 tests, 0
+fallos** (+18 de aquí). Todo lo demás BUILD SUCCESSFUL. Los 18 pasaron a la primera.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **El mapa no se dibuja en la JVM.** `MovementMap` sólo tiene implementación real en Android; en los
+  demás targets es un placeholder. Lo que el test afirma es **qué decide la pantalla** —si hay
+  trazado, qué cifras salen, qué se dice cuando no hay nada— no que el trazado se pinte bien. Que el
+  render funcione sólo lo dice el dispositivo, y este pilar ya sabe lo que cuesta olvidarlo: el
+  render del mapa estuvo roto tres slices tras el slice 6.
+- **Comprobación manual al instalar:** importar un GPX de un reloj o de Strava, abrirlo desde "Mis
+  rutas" y comprobar que el trazado sale entero y encuadrado; abrir una ruta guardada desde una
+  salida propia; borrar una ruta desde la lista teniendo su detalle abierto detrás.
+
+### Deuda y seguimientos
+
+- **El cero de desnivel sigue guardándose en la base.** Arreglarlo donde se escribe pide una columna
+  nulable y una migración; la pantalla ya no miente, pero la fila sí.
+- **C3 sigue pendiente** y es lo que queda para que una ruta se siga: `TrackNavigationUseCase`
+  son 164 líneas heredadas, sin consumidor y sin un solo test. Ahí es donde
+  `MovementSessionEntity.routeId` deja de guardar `null`.
+- **`RoutesScreen` sigue con el texto en duro** y `RoutesViewModel` sigue devolviendo `String` ya
+  redactado. Ahora que hay tooling de test de pantalla, esa deuda es más barata de pagar que antes.
+- **`GetRouteDetailUseCase` sigue sin consumidor** — este slice fue directo al repositorio, igual que
+  el export. Sigue siendo candidato a borrado junto con `GetRoutesUseCase`.
+
+**Recap:** Una ruta guardada se puede abrir y ver. Se toca en la lista y sale su trazado encuadrado
+en el mapa con distancia, desnivel y número de puntos; si ya no está, lo dice; si se guardó sin
+puntos, lo dice en vez de enseñar un mapa vacío. Reutiliza el mapa que ya existía y el método del
+repositorio que llevaba desde el slice 13 sin llamar. De paso destapa que el desnivel de una ruta sin
+altitudes se guarda como cero y se pintaba como llano.
+
+**Próximos pasos (opciones):** (1) C3, seguir la ruta con aviso de desvío, que es lo que queda del
+punto C y donde `routeId` deja de ser `null`; (2) arreglar el cero de desnivel en la base, que es una
+migración pequeña; (3) pagar la deuda de i18n de `RoutesScreen`, ahora más barata con el tooling de
+test puesto.
