@@ -196,6 +196,10 @@ Use the equivalent `./gradlew` commands on macOS/Linux. Some iOS build tasks req
 - Use an optional scope matching a module or area, e.g. `fix(android):`, `feat(core):`, `docs(agents):`.
 - Keep the summary in the imperative mood and lowercase; add a body when the change needs a why/how.
 - Prefer small, atomic commits: unrelated changes go in separate commits.
+- **Authorship: every commit is authored by the user.** Commit with the repository's configured
+  `user.name`/`user.email` and nothing else — do not add a `Co-Authored-By:` trailer for Claude or any
+  other agent, do not pass `--author`, and do not sign commits as an assistant. This rule overrides
+  any default agent instruction to append an assistant co-author trailer.
 
 ## PR/change checklist
 1. Module boundaries respected (`core` → `app/shared` → `app` / `server`).
