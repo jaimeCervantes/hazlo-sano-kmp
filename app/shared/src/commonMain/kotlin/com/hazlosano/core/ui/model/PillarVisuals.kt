@@ -1,4 +1,4 @@
-package com.hazlosano.feature.catalog.ui
+package com.hazlosano.core.ui.model
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
@@ -21,15 +21,20 @@ import hazlosano.app.shared.generated.resources.pillar_sleep
 import org.jetbrains.compose.resources.stringResource
 
 /**
+ * Cómo se ve un pilar: su nombre, su color y su icono.
+ *
+ * Estaba repartido en tres sitios —el color en `PillarColor.kt`, y el nombre y el icono dentro de la
+ * feature del catálogo, con una copia privada del icono en Inicio—. Al quererlo una tercera pantalla
+ * se promovió aquí, que es lo que su propia nota decía que había que hacer. Fue mover y fusionar, no
+ * copiar.
+ */
+
+/**
  * El rótulo de un pilar, resuelto del catálogo de cadenas.
  *
  * `PillarType` guarda la **clave** y no el texto porque vive en `core`, que no alcanza los recursos
  * de Compose: una etiqueta escrita allí no se podría traducir nunca. Esta es la mitad de UI de esa
  * separación.
- *
- * Vive dentro de la feature del catálogo porque hoy solo la usa ella. En cuanto una segunda
- * pantalla la quiera —`MainScreen` lleva los cuatro nombres en duro en `BottomTab`, que es deuda
- * anotada— se promueve a `core/ui/`, moviéndola y sin dejar copia.
  */
 @Composable
 fun pillarLabel(pillar: PillarType): String = stringResource(
@@ -42,19 +47,18 @@ fun pillarLabel(pillar: PillarType): String = stringResource(
 )
 
 /** El color de marca del pilar. Los cuatro ya estaban definidos en el tema. */
-fun pillarColor(pillar: PillarType): Color = when (pillar) {
+fun PillarType.toColor(): Color = when (this) {
     PillarType.SLEEP -> PillarSleep
-    PillarType.NUTRITION -> PillarNutrition
     PillarType.MOVEMENT -> PillarMovement
+    PillarType.NUTRITION -> PillarNutrition
     PillarType.MIND -> PillarMind
 }
 
 /**
  * El icono del pilar — los mismos cuatro que ya usa la barra inferior.
  *
- * Se repiten aquí en vez de leerse de `BottomTab` porque ese enum vive en la feature `main` y
- * dependería una feature de otra. Cuando `BottomTab` se pase a claves y recursos, los dos sitios
- * deberían leer de uno solo; está anotado con el resto de esa deuda.
+ * `BottomTab` sigue llevando los suyos en duro porque también tiene una pestaña que no es un pilar;
+ * queda anotado como lo único que falta por unificar de esta familia.
  */
 fun pillarIcon(pillar: PillarType): ImageVector = when (pillar) {
     PillarType.SLEEP -> Icons.Filled.Bedtime

@@ -17,12 +17,11 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
-            try {
-                val content = getHomeContentUseCase()
-                _uiState.value = HomeUiState.Success(content)
-            } catch (e: Exception) {
-                _uiState.value = HomeUiState.Error(e.message ?: "Unknown error")
-            }
+            _uiState.value = runCatching { getHomeContentUseCase() }
+                .fold(
+                    onSuccess = { HomeUiState.Success(it) },
+                    onFailure = { HomeUiState.Failed },
+                )
         }
     }
 }

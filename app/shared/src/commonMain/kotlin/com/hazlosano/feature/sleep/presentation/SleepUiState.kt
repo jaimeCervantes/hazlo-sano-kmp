@@ -11,5 +11,9 @@ sealed interface SleepUiState {
      */
     data class Success(val sleepAnalysis: SleepAnalysis? = null) : SleepUiState
 
-    data class Error(val message: String) : SleepUiState
+    /**
+     * Sin texto redactado: la palabra la elige la UI leyendo el catálogo de recursos. El `message`
+     * de una excepción no es copia que nadie quiera leer, y encima no se puede traducir.
+     */
+    data object Failed : SleepUiState
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +44,11 @@ import com.hazlosano.core.ui.theme.HazloSpaces
  * resueltos. `SleepSummaryCard` toma un `SleepAnalysis` y por eso `AGENTS.md` la señala como deuda;
  * esto no repite el error.
  */
+/** Etiquetas de prueba de la tarjeta de resumen. */
+object PillarSummaryCardTags {
+    const val INFO: String = "pillar_summary_info"
+}
+
 @Composable
 fun PillarSummaryCard(
     title: String,
@@ -51,6 +58,8 @@ fun PillarSummaryCard(
     modifier: Modifier = Modifier,
     refreshContentDescription: String? = null,
     onRefresh: (() -> Unit)? = null,
+    infoContentDescription: String? = null,
+    onInfo: (() -> Unit)? = null,
 ) {
     val darkOverlay = Color.Black.copy(alpha = 0.6f)
 
@@ -80,6 +89,21 @@ fun PillarSummaryCard(
                         color = Color.White,
                         modifier = Modifier.weight(1f),
                     )
+                    // Qué es este pilar va junto a actualizar, y no escondido en el título: es la
+                    // pregunta que se hace quien abre la pestaña por primera vez.
+                    if (onInfo != null) {
+                        IconButton(
+                            onClick = onInfo,
+                            modifier = Modifier.size(32.dp).testTag(PillarSummaryCardTags.INFO),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = infoContentDescription,
+                                tint = accentColor,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
                     if (onRefresh != null) {
                         IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
                             Icon(

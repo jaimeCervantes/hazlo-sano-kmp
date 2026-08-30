@@ -15,16 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,9 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.AsyncImageBackground
 import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
@@ -47,6 +45,8 @@ import com.hazlosano.core.ui.components.atomic.PillarBadge
 import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.atomic.SleepSummaryCard
 import com.hazlosano.core.ui.components.sections.HazloChampionsSection
+import com.hazlosano.core.ui.components.sections.pillarHighlightsSkeleton
+import com.hazlosano.core.ui.model.pillarIcon
 import com.hazlosano.core.ui.model.toColor
 import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -55,55 +55,51 @@ import com.hazlosano.domain.model.FeedPost
 import com.hazlosano.domain.model.HomeContent
 import com.hazlosano.domain.model.PillarAction
 import com.hazlosano.domain.model.PillarOverview
-import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.feature.home.presentation.HomeUiState
 import com.hazlosano.feature.home.presentation.HomeViewModel
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.home_failed_message
+import hazlosano.app.shared.generated.resources.home_feed_title
+import org.jetbrains.compose.resources.stringResource
+
+/** Etiquetas de prueba. La estructura de Inicio se afirma por aquí y no por su redacción. */
+object HomeTags {
+    const val PILLARS: String = "home_pillars"
+    const val CHAMPIONS: String = "home_champions"
+    const val FEED: String = "home_feed"
+    const val FAILED: String = "home_failed"
+}
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     sleepAnalysis: SleepAnalysis? = null,
-    onNavigateToMovement: () -> Unit = {},
     onNavigateToTracker: () -> Unit = {},
     onRefreshSleep: (() -> Unit)? = null,
     onSleepCardClick: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    when (val state = uiState) {
-        is HomeUiState.Loading -> LoadingContent()
-        is HomeUiState.Error -> ErrorContent(state.message)
-        is HomeUiState.Success -> HomeContent(
-            content = state.content,
-            sleepAnalysis = sleepAnalysis,
-            onNavigateToMovement = onNavigateToMovement,
-            onNavigateToTracker = onNavigateToTracker,
-            onRefreshSleep = onRefreshSleep,
-            onSleepCardClick = onSleepCardClick,
-        )
-    }
+    HomeBoard(
+        state = uiState,
+        sleepAnalysis = sleepAnalysis,
+        onNavigateToTracker = onNavigateToTracker,
+        onRefreshSleep = onRefreshSleep,
+        onSleepCardClick = onSleepCardClick,
+    )
 }
 
+/**
+ * Inicio sin ViewModel, para poder componerlo en un test con un estado cualquiera.
+ *
+ * El resumen de anoche va fuera del `when`: no lo carga esta pantalla, llega ya calculado desde el
+ * pilar de sueño. Que el resto de Inicio esté esperando no es razón para esconderlo.
+ */
 @Composable
-private fun LoadingContent() {
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-    }
-}
-
-@Composable
-private fun ErrorContent(message: String) {
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
-        Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
-private fun HomeContent(
-    content: HomeContent,
+internal fun HomeBoard(
+    state: HomeUiState,
     sleepAnalysis: SleepAnalysis?,
-    onNavigateToMovement: () -> Unit,
     onNavigateToTracker: () -> Unit,
     onRefreshSleep: (() -> Unit)?,
     onSleepCardClick: (() -> Unit)?,
@@ -125,53 +121,76 @@ private fun HomeContent(
             item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
         }
 
-        item { PillarsOverviewSection(content.pillars, onNavigateToTracker) }
-        item {
-            HazloChampionsSection(
-                champions = content.champions,
-                accentColor = MaterialTheme.colorScheme.primary,
+        when (state) {
+            HomeUiState.Loading -> {
+                homePillarsSkeleton()
+                pillarHighlightsSkeleton()
+                homeFeedSkeleton()
+            }
+
+            HomeUiState.Failed -> item {
+                Text(
+                    text = stringResource(Res.string.home_failed_message),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(HazloSpaces.md)
+                        .testTag(HomeTags.FAILED),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            is HomeUiState.Success -> homeSections(
+                content = state.content,
+                onNavigateToTracker = onNavigateToTracker,
             )
-        }
-        item {
-            Spacer(modifier = Modifier.height(HazloSpaces.lg))
-            SectionHeader(
-                title = "Feed de la Tribu",
-                modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
-                actionText = null,
-            )
-            Spacer(modifier = Modifier.height(HazloSpaces.sm))
-        }
-        items(content.feedPosts.size) { index ->
-            FeedPostCard(content.feedPosts[index])
         }
     }
 }
 
-@Composable
-private fun HeaderSection(title: String, subtitle: String) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.gutter),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
+private fun LazyListScope.homeSections(
+    content: HomeContent,
+    onNavigateToTracker: () -> Unit,
+) {
+    item {
+        PillarsOverviewSection(
+            pillars = content.pillars,
+            onNavigateToTracker = onNavigateToTracker,
+            modifier = Modifier.testTag(HomeTags.PILLARS),
         )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    }
+    item {
+        HazloChampionsSection(
+            champions = content.champions,
+            modifier = Modifier.testTag(HomeTags.CHAMPIONS),
+            accentColor = MaterialTheme.colorScheme.primary,
         )
+    }
+    item {
+        Spacer(modifier = Modifier.height(HazloSpaces.lg))
+        SectionHeader(
+            title = stringResource(Res.string.home_feed_title),
+            modifier = Modifier.padding(horizontal = HazloSpaces.gutter).testTag(HomeTags.FEED),
+            actionText = null,
+        )
+        Spacer(modifier = Modifier.height(HazloSpaces.sm))
+    }
+    items(content.feedPosts.size) { index ->
+        FeedPostCard(content.feedPosts[index])
     }
 }
 
 @Composable
-private fun PillarsOverviewSection(pillars: List<PillarOverview>, onNavigateToTracker: () -> Unit) {
+private fun PillarsOverviewSection(
+    pillars: List<PillarOverview>,
+    onNavigateToTracker: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val smallPillars = pillars.takeLast(2)
     val largePillars = pillars.dropLast(2)
 
-    Column(modifier = Modifier.padding(horizontal = HazloSpaces.gutter)) {
+    Column(modifier = modifier.padding(horizontal = HazloSpaces.gutter)) {
         for (pillar in largePillars) {
             LargePillarCard(pillar = pillar, onNavigateToTracker = onNavigateToTracker)
             Spacer(modifier = Modifier.height(HazloSpaces.sm))
@@ -327,12 +346,4 @@ private fun FeedPostCard(post: FeedPost) {
             }
         }
     }
-}
-
-@Composable
-private fun pillarIcon(type: PillarType): ImageVector = when (type) {
-    PillarType.SLEEP -> Icons.Filled.Bedtime
-    PillarType.MOVEMENT -> Icons.AutoMirrored.Filled.DirectionsRun
-    PillarType.NUTRITION -> Icons.Filled.Restaurant
-    PillarType.MIND -> Icons.Filled.SelfImprovement
 }

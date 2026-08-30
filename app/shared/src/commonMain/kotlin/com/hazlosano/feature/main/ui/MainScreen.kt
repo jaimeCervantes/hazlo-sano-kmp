@@ -49,6 +49,7 @@ import com.hazlosano.feature.movement.presentation.MovementDestination
 import com.hazlosano.feature.movement.presentation.MovementNavState
 import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
+import com.hazlosano.feature.pillar.ui.PillarInfoScreen
 import com.hazlosano.feature.movement.routes.ui.RouteDetailScreen
 import com.hazlosano.feature.movement.routes.ui.RoutesScreen
 import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
@@ -77,6 +78,9 @@ fun MainScreen(
 ) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
     var showSleepHistory by remember { mutableStateOf(false) }
+    // Qué pilar se está leyendo, o ninguno. Se guarda el pilar y no un booleano porque la pantalla
+    // es la misma para los cuatro: lo único que cambia es de cuál habla.
+    var pillarInfo by remember { mutableStateOf<PillarType?>(null) }
     val movementNav = remember { MovementNavState() }
 
     val navigateToSleepHistory: () -> Unit = {
@@ -133,6 +137,15 @@ fun MainScreen(
         }
 
         MovementDestination.Closed -> Unit
+    }
+
+    pillarInfo?.let { pillar ->
+        PillarInfoScreen(
+            pillar = pillar,
+            onBack = { pillarInfo = null },
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -199,6 +212,7 @@ fun MainScreen(
                             viewModel = sleepViewModel,
                             highlights = sleepHighlightsState,
                             catalogState = sleepCatalogState,
+                            onOpenInfo = { pillarInfo = PillarType.SLEEP },
                             onRetryCatalog = sleepCatalog::refresh,
                             onRefresh = onRefreshSleep,
                             onCardClick = navigateToSleepHistory,
@@ -207,9 +221,20 @@ fun MainScreen(
                     // Cada pestaña de pilar enseña su propio catálogo. Movimiento y Mente eran dos
                     // placeholders; el tracker se sigue alcanzando desde Inicio, que es donde
                     // estaba — esta pestaña es lo publicado del pilar, no la herramienta.
-                    BottomTab.Nutricion -> PillarCatalogScreen(pillar = PillarType.NUTRITION)
-                    BottomTab.Movimiento -> PillarCatalogScreen(pillar = PillarType.MOVEMENT)
-                    BottomTab.Mente -> PillarCatalogScreen(pillar = PillarType.MIND)
+                    BottomTab.Nutricion -> PillarCatalogScreen(
+                        pillar = PillarType.NUTRITION,
+                        onOpenInfo = { pillarInfo = PillarType.NUTRITION },
+                    )
+
+                    BottomTab.Movimiento -> PillarCatalogScreen(
+                        pillar = PillarType.MOVEMENT,
+                        onOpenInfo = { pillarInfo = PillarType.MOVEMENT },
+                    )
+
+                    BottomTab.Mente -> PillarCatalogScreen(
+                        pillar = PillarType.MIND,
+                        onOpenInfo = { pillarInfo = PillarType.MIND },
+                    )
                 }
             }
         }

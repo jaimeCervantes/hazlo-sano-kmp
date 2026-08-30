@@ -53,7 +53,7 @@ fun LazyListScope.pillarHighlightsSkeleton() {
     item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
     item {
         Column(modifier = Modifier.testTag(PillarBoardSkeletonTags.CHAMPIONS)) {
-            SectionTitleSkeleton(modifier = Modifier.padding(horizontal = HazloSpaces.gutter))
+            HazloSectionTitleSkeleton(modifier = Modifier.padding(horizontal = HazloSpaces.gutter))
             Spacer(modifier = Modifier.height(HazloSpaces.sm))
             CardRowSkeleton(cardWidth = CHAMPION_CARD_WIDTH, cardHeight = CHAMPION_CARD_HEIGHT)
         }
@@ -71,7 +71,7 @@ fun LazyListScope.pillarCatalogSkeleton() {
     item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
     item {
         Column(modifier = Modifier.testTag(PillarBoardSkeletonTags.CAROUSEL)) {
-            SectionTitleSkeleton(modifier = Modifier.padding(horizontal = HazloSpaces.gutter))
+            HazloSectionTitleSkeleton(modifier = Modifier.padding(horizontal = HazloSpaces.gutter))
             Spacer(modifier = Modifier.height(HazloSpaces.sm))
             CardRowSkeleton(cardWidth = CAROUSEL_CARD_WIDTH, cardHeight = PRODUCT_CARD_HEIGHT)
         }
@@ -84,7 +84,7 @@ fun LazyListScope.pillarCatalogSkeleton() {
                 .padding(horizontal = HazloSpaces.gutter)
                 .testTag(PillarBoardSkeletonTags.GRID),
         ) {
-            SectionTitleSkeleton()
+            HazloSectionTitleSkeleton()
             Spacer(modifier = Modifier.height(HazloSpaces.unit))
             HazloSkeleton(
                 modifier = Modifier.fillMaxWidth().height(SEARCH_FIELD_HEIGHT),
@@ -113,8 +113,12 @@ fun LazyListScope.pillarCatalogSkeleton() {
     }
 }
 
+/**
+ * El hueco de un encabezado de sección. Público porque lo usan también los huecos de Inicio: un
+ * título ausente se ve igual en cualquier pantalla.
+ */
 @Composable
-private fun SectionTitleSkeleton(modifier: Modifier = Modifier) {
+fun HazloSectionTitleSkeleton(modifier: Modifier = Modifier) {
     HazloSkeleton(
         modifier = modifier.width(SECTION_TITLE_WIDTH).height(SECTION_TITLE_HEIGHT),
         shape = RoundedCornerShape(HazloShapes.sm),

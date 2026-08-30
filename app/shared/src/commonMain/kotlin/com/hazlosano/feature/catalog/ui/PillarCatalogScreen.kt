@@ -34,6 +34,9 @@ import com.hazlosano.core.ui.components.cards.HazloProductCardImagePlaceholder
 import com.hazlosano.core.ui.components.sections.HazloExploreProductsSection
 import com.hazlosano.core.ui.components.sections.pillarCatalogSkeleton
 import com.hazlosano.core.ui.components.sections.pillarSummarySkeleton
+import com.hazlosano.core.ui.model.pillarIcon
+import com.hazlosano.core.ui.model.pillarLabel
+import com.hazlosano.core.ui.model.toColor
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.util.formatClockTime
 import com.hazlosano.core.ui.util.formatDate
@@ -64,6 +67,7 @@ import hazlosano.app.shared.generated.resources.catalog_section_upcoming_events
 import hazlosano.app.shared.generated.resources.catalog_stale_notice
 import hazlosano.app.shared.generated.resources.catalog_unavailable_message
 import hazlosano.app.shared.generated.resources.catalog_unavailable_title
+import hazlosano.app.shared.generated.resources.pillar_info_open
 import hazlosano.app.shared.generated.resources.publication_duration_minutes
 import hazlosano.app.shared.generated.resources.publication_price_free
 import hazlosano.app.shared.generated.resources.section_products_title
@@ -89,6 +93,7 @@ object PillarCatalogTags {
 @Composable
 fun PillarCatalogScreen(
     pillar: PillarType,
+    onOpenInfo: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PillarCatalogViewModel = rememberPillarCatalogViewModel(pillar),
     highlightsViewModel: PillarHighlightsViewModel = rememberPillarHighlightsViewModel(pillar),
@@ -101,6 +106,7 @@ fun PillarCatalogScreen(
         state = state,
         highlights = highlights,
         onRetry = viewModel::refresh,
+        onOpenInfo = onOpenInfo,
         modifier = modifier,
     )
 }
@@ -122,9 +128,11 @@ fun PillarCatalogContent(
     state: PillarCatalogUiState,
     highlights: PillarHighlightsUiState,
     onRetry: () -> Unit,
+    /** Por defecto no lleva a ninguna parte para poder componer el tablero suelto en un test. */
+    onOpenInfo: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val accent = pillarColor(pillar)
+    val accent = pillar.toColor()
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -137,7 +145,12 @@ fun PillarCatalogContent(
             item { Spacer(modifier = Modifier.height(HazloSpaces.sm)) }
         }
 
-        pillarSummary(pillar = pillar, state = state, onRefresh = onRetry)
+        pillarSummary(
+            pillar = pillar,
+            state = state,
+            onRefresh = onRetry,
+            onOpenInfo = onOpenInfo,
+        )
 
         pillarHighlights(state = highlights, accent = accent)
 
@@ -159,6 +172,7 @@ private fun LazyListScope.pillarSummary(
     pillar: PillarType,
     state: PillarCatalogUiState,
     onRefresh: () -> Unit,
+    onOpenInfo: () -> Unit,
 ) {
     when (state) {
         PillarCatalogUiState.Loading -> pillarSummarySkeleton()
@@ -167,7 +181,7 @@ private fun LazyListScope.pillarSummary(
             PillarSummaryCard(
                 title = pillarLabel(pillar),
                 icon = pillarIcon(pillar),
-                accentColor = pillarColor(pillar),
+                accentColor = pillar.toColor(),
                 metrics = listOf(
                     PillarMetric(
                         value = state.sections.total.toString(),
@@ -184,6 +198,8 @@ private fun LazyListScope.pillarSummary(
                 ),
                 refreshContentDescription = stringResource(Res.string.catalog_refresh),
                 onRefresh = onRefresh,
+                infoContentDescription = stringResource(Res.string.pillar_info_open),
+                onInfo = onOpenInfo,
                 modifier = Modifier
                     .padding(horizontal = HazloSpaces.gutter)
                     .testTag(PillarCatalogTags.SUMMARY),
@@ -208,7 +224,7 @@ fun LazyListScope.pillarCatalogSections(
     pillar: PillarType,
     sections: CatalogSections,
 ) {
-    val accent = pillarColor(pillar)
+    val accent = pillar.toColor()
 
     // Cada carrusel se dibuja solo si tiene algo. Un encabezado sobre una fila vacía es peor
     // que la ausencia de la sección: promete contenido que no llega.

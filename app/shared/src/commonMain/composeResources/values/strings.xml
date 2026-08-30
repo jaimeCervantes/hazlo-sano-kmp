@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Inicio -->
+    <string name="home_feed_title">Feed de la Tribu</string>
+    <string name="home_failed_message">No se pudo cargar tu inicio. Vuelve a intentarlo en un momento.</string>
+    <string name="sleep_failed_message">No se pudo leer tu descanso de anoche.</string>
+
     <!-- Sleep summary card -->
     <string name="sleep_summary_title">Última noche</string>
     <string name="sleep_duration_label">Dormido</string>
@@ -75,6 +80,31 @@
     <string name="pillar_nutrition">Alimentación</string>
     <string name="pillar_movement">Movimiento</string>
     <string name="pillar_mind">Mente y Espíritu</string>
+
+    <!-- Qué es cada pilar. El texto viene de hazlosano.com/pilares y vive aquí, y no en `core`,
+         porque es copia de cara al usuario: en el catálogo de recursos es lo único traducible. -->
+    <string name="pillar_info_open">Qué es este pilar</string>
+    <string name="pillar_info_practice_label">La práctica</string>
+
+    <string name="pillar_info_sleep_title">Sueño y Descanso</string>
+    <string name="pillar_info_sleep_tagline">Volver a dormir al ritmo de la luz, no al de las pantallas.</string>
+    <string name="pillar_info_sleep_body">El descanso es la base fisiológica de la atención, la memoria, la estabilidad emocional, el metabolismo, la inmunidad y la salud del corazón. Dormir bien es el primer paso para que el cuerpo y la mente se reparen.</string>
+    <string name="pillar_info_sleep_practice">Del atardecer al amanecer</string>
+
+    <string name="pillar_info_nutrition_title">Alimentación natural, nutritiva y local</string>
+    <string name="pillar_info_nutrition_tagline">Reconectando con el origen, la temporada y quien la cultiva.</string>
+    <string name="pillar_info_nutrition_body">Comida real, poco procesada, variada, de temporada y de cerca. Este pilar acerca a quien cultiva y a quien come, para que comer sano sea la opción más fácil.</string>
+    <string name="pillar_info_nutrition_practice">Cena real, local y al atardecer</string>
+
+    <string name="pillar_info_movement_title">Movimiento natural, local y comunitario</string>
+    <string name="pillar_info_movement_tagline">Recuperar el cuerpo en la calle, el sendero y la cancha del barrio.</string>
+    <string name="pillar_info_movement_body">Moverse no es sólo el gimnasio: es caminar, pedalear, jugar, sembrar o entrenar en un estudio del barrio. La idea es devolver la actividad física a la vida diaria y al entorno cercano.</string>
+    <string name="pillar_info_movement_practice">Movimiento vivo, local y funcional</string>
+
+    <string name="pillar_info_mind_title">Mente, espíritu y comunidad cercana</string>
+    <string name="pillar_info_mind_tagline">Recuperar el silencio, la presencia y la gente que vive cerca.</string>
+    <string name="pillar_info_mind_body">El cuidado emocional, la claridad mental y el vínculo con quien vive cerca, con un propósito que sostiene. Las relaciones sanas y el sentido de pertenencia refuerzan a los otros tres pilares.</string>
+    <string name="pillar_info_mind_practice">Presencia, paz y conexión local</string>
 
     <!-- Catalogue -->
     <!-- Los argumentos van posicionales (%1$s, %1$d): compose-resources no sustituye un %s ni un

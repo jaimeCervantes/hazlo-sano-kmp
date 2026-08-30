@@ -46,14 +46,12 @@ class SleepViewModel(
 
     private fun loadData() {
         viewModelScope.launch {
-            try {
-                val (from, to) = analysisWindow()
-                _uiState.value = SleepUiState.Success(
-                    sleepAnalysis = getSleepAnalysisUseCase(from, to),
+            val (from, to) = analysisWindow()
+            _uiState.value = runCatching { getSleepAnalysisUseCase(from, to) }
+                .fold(
+                    onSuccess = { SleepUiState.Success(sleepAnalysis = it) },
+                    onFailure = { SleepUiState.Failed },
                 )
-            } catch (e: Exception) {
-                _uiState.value = SleepUiState.Error(e.message ?: "Unknown error")
-            }
         }
     }
 

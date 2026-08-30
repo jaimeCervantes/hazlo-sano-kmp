@@ -14,6 +14,7 @@ import com.hazlosano.feature.catalog.presentation.PillarCatalogUiState
 import com.hazlosano.feature.catalog.presentation.catalogSections
 import com.hazlosano.feature.catalog.ui.PillarCatalogTags
 import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
+import com.hazlosano.feature.sleep.presentation.SleepUiState
 import kotlin.test.Test
 
 /**
@@ -59,7 +60,7 @@ class SleepScreenCatalogTest {
     fun `the sleep pillar shows the catalogue read from the site`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                sleepAnalysis = null,
+                state = SleepUiState.Success(sleepAnalysis = null),
                 highlights = highlights,
                 catalogState = ready(listOf(product("p1", "Antifaz de seda"))),
                 onRetryCatalog = {},
@@ -76,7 +77,7 @@ class SleepScreenCatalogTest {
     fun `a cached catalogue says so inside the sleep board`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                sleepAnalysis = null,
+                state = SleepUiState.Success(sleepAnalysis = null),
                 highlights = highlights,
                 catalogState = ready(listOf(product("p1", "Antifaz de seda")), fromCache = true),
                 onRetryCatalog = {},
@@ -92,7 +93,7 @@ class SleepScreenCatalogTest {
     fun `a catalogue that cannot be read does not blank the sleep dashboard`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                sleepAnalysis = null,
+                state = SleepUiState.Success(sleepAnalysis = null),
                 highlights = highlights,
                 catalogState = PillarCatalogUiState.Unavailable,
                 onRetryCatalog = {},
@@ -111,7 +112,7 @@ class SleepScreenCatalogTest {
     fun `no second hero card is drawn on top of the sleep summary`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                sleepAnalysis = null,
+                state = SleepUiState.Success(sleepAnalysis = null),
                 highlights = highlights,
                 catalogState = ready(listOf(product("p1", "Antifaz de seda"))),
                 onRetryCatalog = {},
