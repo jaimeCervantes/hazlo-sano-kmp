@@ -10,6 +10,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.hazlosano.data.currentEpochMilliseconds
 import com.hazlosano.domain.feature.movement.model.RecordingState
+import com.hazlosano.domain.feature.movement.model.goneNowhereMinutes
 import com.hazlosano.domain.feature.movement.usecase.SaveSessionUseCase
 import com.hazlosano.domain.time.TimeProvider
 import kotlinx.coroutines.CoroutineScope
@@ -144,6 +145,15 @@ class MovementRecordingService : Service() {
     }
 }
 
+/**
+ * What the persistent notification says. This is the one place a forgotten recording is still
+ * visible — the phone is in a pocket and the app is not on screen — so a recording that has gone
+ * nowhere for a while says so here rather than only in the tracker.
+ *
+ * The text is hardcoded like the rest of this file, which predates the rule that user-visible copy
+ * comes from the resource catalogue; the service is not a Composable and cannot read it the same
+ * way. It is on the i18n debt with the rest of the screen.
+ */
 private fun RecordingState.summary(): String {
     val minutes = elapsedSeconds / 60
     val seconds = elapsedSeconds % 60
@@ -152,5 +162,8 @@ private fun RecordingState.summary(): String {
     } else {
         "${(distanceMeters / 100).roundToInt() / 10.0} km"
     }
-    return "$distance · $minutes:${seconds.toString().padStart(2, '0')}"
+    val progress = "$distance · $minutes:${seconds.toString().padStart(2, '0')}"
+    return goneNowhereMinutes()
+        ?.let { "$progress · $it min sin moverte" }
+        ?: progress
 }

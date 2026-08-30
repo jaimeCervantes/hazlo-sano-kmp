@@ -126,6 +126,39 @@ class SessionRecordingTest {
     }
 
     @Test
+    fun savesTheOutingRatherThanTheWaitThatFollowedIt() = runTest {
+        val locations = MutableSharedFlow<UserLocation>(replay = 8)
+        val startedAt = 1_784_877_300_000L
+        val clock = FakeClock(nowMillis = startedAt)
+        val repository = RecordingMovementSessionRepository()
+        val recording = buildRecording(locations, clock, repository)
+
+        recording.start()
+        runCurrent()
+        (0..4).forEach { index ->
+            locations.emit(
+                locationAt(northMeters = index * 30.0, atMillis = startedAt + index * 20_000L),
+            )
+        }
+        // Then the phone stays where it is while the receiver keeps reporting: this is the shape of
+        // a recording someone forgot to stop, and the readings are what tell it from lost signal.
+        (2..7).forEach { minute ->
+            locations.emit(locationAt(northMeters = 120.0, atMillis = startedAt + minute * 100_000L))
+        }
+        runCurrent()
+        // Half an hour later somebody notices.
+        clock.nowMillis = startedAt + 2_000_000L
+        recording.stop()
+        advanceUntilIdle()
+
+        val saved = assertNotNull(repository.savedSession)
+        assertTrue(
+            saved.elapsedTime < 600,
+            "the wait was saved as part of the outing: ${saved.elapsedTime} s of 2000",
+        )
+    }
+
+    @Test
     fun persistsWhatWasRecordedWhenItStops() = runTest {
         val locations = MutableSharedFlow<UserLocation>(replay = 3)
         val repository = RecordingMovementSessionRepository()

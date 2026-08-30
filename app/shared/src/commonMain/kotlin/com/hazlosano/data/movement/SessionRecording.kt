@@ -7,6 +7,7 @@ import com.hazlosano.domain.feature.movement.filter.LocationFilter
 import com.hazlosano.domain.feature.movement.filter.LocationFilterResult
 import com.hazlosano.domain.feature.movement.model.RecordingState
 import com.hazlosano.domain.feature.movement.model.elapsedAt
+import com.hazlosano.domain.feature.movement.model.observed
 import com.hazlosano.domain.feature.movement.model.recorded
 import com.hazlosano.domain.feature.movement.model.started
 import com.hazlosano.domain.feature.movement.model.stopped
@@ -75,6 +76,10 @@ class SessionRecording(
         filter = LocationFilter()
         locationJob = scope.launch {
             locationRepository.getLocationUpdates().collect { location ->
+                // Noted whatever becomes of it: a reading the filter turns away is still the
+                // receiver reporting, and the difference between that and silence is what tells a
+                // phone left on a table from a phone that lost its signal.
+                _state.value = _state.value.observed(location.timestamp)
                 val outcome = filter.accepting(location)
                 filter = outcome.filter
                 // Written raw, and only once the filter has settled the verdict: a departure is

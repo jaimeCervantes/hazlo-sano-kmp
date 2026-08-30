@@ -3,6 +3,7 @@ package com.hazlosano.domain.feature.movement.model
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RecordingStateTest {
@@ -78,8 +79,66 @@ class RecordingStateTest {
         assertEquals(0, RecordingState().elapsedAt(START).elapsedSeconds)
     }
 
-    private fun location(latitude: Double, longitude: Double): UserLocation =
-        UserLocation(latitude = latitude, longitude = longitude)
+    @Test
+    fun `reports how long the receiver has kept reporting without the path growing`() {
+        val state = recordingThatMovedThenSatStill(untilMillis = START + 400_000)
+
+        assertEquals(390, state.secondsWithoutMoving)
+        assertEquals(6, state.goneNowhereMinutes())
+    }
+
+    @Test
+    fun `a receiver that went quiet reports nothing because silence is not stillness`() {
+        // The last thing this recording heard was its own last point: a tunnel, a killed provider,
+        // a phone that stopped being told anything. Nothing here says the user stopped walking.
+        val state = RecordingState()
+            .started(START)
+            .recorded(location(19.4300, -99.1300, atMillis = START + 10_000))
+
+        assertNull(state.secondsWithoutMoving)
+        assertNull(state.goneNowhereMinutes())
+    }
+
+    @Test
+    fun `a pause too short to be a forgotten recording says nothing`() {
+        val state = recordingThatMovedThenSatStill(untilMillis = START + 130_000)
+
+        assertEquals(120, state.secondsWithoutMoving)
+        assertNull(state.goneNowhereMinutes())
+    }
+
+    @Test
+    fun `stopping a recording that had gone nowhere ends it where it last moved`() {
+        val state = recordingThatMovedThenSatStill(untilMillis = START + 1_900_000)
+            .stopped(START + 2_010_000) // half an hour later, when someone noticed
+
+        assertEquals(10, state.elapsedSeconds)
+        // What was recorded is still there: the outing is trimmed, not thrown away.
+        assertEquals(1, state.traveledPoints.size)
+    }
+
+    @Test
+    fun `stopping a recording that lost its signal keeps its whole duration`() {
+        val state = RecordingState()
+            .started(START)
+            .recorded(location(19.4300, -99.1300, atMillis = START + 10_000))
+            .stopped(START + 2_010_000)
+
+        assertEquals(2_010, state.elapsedSeconds)
+    }
+
+    /** Moved once, then kept getting readings that went nowhere until [untilMillis]. */
+    private fun recordingThatMovedThenSatStill(untilMillis: Long): RecordingState =
+        RecordingState()
+            .started(START)
+            .recorded(location(19.4300, -99.1300, atMillis = START + 10_000))
+            .observed(untilMillis)
+
+    private fun location(
+        latitude: Double,
+        longitude: Double,
+        atMillis: Long = 0L,
+    ): UserLocation = UserLocation(latitude = latitude, longitude = longitude, timestamp = atMillis)
 }
 
 private const val START = 1_784_877_300_000L

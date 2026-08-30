@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSpaces
+import com.hazlosano.domain.feature.movement.model.goneNowhereMinutes
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.tracker.presentation.TrackerDistance
 import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewModel
@@ -36,6 +37,7 @@ import com.hazlosano.feature.movement.ui.MovementMap
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.tracker_distance_confirming
 import hazlosano.app.shared.generated.resources.tracker_distance_waiting_for_fix
+import hazlosano.app.shared.generated.resources.tracker_gone_nowhere
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
@@ -84,6 +86,12 @@ fun TrackerScreen(
                 elapsedSeconds = recording.elapsedSeconds,
                 modifier = Modifier.align(Alignment.TopStart).padding(HazloSpaces.gutter),
             )
+            recording.goneNowhereMinutes()?.let { minutes ->
+                GoneNowhereNotice(
+                    minutes = minutes,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(HazloSpaces.gutter),
+                )
+            }
         }
 
         savedSession?.let { saved ->
@@ -132,6 +140,29 @@ private fun TraceCaptureToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
             )
         }
         Switch(checked = enabled, onCheckedChange = onChange)
+    }
+}
+
+/**
+ * Said out loud because the recording that produced this rule ran for half an hour on a table while
+ * its owner had moved on to something else. The app cannot know whether that is a mistake, so it
+ * reports what it sees and leaves the stop button where it was.
+ */
+@Composable
+private fun GoneNowhereNotice(minutes: Long, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.95f),
+        tonalElevation = 3.dp,
+    ) {
+        Text(
+            text = stringResource(Res.string.tracker_gone_nowhere, minutes),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = HazloSpaces.md, vertical = HazloSpaces.sm),
+        )
     }
 }
 

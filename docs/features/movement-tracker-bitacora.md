@@ -978,3 +978,47 @@ El plan que esta bitácora dejaba escrito —"si la precisión vertical se dispa
 **Recap:** El minuto que el filtro necesita para no inventarse kilómetros deja de parecer una app rota: mientras no hay fix la pantalla dice que busca señal, mientras el recorrido es solo el punto de partida dice que confirma, y en cuanto hay distancia medida la enseña. El mapa y el cronómetro seguían yendo en vivo desde el principio; lo único que faltaba era que el número dijera la verdad sobre sí mismo.
 
 **Próximos pasos (opciones):** (1) la otra mitad del `@slice-2`, el aviso de llevar mucho parado; (2) la puerta de innovación en el Kalman; (3) B4, la altitud rancia; (4) instalar y salir a medir una ruta conocida.
+
+---
+
+## Slice 16 (B3, `@slice-2` completo) — El silencio no es quietud
+
+- **Objetivo:** que una grabación olvidada se note mientras pasa, y que no se guarde como si la espera fuera parte de la salida. Spec: los cuatro escenarios `@slice-2` de [`movement_drifting_signal.feature`](../../features/movement_drifting_signal.feature).
+- **De dónde sale:** de la salida real de la segunda calibración. El usuario se bajó de la bici, entró en casa y la grabación siguió media hora. Con el slice 14 esa media hora ya no inventa kilómetros, pero la sesión seguía guardándose como **33 minutos** para 645 m — un ritmo de 55 min/km que no describe nada.
+
+- **La decisión que sostiene todo el slice: el silencio no es quietud.**
+  - Una grabación en un túnel y una grabación encima de una mesa se parecen en lo único que el modelo miraba: **el recorrido deja de crecer**. Y son cosas opuestas — en una el usuario puede estar pedaleando.
+  - Lo que las separa es si el **receptor sigue hablando**. Así que `RecordingState` gana `lastReadingAtMillis`, que anota **toda** lectura entregada, la acepte el filtro o no, y la quietud se mide como la distancia entre esa marca y el último punto del recorrido.
+  - El efecto bonito de medirlo así: si el receptor se calla, la cifra **se congela** en vez de envejecer. Un teléfono sin señal nunca acumula "diez minutos sin moverte", porque nadie ha visto que no se moviera.
+
+- **Decisiones + porqué:**
+  - **El umbral es 5 minutos**, lo bastante largo para que no lo dispare un semáforo, una tienda ni una foto, y lo bastante corto para pillar una grabación olvidada con la salida todavía fresca. La que produjo la regla llevaba 31 minutos.
+  - **Se avisa en los dos sitios, y el segundo es el que importa.** En el tracker sale una tarjeta ("Llevas 6 min sin moverte. ¿Sigues grabando?"), pero **cuando esto pasa de verdad el teléfono está en un bolsillo y la app no está en pantalla**: por eso el aviso va también en la notificación persistente del servicio en primer plano, que es lo único visible en ese momento.
+  - **No se detiene sola.** La app no sabe si estás parado en un mirador o si te olvidaste; informa y deja el botón de Detener donde estaba. Detener por su cuenta convertiría un falso positivo en pérdida de datos.
+  - **Al guardar, la sesión termina donde se movió por última vez** — pero solo si la quietud fue *presenciada*. Es la misma distinción de arriba: una sesión que perdió la señal conserva su duración entera, porque recortarla sería afirmar algo que la app no vio. Con esto, la salida de la segunda calibración pasa de 33 min a los ~9 que el filtro llegó a registrar, y su ritmo deja de ser una cifra absurda.
+  - **Se recorta la duración, no lo grabado.** Los puntos siguen todos ahí; lo que cambia es hasta cuándo dice la sesión que duró.
+  - **Los textos de la pantalla van a `strings.xml`**; el de la notificación se queda en duro **como el resto de ese archivo**, que es anterior a la regla de i18n y no es un `@Composable` (no puede leer el catálogo igual). Anotado en la deuda, no mezclado aquí.
+
+- **Archivos tocados:**
+  - core/commonMain: `model/RecordingState.kt` (`lastReadingAtMillis`, `observed`, `secondsWithoutMoving`, `goneNowhereMinutes`, y el recorte en `stopped`)
+  - core/commonTest: `model/RecordingStateTest.kt` (+5)
+  - shared/commonMain: `data/movement/SessionRecording.kt` (anota cada lectura), `feature/movement/tracker/ui/TrackerScreen.kt` (la tarjeta), `composeResources/values/strings.xml`
+  - shared/androidMain: `data/movement/MovementRecordingService.kt` (la notificación lo dice)
+  - shared/commonTest: `data/movement/SessionRecordingTest.kt` (+1)
+  - features: `movement_drifting_signal.feature` (los cuatro escenarios `@slice-2` detallados y sin `@future`)
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+- **Resultados:** `:core` **104 tests, 0 fallos** (antes 99). `:app:shared:jvmTest` **203 tests, 0 fallos** (antes 202). `:core:check`, `assembleDebug`, desktop y web BUILD SUCCESSFUL.
+
+- **Desviación de proceso, que vale más que el arreglo:** un test nuevo se llamaba `a receiver that went quiet reports nothing, because silence is not stillness` y **`:core:jvmTest` pasó en verde**. `:core:check` lo tumbó: `Name contains illegal characters: ","` — Kotlin/Native no admite comas en nombres entre backticks. Es **exactamente** el fallo que el slice 13 dejó anotado, y volvió a colarse por el mismo camino: correr solo los comandos rápidos de JVM. Sigue siendo cierto que cada comando de validación ve algo que los otros no.
+
+- **Sin cobertura de host:** la notificación es código Android y no se prueba en JVM; lo probado es la regla (`goneNowhereMinutes`) y el recorte al guardar. **Comprobación manual:** grabar, dejar el teléfono quieto cinco minutos y ver que la notificación pasa a decir "· 5 min sin moverte" y que la tarjeta sale en el tracker; luego detener y comprobar en el historial que la sesión dura lo que duró la salida, no lo que duró el olvido.
+
+- **Seguimientos:**
+  - Una sesión que **nunca** se mueve no tiene último punto que valga, así que ni avisa ni se recorta: se queda en "Confirmando…". Es honesto, pero el aviso de "no has ido a ninguna parte" no la cubre porque no hay recorrido del que medir la distancia. Cubrirla es medir desde el inicio de la grabación en vez de desde el último punto.
+  - El recorte usa la marca de tiempo del GPS contra el reloj del sistema. Son ambos epoch UTC, pero si un receptor entregara marcas muy desviadas la duración saldría rara; `elapsedAt` la acota a cero como mínimo.
+  - Sigue pendiente la puerta de innovación en el Kalman: los ~165 m de fantasma que quedan son también los que empujan el final de la salida de T4 de ~170 s a ~555 s.
+
+**Recap:** Una grabación olvidada ahora se nota mientras pasa —en el tracker y, sobre todo, en la notificación, que es lo que se ve con el teléfono en el bolsillo— y deja de guardarse como si la espera fuera parte de la salida: la sesión termina donde se movió por última vez. Todo ello apoyado en una distinción que el modelo no hacía y que es la que evita mentir en el otro sentido: quedarse sin señal no es quedarse quieto, así que una sesión que perdió el GPS conserva su duración entera y nunca se le dice al usuario que no se ha movido cuando nadie ha podido verlo.
+
+**Próximos pasos (opciones):** (1) la puerta de innovación en el Kalman, que cierra los ~165 m que quedan; (2) B4, la altitud rancia; (3) instalar y salir: medir una ruta conocida y comprobar los avisos en el teléfono; (4) C2, la ruta en el mapa.

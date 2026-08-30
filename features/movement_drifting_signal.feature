@@ -117,14 +117,30 @@ Feature: A phone that is not moving records no distance
       | that has got somewhere                         | the distance travelled   |
       | that is not running                            | the zero it always shows |
 
-  @slice-2 @future
+  @slice-2
   Scenario: A recording that has gone nowhere for a long time says so
     Given I am recording a session
-    When I have not travelled anywhere for a long time
-    Then the app tells me the recording is still running
+    When the receiver has kept reporting for five minutes without the path growing
+    Then the tracker tells me how long I have not been moving
+    And the notification says it too, because that is where a forgotten recording is visible
 
-  @slice-2 @future
+  @slice-2
+  Scenario: Losing the signal is not the same as not moving
+    Given I am recording a session
+    When the receiver stops reporting altogether
+    Then the app does not tell me I have stopped moving
+    And the time without a signal does not age into a claim about me
+
+  @slice-2
   Scenario: Saving a session that ended long before it was stopped
-    Given a recording that stopped travelling long before I pressed stop
-    When I save it
-    Then what is saved is the outing rather than the wait that followed it
+    Given a recording that kept reporting from the same place for half an hour
+    When I finally press stop
+    Then the session that is saved ends where it last moved
+    And what was recorded is still all there
+
+  @slice-2
+  Scenario: A session that lost its signal keeps its whole duration
+    Given a recording whose receiver went quiet before I pressed stop
+    When I press stop
+    Then the session keeps every second of it
+    And nothing is trimmed on evidence the app never had

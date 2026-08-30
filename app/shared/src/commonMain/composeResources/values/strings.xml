@@ -107,4 +107,5 @@
     <!-- Movement tracker -->
     <string name="tracker_distance_waiting_for_fix">Buscando señal</string>
     <string name="tracker_distance_confirming">Confirmando…</string>
+    <string name="tracker_gone_nowhere">Llevas %1$d min sin moverte. ¿Sigues grabando?</string>
 </resources>
