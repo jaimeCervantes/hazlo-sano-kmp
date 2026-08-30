@@ -105,6 +105,13 @@ Feature: A phone that is not moving records no distance
     And the previous synthetic noise no longer stands in for a signal that behaves nothing like it
 
   @slice-2 @future
+  Scenario: The recording says it is confirming rather than showing a zero
+    Given I have just started recording and I am walking
+    When the first distance has not been confirmed yet
+    Then the screen says what it is waiting for
+    And it does not show a distance of zero as if I had not moved
+
+  @slice-2 @future
   Scenario: A recording that has gone nowhere for a long time says so
     Given I am recording a session
     When I have not travelled anywhere for a long time

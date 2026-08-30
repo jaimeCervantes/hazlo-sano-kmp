@@ -39,10 +39,11 @@ class DriftingSignalTest {
     @Test
     fun anExcursionThatComesBackIsNotAJourney() {
         val still = trace(readings = 40, metersPerReading = 0.0, accuracyMeters = 6f, noiseMeters = 3.0)
-        // Sixty metres away at ten metres a second: fast, but not fast enough to be an impossible
-        // jump, which is exactly what makes it dangerous.
+        // Forty metres away six seconds later: further than the noise floor and within what
+        // someone could have covered, so nothing but the wait can tell it from a departure. That
+        // is exactly what makes this kind dangerous.
         val excursion = locationAt(
-            northMeters = 60.0,
+            northMeters = 40.0,
             accuracyMeters = 6f,
             atMillis = still[19].timestamp + 6_000L,
         )

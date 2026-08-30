@@ -78,7 +78,7 @@ class SessionRecording(
                 val outcome = filter.accepting(location)
                 filter = outcome.filter
                 // Written raw, and only once the filter has settled the verdict: a departure is
-                // judged a minute after it starts, so writing what a reading looked like on arrival
+                // judged well after it starts, so writing what a reading looked like on arrival
                 // would report readings as unconfirmed that ended up in the path. The rejected half
                 // is what a saved session cannot tell you about, and what makes the trace
                 // replayable against a different threshold.

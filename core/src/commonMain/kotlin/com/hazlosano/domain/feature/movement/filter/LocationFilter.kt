@@ -70,19 +70,19 @@ sealed interface LocationFilterResult {
  * **What a reading claims about itself is not evidence.** Measured in the field: a phone parked
  * indoors for half an hour delivered fixes claiming ±3 m from 170 m away, sat there for a minute and
  * came back, and the app would have recorded 2832 m from a table. So a departure from the path is
- * not distance until it holds up — the filter asks where the receiver **has been** over the last
- * minute, against where it **had been** the minute before, each taken as a middle reading so that
- * one excursion cannot answer for a whole minute. Until that can be answered the reading is held,
- * not thrown away, and confirming releases everything held, so the length of the path survives the
- * wait. Once travel is established each reading is released as it arrives and the distance is live;
- * only the first minute, and the minute after each stop, arrive together.
+ * not distance until it holds up — the filter asks where the receiver **has been** over the recent
+ * half of its window against where it **had been** over the half before, each taken as a middle
+ * reading so that one excursion cannot answer for the whole of it. Until that can be answered the
+ * reading is held, not thrown away, and confirming releases everything held, so the length of the
+ * path survives the wait. Once travel is established each reading is released as it arrives and the
+ * distance is live; only the first minute, and the minute after each stop, arrive together.
  */
 class LocationFilter private constructor(
     private val smoother: KalmanFilter,
     /** The last point released into the path; null until the first reading arrives. */
     private val anchor: UserLocation?,
     /**
-     * The last minute of smoothed positions, released or not: the memory that answers where the
+     * The last window of smoothed positions, released or not: the memory that answers where the
      * receiver has been, which is the only evidence that tells travel from a wandering signal.
      */
     private val trail: List<UserLocation>,
@@ -164,8 +164,8 @@ class LocationFilter private constructor(
                     // The wait starts again only if the receiver has actually been *around* the
                     // anchor lately, not because one reading landed back inside the floor. At the
                     // three-metre floor of a clean signal a walker produces those constantly, and
-                    // restarting on each of them left a real walk unable to earn its first minute
-                    // until two had gone by.
+                    // restarting on each of them left a real walk unable to earn its first window
+                    // until several had gone by.
                     departedAtMillis = departedAtMillis.takeUnless {
                         remembered.hasBeenAround(anchored, location.timestamp)
                     },
@@ -182,7 +182,7 @@ class LocationFilter private constructor(
 
         if (travellingUntilMillis != null && location.timestamp <= travellingUntilMillis) {
             // Travel already established and still running: the path grows as the readings arrive,
-            // which is what keeps the distance live instead of arriving in one-minute steps.
+            // which is what keeps the distance live instead of arriving one window at a time.
             return releasing(
                 smoother = smoothing.filter,
                 trail = remembered,
@@ -211,10 +211,10 @@ class LocationFilter private constructor(
 
         val progress = remembered.progressOverTheWindow(location.timestamp)
         if (progress != null && progress.wentSomewhere) {
-            // A whole minute away from the path, and the receiver has genuinely been getting
+            // A whole window away from the path, and the receiver has genuinely been getting
             // somewhere over it: this is travel, and what was held on the way belongs to it —
             // except anything older than the window itself. Those readings sat through a whole
-            // minute that never confirmed them, which is what happens when the receiver goes quiet
+            // window that never confirmed them, which is what happens when the receiver goes quiet
             // or starts reporting fixes too poor to use, and a position taken after that gap says
             // nothing about where it was before.
             val fresh = queue.filter { it.reading.timestamp >= location.timestamp - CONFIRMATION_WINDOW_MILLIS }
@@ -228,7 +228,7 @@ class LocationFilter private constructor(
             )
         }
 
-        // A minute out that got nowhere: a wander, not a journey. The next one is judged afresh.
+        // A window out that got nowhere: a wander, not a journey. The next is judged afresh.
         return LocationFilterResult.Discarded(
             filter = LocationFilter(
                 smoother = smoothing.filter,
@@ -246,7 +246,7 @@ class LocationFilter private constructor(
     /**
      * What becomes of a departure the recording will never get to confirm, because it is ending.
      *
-     * Judged with the window it has instead of the minute it will not get: waiting is not an option
+     * Judged with what it has instead of the window it will not get: waiting is not an option
      * and the alternative is silently losing however much travel happened after the last
      * confirmation — which, for someone who presses stop while still walking, is the end of their
      * outing.
@@ -313,7 +313,7 @@ class LocationFilter private constructor(
             trail = trail,
             waiting = emptyList(),
             // The departure stays open: the path has caught up with it, and someone who never comes
-            // back to the anchor should not have to earn another minute of patience.
+            // back to the anchor should not have to earn another window of patience.
             departedAtMillis = departedAtMillis,
             travellingUntilMillis = travellingUntilMillis,
         ),
@@ -367,7 +367,7 @@ class LocationFilter private constructor(
     }
 
     /**
-     * The trail with this position on the end, cut to the last minute plus the one entry just
+     * The trail with this position on the end, cut to the last window plus the one entry just
      * before it — that older entry is what says where the receiver was when the window opened, so
      * dropping it would throw away the comparison the filter exists to make.
      */
@@ -522,13 +522,14 @@ class LocationFilter private constructor(
         const val MAX_NOISE_FLOOR_METERS = 20.0
 
         /**
-         * How far back the filter looks to tell travel from a signal going in circles.
+         * How far back the filter looks to tell travel from a signal going in circles, and so also
+         * how long a recording waits before its first metre appears on screen.
          *
-         * This is the interval the field data separates by two orders of magnitude: over a minute
-         * the parked phone displaced 6 m from where it had been, while walking displaced 113 m and
-         * cycling 137 m. Shorter windows do not separate them — replaying the captured traces, a
-         * thirty-second window still let a phone parked for half an hour record 299 m of wander,
-         * and a forty-five-second one 470 m.
+         * **A minute is what the field traces support, and the wait was measured rather than
+         * assumed.** Replaying the four of them through this filter, the phone parked for half an
+         * hour records 165 m of wander over a minute-long window, 1433 m over twenty seconds and
+         * 1613 m over thirty, while the real walk and the real ride keep their distance at every
+         * value. Half the wait costs an order of magnitude of the lie, so the wait stays.
          *
          * It is a duration and not a distance on purpose: a minute asks a cyclist and a walker for
          * the same patience, while any number of metres would be a different demand for each.
