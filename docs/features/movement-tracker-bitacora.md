@@ -814,3 +814,139 @@ Además la traza 1 no fue una prueba válida de GPS parado: desde una habitació
 **Recap:** Las rutas dejan de ser tres archivos en `core` que nadie llamaba. Hay un lector y escritor de GPX en código común que abre lo que exporta un reloj o Strava e ignora lo que no entiende, dos tablas nuevas con su migración, y una pantalla desde la que se importa, se renombra, se exporta y se borra. Una salida del historial se guarda como ruta con el nombre que tú elijas, y sale en GPX como cualquier otra. Lo que **no** hay todavía es lo que convierte una ruta en algo que se sigue: verla en el mapa y saber si te estás saliendo.
 
 **Próximos pasos (opciones):** (1) C2 — la ruta en el mapa, que es el destino que falta en `MovementNavState`; (2) barrer el código muerto de `core` que este slice dejó al descubierto; (3) pagar la deuda de i18n de la pantalla de rutas antes de que crezca.
+
+---
+
+## Segunda calibración en campo — la pregunta del slice 12, respondida por una traza que delata algo peor
+
+Cuarta traza real, capturada el 2026-08-29 (`traces/trace-1788047034907.csv`, 33m 30s, 412 lecturas). Es la primera con la columna `verticalAccuracy` que instrumentó el slice 12, y **el receptor sí la reporta**: las 412 lecturas la traen.
+
+**Qué fue la salida (según el usuario):** un rato en bici y después dentro de una casa. **Se olvidó de detener la sesión** hasta que se dio cuenta, media hora más tarde. No es un caso de laboratorio: es lo que pasa de verdad, y por eso vale.
+
+**Fidelidad de la traza:** el replay reproduce **exactamente** los veredictos que el teléfono tomó en vivo (79 aceptadas de 412, mismos recuentos por motivo), así que lo que sigue es lo que la app habría grabado, no una aproximación. Las tres trazas de julio siguen dando los mismos números que en la primera calibración, o sea que el parser de 7 y 8 columnas no rompió nada.
+
+### La traza, frente a las tres de julio
+
+| | T1 · quieto interior | T2 · caminata/trote | T3 · bici | **T4 · bici + media hora quieto** |
+|---|---|---|---|---|
+| Duración | 3m 11s | 7m 37s | 5m 12s | **33m 30s** |
+| Lecturas | 25 | 214 | 139 | **412** |
+| Intervalo real (mediana) | 8,8 s | 2,0 s | 2,0 s | **5,9 s** |
+| Precisión horizontal (mediana) | 20,0 m | 3,1 m | 4,2 m | **19,2 m** (máx 361) |
+| Aceptadas | 1 | 170 | 102 | **79** |
+| Distancia grabada | 0 m | 899 m | 1190 m | **2 832 m** |
+| Desplazamiento neto | 0 m | 592 m | 590 m | **249 m** |
+
+### Hallazgo 1 — Con el teléfono encima de una mesa, la app habría grabado 2,8 km
+
+Del minuto 2 al 33, el desplazamiento neto desde el inicio se queda clavado entre **244 y 279 m** en todos los tramos de dos minutos: el teléfono estuvo en un punto fijo media hora. La bici fueron los dos primeros minutos (487 m de traza cruda, precisión 4,2 m, 14,6 km/h). **El 84 % del recorrido aceptado se acumula después de que la bici acabara**, y el tiempo en movimiento reportado sería de **391 s** para un teléfono parado.
+
+Por qué pasa el filtro, medido y no supuesto:
+
+- `MAX_NOISE_FLOOR_METERS = 20`: el suelo de ruido es la precisión declarada, con tope de 20 m. Los pasos aceptados después del minuto 2,5 miden **31 m de mediana a 3,02 m/s** — ritmo de trote.
+- **Y la precisión que declaran esos saltos es de 6,2 m de mediana.** El receptor afirma ±6 m mientras se coloca a 31 m de donde estaba hace seis segundos, sin moverse. La deriva alrededor del punto donde estuvo: mediana 7 m, p90 **57 m**, máximo **396 m**.
+- Un filtro cuyo único modelo de ruido es la precisión declarada **no tiene con qué defenderse**, porque el número en el que se apoya miente justo cuando importa. Los 12 fixes verdaderamente malos (>50 m, hasta 361) sí se rechazaron: la puerta de `POOR_ACCURACY` funciona. La que no existe es la que distingue deambular de viajar.
+- El bucle de realimentación lo empeora: `predictedDrift` mide velocidad aparente, la deriva parece 3 m/s, el Kalman **deja de suavizar** por creer que hay movimiento rápido, y el ruido pasa entero al recorrido.
+
+**El discriminante que sí separa los dos casos** (medido sobre las cuatro trazas, ventanas de 60 s, desplazamiento neto dentro de la ventana):
+
+| | T1 quieto | T2 caminata | T3 bici | T4 bici (0-170s) | T4 parado (>170s) |
+|---|---|---|---|---|---|
+| Neto por ventana (mediana) | 2 m | 113 m | 137 m | 114 m | **6 m** |
+| neto/recorrido (mediana) | 0,29 | 0,91 | 0,65 | 0,45 | **0,11** |
+
+Dos órdenes de magnitud de separación. **El movimiento real persiste en una dirección; el ruido se va y vuelve.** Las excursiones sueltas de hasta 396 m ensucian el máximo de la ventana pero no sobreviven a exigir que la posición **se quede** lejos.
+
+**Por qué ningún test lo cazó, otra vez por construcción:** `movement_location_smoothing.feature` tiene desde el slice 8 el escenario "Standing still does not add distance", y pasa. El ruido sintético de `GpsTraces` es pequeño, simétrico y **honesto sobre su propia precisión**. El real es asimétrico, excursiona a decenas de metros y se declara preciso mientras lo hace. Es el mismo patrón que el bug del truncamiento: la traza sintética hacía el fallo invisible. Van dos.
+
+### Hallazgo 2 — La precisión vertical se reporta, y no sirve para nada
+
+La pregunta abierta del slice 12 era: ¿avisa el sistema de que la altitud congelada es mala? **No.**
+
+- `verticalAccuracy` en las 412 lecturas: **mín 1,00 · mediana 1,80 · máx 3,64 m**. Solo 10 lecturas pasan de 3 m.
+- La altitud tiene **5 valores distintos en 412 lecturas** y se queda congelada en 206,3 durante **385 s seguidos** — con precisión vertical mediana de **1,67 m** en esa misma ventana y precisión horizontal de 19 m.
+- El sistema afirma ±1,7 m verticales sobre un número que lleva seis minutos sin moverse. No se dispara, no sigue a la horizontal, no marca nada.
+
+El plan que esta bitácora dejaba escrito —"si la precisión vertical se dispara en esas ventanas, descartarla es un día de trabajo"— **queda descartado**. Lo que queda es detectar la altitud rancia por repetición exacta (la señal es que el valor no cambia ni un centímetro entre lecturas, que ninguna medición real hace), o barómetro.
+
+**Efecto colateral del slice 12 que conviene ver:** al usar el dato real en vez del 2× horizontal, el umbral de acumulación de desnivel cae a **3,0 m, su suelo**, donde con la estimación anterior habría estado en 12 m, su techo. Sobre una señal cuantizada a cinco valores eso es acumular saltos de cuantización como desnivel. Aquí no hizo daño porque la altitud no se movió: el −10,8 m reportado es un único escalón 217,1 → 206,3 justo al acabar la bici, y **no se puede distinguir** de una bajada real de 11 m en 480 m de recorrido, que también es plausible. El slice 12 no fue en balde —capturó el dato que responde la pregunta— pero su suposición de que el dato serviría era optimista.
+
+### Lo que sigue sin saberse
+
+- **No hay distancia real medida** para la parte de bici, así que los ~480 m son la traza cruda, no una verdad contrastada. Sigue pendiente medir una ruta conocida.
+- **Sigue sin haber prueba de teléfono quieto a cielo abierto.** T1 fue en interior con fix de red y T4 fue en interior también: los dos casos "quietos" que tenemos son bajo techo. Lo que T4 añade es que quieto **bajo techo durante media hora** es un caso real que la app hoy falla, y el arreglo se puede calibrar sin salir.
+
+- **Comandos:** `.\gradlew.bat :app:shared:jvmTest --tests "*TraceReplayHarness" --tests "*TraceDiagnosticsHarness"` (BUILD SUCCESSFUL; los arneses solo reportan, la salida se lee en `app/shared/build/test-results/jvmTest/`).
+- **Archivos tocados:** ninguno de código. Esta entrada y `features/movement_drifting_signal.feature`, que encuadra el slice que sale de aquí.
+
+**Recap:** La segunda salida cierra la pregunta del slice 12 con un "no" —el receptor declara ±1,8 m verticales sobre una altitud congelada seis minutos— y destapa por el camino algo bastante peor que el desnivel: con el teléfono quieto encima de una mesa media hora, la app habría grabado **2 832 m y 391 s en movimiento**. El motivo no es un umbral mal puesto sino que el filtro se apoya entero en la precisión que declara cada lectura, y ese número miente exactamente cuando el receptor pierde cielo. El discriminante que sí funciona está medido: el desplazamiento neto por ventana de un minuto separa el caso quieto (6 m) del real (113-137 m) por dos órdenes de magnitud.
+
+**Próximos pasos (opciones):** (1) el slice de la distancia fantasma, encuadrado en [`movement_drifting_signal.feature`](../../features/movement_drifting_signal.feature); (2) la altitud rancia por repetición exacta, ahora que se sabe que la precisión vertical no la delata; (3) revisar el umbral de desnivel que el slice 12 dejó en su suelo de 3 m.
+
+---
+
+## Slice 14 (B3) — Un teléfono parado no inventa distancia
+
+- **Objetivo:** que el recorrido deje de crecer cuando el receptor deambula. Spec: [`movement_drifting_signal.feature`](../../features/movement_drifting_signal.feature) (9 escenarios en `@slice-1`, 2 en `@slice-2 @future`).
+
+- **El resultado, sobre las cuatro trazas de campo** (`TraceReplayHarness`, filtro real):
+
+  | Traza | Qué fue | Antes | Ahora |
+  |---|---|---|---|
+  | T1 | quieto en interior, 3 min | 0 m | **0 m** |
+  | T2 | caminata y trote, 7,6 min | 899 m | **884 m** (−1,7 %) |
+  | T3 | bici, 5,2 min | 1 190 m | **1 190 m** (0 %) |
+  | T4 | bici 2 min + 31 min parado | **2 832 m** | **645 m** |
+  | T4 | tiempo en movimiento | 391 s | **192 s** |
+
+  La bici de T4 mide ~480 m de traza cruda, así que la media hora parada aporta ahora ~165 m en vez de ~2 350. De 13 sueltas al recorrido en toda la sesión, 3 son la bici.
+
+- **La regla, y por qué acabó siendo esta.** Se probaron cuatro y se midieron todas contra las trazas antes de escribir el filtro; **tres se descartaron con datos**, y eso es la mitad del trabajo del slice:
+  - **Rectitud del tramo (neto/recorrido ≥ 0,6):** descartada. Mata recorridos reales — la bici de T4 tiene una rectitud de 0,45 a 60 s, así que el umbral la borraba entera (485 → 0 m). Una regla que puede no cumplirse nunca además **bloquea la grabación para siempre**.
+  - **Confirmar tras *k* lecturas seguidas:** descartada. Ni con k = 10 baja el fantasma (1 496 m): el receptor entrega ráfagas rápidas dentro de las excursiones, así que contar lecturas no mide tiempo.
+  - **Comparar la posición de ahora contra la de hace un minuto (dos puntos):** descartada. Un solo pico contamina cualquiera de los dos extremos; sobre T4 dejaba **2 260 m**.
+  - **La que quedó:** comparar **dónde ha estado** el receptor en la última media ventana contra dónde estuvo en la anterior, cada una tomada como su **lectura mediana**. Un pico no arrastra una mediana. Es la forma robusta del discriminante que la segunda calibración midió (6 m de desplazamiento neto por minuto parado, 113-137 m caminando o en bici).
+
+- **Decisiones + porqué:**
+  - **La ventana es un minuto, y es tiempo, no metros.** A 30 s el teléfono parado todavía grababa 299 m y a 45 s, 470 m. Un minuto le pide la misma paciencia a un ciclista que a un caminante; cualquier cifra en metros sería una exigencia distinta para cada uno, que es la regla que este pilar lleva desde el slice 8.
+  - **Retener no es descartar.** Una lectura que se aleja del recorrido se guarda; al confirmarse la salida se sueltan **todas**, así que la forma del recorrido y su longitud sobreviven a la espera. Sin esto, quedarse solo con el punto que confirma cuesta un 25 % de la distancia en bici (medido: recortar la traza a un punto cada 30 s deja T3 en 917 m de 1 224).
+  - **Y una vez establecido el viaje, se suelta lecturas según llegan.** Solo el primer minuto —y el minuto después de cada parada— llegan de golpe; el resto de la salida tiene la distancia en vivo. Sin esto la pantalla avanzaría a saltos de un minuto durante toda la salida.
+  - **Al soltar, el lote se adelgaza al suelo de ruido.** El suelo de ruido es la resolución del recorrido; retener no puede cambiarla. Soltar todas las lecturas retenidas infla la distancia un **14 %** en una caminata con señal gruesa, porque cada punto de más trae su propio error.
+  - **El salto imposible pasa a juzgarse como cinemática, no como velocidad.** El fallo real de T4 no era deriva: el receptor **se teletransporta** 170-400 m, se queda ahí un minuto declarando ±3 m de precisión, y vuelve. Por posición no se distingue de un viaje. Lo que lo delata es que **nadie pasa de estar quieto a 60 km/h entre dos lecturas**, así que lo alcanzable se calcula con `v·t + ½at²` a partir de lo que el receptor **venía haciendo** (leído de la traza, no supuesto: sigue sin haber selector de actividad). Un límite de velocidad multiplicado por el hueco deja pasar justo estos casos — 168 m en 9 s son 18 m/s, por debajo del tope de 40.
+  - **El umbral del juicio también es robusto.** Compararlo contra la precisión que declara *una* lectura era apoyarse en el número que el campo demostró mentiroso; se usa la **mediana** de las precisiones de la ventana. Durante la media hora parada el receptor soltaba fixes sueltos de 3 m mientras los demás decían 20.
+  - **Volver al ancla cancela la salida, pero una sola lectura no cuenta como volver.** Con una señal limpia el suelo de ruido es de 3 m y un caminante entra y sale de él constantemente; reiniciando la espera en cada una, T2 tardaba dos minutos en poder confirmar su primer minuto y perdía 88 m. Se reinicia solo si el receptor **ha estado** alrededor del ancla (otra vez la mediana), no si una lectura lo roza.
+  - **La cola de veredictos va en orden de llegada, y esto es un bug que el test cazó.** Una lectura rechazada por precisión o por salto se resolvía al instante mientras otras anteriores seguían retenidas, así que la traza se escribía **fuera de orden** — y una traza fuera de orden **ya no reproduce la sesión de la que salió**, que es lo único para lo que existe. Ahora toda lectura sin veredicto espera su turno en una cola ordenada (`Waiting.Candidate` / `Waiting.TurnedAway`), y `LocationFilterResult.settled` entrega los que ya son definitivos. `TraceReplayTest` lo destapó solo.
+  - **Al detener se juzga con lo que haya.** Quien pulsa detener mientras camina perdería el final de su salida; `closing()` aplica el mismo juicio con la ventana que tenga en vez de esperar un minuto que no va a llegar.
+  - **Una salida retenida más de una ventana es evidencia caducada.** Si el receptor calla —o solo entrega fixes inservibles— durante un minuto, una posición tomada después no dice nada de dónde estaba antes. Sin esto, T4 soltaba 699 m de un tirón al volver de una excursión de 373 m.
+
+- **El generador sintético, reescrito contra las cifras medidas.** El ruido de `trace()` es pequeño, simétrico y **honesto sobre su propia precisión**; por eso "standing still does not add distance" pasaba desde el slice 8 mientras la app grababa 2 832 m sobre una mesa. `driftingTrace()` reproduce lo medido: deriva base con retorno a la media, excursiones que se van y vuelven, cadencia degradada de 6 s y **precisión declarada de 20 m con fixes sueltos de 5 m**. Un test afirma que el generador cumple las tres estadísticas de campo (p90 de desvío > 40 m, desplazamiento neto por minuto < 20 m, y lecturas que dicen ±5 m desde 30 m de distancia): **el molde también se prueba**, porque van dos bugs de campo que ningún test sintético podía ver.
+
+- **Archivos tocados:**
+  - core/commonMain: `filter/LocationFilter.kt` (reescrito: cola ordenada, rastro del último minuto, juicio robusto, cinemática), `usecase/TrackNavigationUseCase.kt` (lote en vez de una posición)
+  - core/commonTest: `filter/DriftingSignalTest.kt` (nuevo, 7), `filter/GpsTraces.kt` (`driftingTrace`, veredictos por `settled`), `filter/LocationFilterTest.kt` (1 test adaptado), `filter/TravelPace.kt` (los saltos imposibles se miden como proporción)
+  - shared/commonMain: `data/movement/SessionRecording.kt` (suelta lotes, escribe veredictos ya definitivos, cierra el filtro al detener), `feature/movement/detail/presentation/SessionDiagnosis.kt` (motivo nuevo)
+  - shared/commonTest: `data/movement/SessionRecordingTest.kt` (1 test adaptado)
+  - shared/jvmTest: los dos arneses (lote; el de diagnóstico reporta ahora de dónde sale cada metro)
+  - features: `movement_drifting_signal.feature` (nuevo), `movement_location_smoothing.feature` (una línea)
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+- **Resultados:** `:core` **99 tests, 0 fallos** (antes 92, +7). `:app:shared:jvmTest` **198 tests, 0 fallos**. `:core:check` (compila también para iOS), `assembleDebug`, desktop y web BUILD SUCCESSFUL.
+  - Nota: `:app:androidApp:assembleDebug` encadenado con `:app:desktopApp:check` y `:app:webApp:check` en una sola invocación falla en `copySharedComposeResourcesToAssets`; por separado los tres pasan. Es de la tarea de recursos, no del código.
+
+- **Desviaciones respecto a los criterios de aceptación:**
+  - **T4 debía quedar en ~480 m y queda en 645.** La media hora parada aporta ~165 m (5 m por minuto) en vez de ~0. Son dos sueltas que sobreviven al juicio: excursiones sostenidas de más de un minuto que por posición son indistinguibles de haber caminado 40 m y haberse quedado ahí. No se siguió afinando para no ajustar constantes contra una sola traza.
+  - **T2 y T3 debían mantenerse ±5 % y lo hacen** (−1,7 % y 0 %), pero conviene decir que los 899 y 1 190 m de referencia son lo que grababa el **filtro viejo**, no una distancia medida. Sigue sin haber una ruta real medida contra la que contrastar.
+  - **Un escenario del slice 8 cambia de significado:** "none of those readings is treated as an impossible jump" pasa a "the journey is not read as a string of impossible jumps". Con la regla cinemática, un pico de ruido aislado **sí** puede ser imposible —y rechazarlo es correcto—; lo que no puede pasar es que un viaje se lea como una ristra de teletransportes. El test mide ahora la proporción (< 5 %).
+  - **Deuda de i18n:** el motivo nuevo entra en `SessionDiagnosis` con el texto en duro, como los otros tres. No se arregla aquí para no mezclar; queda con el resto de la deuda de i18n.
+
+- **Sin cobertura de host (dicho explícitamente):** que en un teléfono real la distancia en vivo se sienta bien durante el primer minuto —hay un minuto de espera antes de que aparezca el primer metro— solo se comprueba saliendo. **Comprobación manual al instalar:** empezar a grabar andando y ver que al minuto aparece la distancia de golpe y a partir de ahí avanza sola; y dejar el teléfono quieto diez minutos con la grabación puesta y ver que sigue en 0.
+
+- **Seguimientos:**
+  - **El `@slice-2` sigue pendiente:** que la grabación avise de que lleva mucho sin ir a ninguna parte. Es lo que habría salvado la salida de la segunda calibración.
+  - Los ~165 m que quedan en T4 se cerrarían con una puerta de innovación en el propio Kalman (rechazar una medición a N sigmas del estimado), que es la técnica estándar y un slice pequeño con estas trazas ya en casa.
+  - Sigue pendiente **medir una ruta real** para poder decir cuál de los dos números (884 o 899) es el bueno.
+  - La primera lectura de una grabación entra siempre al recorrido sin confirmación. Es correcta —es el punto de partida— pero significa que una sesión de dos lecturas guarda un punto.
+
+**Recap:** El filtro deja de creerse la precisión que declara cada lectura y pasa a preguntar dónde ha estado el receptor: compara la mediana de la última media ventana contra la de la anterior, y hasta que puede responder retiene las lecturas en vez de tirarlas, de modo que confirmar suelta el tramo entero y la distancia se retrasa pero no se pierde. Con eso, y con una puerta de salto que juzga lo alcanzable a partir de lo que el receptor venía haciendo en vez de un límite fijo de velocidad, la media hora con el teléfono en una mesa baja de 2 832 m a ~165, mientras la caminata y la bici reales conservan su distancia (−1,7 % y 0 %). Por el camino, un test destapó que la traza se estaba escribiendo fuera de orden, lo que la habría dejado sin servir para lo único que existe.
+
+**Próximos pasos (opciones):** (1) el aviso de "llevas mucho parado" del `@slice-2`; (2) la puerta de innovación en el Kalman, que cerraría los 165 m que quedan; (3) B4, la altitud rancia; (4) salir a medir una ruta conocida y cerrar de una vez la duda de la distancia caminando.

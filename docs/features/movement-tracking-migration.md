@@ -31,10 +31,11 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Estadísticas ciertas (desnivel, tiempo en movimiento) | Hecho (slice 9, punto B2a) |
 | Captura de la traza cruda para calibrar | Hecho (slice 10). Usada en la primera salida de campo |
 | Cifras derivadas del recorrido + primera migración real | Hecho (slice 11, punto B2b). Salda la deuda de migraciones |
-| Calidad de altitud que reporta el receptor | Hecho (slice 12). **La pregunta que abrió sigue sin respuesta**: hace falta una salida con la captura activada |
+| Calidad de altitud que reporta el receptor | Hecho (slice 12). **Pregunta respondida en la segunda calibración de campo, y la respuesta es "no sirve"**: el receptor declara ±1,8 m verticales sobre una altitud congelada seis minutos |
 | Rutas: importar GPX, listar, renombrar, exportar, guardar una salida como ruta | Hecho (slice 13, punto C1) |
+| Que el ruido del receptor no se convierta en kilómetros | Hecho (slice 14, punto B3). De 2 832 m a ~165 con el teléfono quieto media hora, sin costarle distancia a las salidas reales |
 
-**Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. Del 10 en adelante, nada se ha probado en una salida real.
+**Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. El slice 12 se contrastó contra una cuarta traza en la segunda calibración, que respondió su pregunta y destapó B3. Los slices 10, 11 y 13 no se han probado en una salida real.
 
 ---
 
@@ -53,7 +54,8 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 ## B — Filtro Kalman y estadísticas reales
 
 - **Estado: hecho, con una incógnita abierta que no es de código.** B1 (filtro de posición) en el slice 8 — spec: [`movement_location_smoothing.feature`](../../features/movement_location_smoothing.feature). B2a (estadísticas ciertas) en el slice 9 — spec: [`movement_session_statistics.feature`](../../features/movement_session_statistics.feature). B2b en el slice 11, **replanteado**: en vez de mostrar unas columnas guardadas, las cifras pasan a **derivarse del recorrido cada vez que se abre la sesión** — spec: [`movement_session_metrics.feature`](../../features/movement_session_metrics.feature).
-- **Lo que queda de B, y es lo más importante del pilar ahora mismo:** la primera calibración de campo mostró que **la altitud de este teléfono se congela durante minutos** (65 % de lecturas repetidas en una traza, 3,2 min seguidos en el mismo valor). No es calibración: el dato no está. El slice 12 instrumentó la app para leer `hasAltitude()` y `getVerticalAccuracyMeters()`, pero **la pregunta sigue sin responder** — ¿avisa el sistema de que esa altitud es mala? Se responde saliendo con la captura de traza activada. Si la precisión vertical se dispara en esas ventanas, descartarla es un día de trabajo; si no, hace falta barómetro (`Sensor.TYPE_PRESSURE`), que es un slice grande.
+- **Lo que queda de B se partió en dos al medirlo en campo**, y va abajo como B3 y B4. B3 (la distancia que se inventa un teléfono parado) es lo más importante del pilar ahora mismo, por delante de la altitud: la altitud se queda corta, la distancia se infla por cinco.
+- **La pregunta que abrió el slice 12 está respondida, y la respuesta cierra una puerta:** el receptor **sí** reporta precisión vertical (las 412 lecturas de la cuarta traza la traen), pero declara ±1,8 m de mediana sobre una altitud congelada **385 s seguidos**. No avisa. Descartar por precisión vertical, que era el camino barato, no existe.
 - **Problem (encuadre original, conservado):** la distancia se acumula con haversine sobre puntos **crudos**, así que el ruido del GPS infla los kilómetros, y ese error contamina también las estadísticas derivadas.
 - **Savings:** datos en los que se puede confiar sin repetir la medición ni corregirla a mano; evita rehacer el historial más adelante con métricas distintas.
 - **Why:** el pilar promete ver progreso; con distancias infladas y estadísticas vacías, el progreso mostrado es ficción.
@@ -64,6 +66,36 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 - **Aprendido en B1 y B2a (aplica a C y a todo lo que toque puntos):** el pilar contempla **caminata, trote, carrera y bici**, y la app **nunca sabe cuál de ellas estás haciendo** — no hay selector y `MovementSession` no lleva tipo de actividad. A 2 s de muestreo eso son 2,8 / 5,0 / 7,8 / 14-30 m por lectura respectivamente, un orden de magnitud de diferencia, así que **cualquier umbral en metros fijos codifica en silencio una actividad y rompe las otras**. Los umbrales se expresan contra la precisión de la lectura o contra el intervalo real, nunca en metros.
 - **Segundo aprendizaje de B2a:** filtrar la señal puede **romper cosas aguas abajo que dependían del ruido**. El umbral `dist > 0.5` de `movingTime` funcionaba por accidente mientras llegaban lecturas de cuando estabas parado; en cuanto B1 dejó de entregarlas, una pausa pasó a ser un único segmento largo y contaba entera como movimiento. Al tocar el filtro, revisar quién consume los puntos.
 - **Cobertura de test:** unitaria en `core/commonTest` con trazas sintéticas (ruido conocido, subida conocida).
+
+## B3 — Un teléfono parado no inventa distancia
+
+- **Estado: hecho** (slice 14). Spec: [`movement_drifting_signal.feature`](../../features/movement_drifting_signal.feature). Encuadre y medición en la bitácora, entradas "Segunda calibración en campo" y "Slice 14". Resultado sobre las trazas de campo: la media hora parada baja de **2 832 m a ~165**, la caminata y la bici conservan su distancia (−1,7 % y 0 %). Queda el `@slice-2` (avisar de que llevas mucho sin moverte) y ~165 m de fantasma que cerraría una puerta de innovación en el Kalman.
+- **Problem:** el filtro decide si una lectura es movimiento comparándola solo contra la precisión que esa misma lectura declara. Cuando el receptor pierde cielo sigue entregando fixes que dicen "±6 m" mientras se colocan a 31 m del anterior cada seis segundos. Medido: con el teléfono quieto bajo techo media hora, la app habría grabado **2 832 m y 391 s en movimiento** sobre una salida real de ~480 m en bici.
+- **Savings:** una sesión que no hay que borrar ni corregir a mano, y un acumulado en el que la distancia significa algo. Hoy una sola grabación olvidada mete kilómetros que después nadie puede distinguir de los reales, y la única defensa es acordarse de pulsar detener.
+- **Why:** la distancia es la promesa del pilar. Un número inflado por cinco es peor que no medir, porque se cree — como pasó con el tiempo en movimiento truncado.
+- **El discriminante, medido, no supuesto:** desplazamiento neto en ventanas de 60 s — 6 m con el teléfono parado, 113 m caminando, 137 m en bici. Dos órdenes de magnitud. El movimiento real persiste en una dirección; el ruido se va y vuelve. **La precisión declarada no sirve como discriminante** porque miente justo cuando importa; la puerta de `POOR_ACCURACY` (>50 m) sí funciona y rechazó los 12 fixes verdaderamente malos.
+- **Alcance del slice 1:** que el recorrido no crezca mientras la posición no se **queda** lejos de donde estaba, sin perder los metros de un movimiento real una vez confirmado; un motivo de descarte propio en el diagnóstico; y un generador de traza sintética que **deambule como el real** (excursiones de decenas de metros declarándose preciso), porque el ruido sintético actual es honesto sobre su precisión y por eso el escenario "standing still does not add distance" pasa desde el slice 8 mientras falla en la calle.
+- **Criterios de aceptación, contra las cuatro trazas reales** (`TraceReplayHarness`, fuera de CI porque `traces/` está en `.gitignore`):
+
+  | Traza | Qué fue | Hoy graba | Debe grabar |
+  |---|---|---|---|
+  | T1 | quieto en interior, 3 min | 0 m | 0 m (no empeora) |
+  | T2 | caminata y trote, 7,6 min | 899 m | 899 m ±5 % |
+  | T3 | bici, 5,2 min | 1 190 m | 1 190 m ±5 % |
+  | T4 | bici 2 min + 31 min parado | **2 832 m** | ~480 m, y ~0 m aportados por la parte parada |
+  | T4 | tiempo en movimiento | **391 s** | el de la parte en bici (~120 s) |
+
+- **Módulos:** `core` (el filtro y su estado; lógica pura, `commonTest`), y revisar aguas abajo quién consume los puntos —`CalculateStatsUseCase` verá ahora un hueco de media hora entre dos puntos aceptados— siguiendo el aprendizaje de B2a.
+- **Riesgos / notas:** confirmar el movimiento introduce un retardo de una o dos lecturas en la distancia en vivo; el compromiso es que la distancia se **retrase**, nunca que se pierda. Ningún umbral en metros fijos, como en todo el pilar.
+- **Slice 2 (`@future`, sin detallar):** que la grabación avise de que lleva mucho rato sin ir a ninguna parte. Es lo que habría salvado esta salida, pero es una decisión de producto distinta y no hace falta para que la distancia deje de mentir.
+
+## B4 — La altitud rancia
+
+- **Estado:** pendiente, con la vía barata ya descartada por la segunda calibración.
+- **Problem:** la altitud de este teléfono se congela durante minutos (5 valores distintos en 412 lecturas; 385 s seguidos en el mismo valor), y **el sistema no lo señala**: declara ±1,8 m verticales mientras tanto. El desnivel reportado es ficción por defecto, no por exceso.
+- **Savings / Why:** un desnivel que se pueda mirar, o un "—" honesto. Hoy se muestra un número que nadie puede contrastar.
+- **Caminos que quedan:** (a) detectar la altitud rancia por repetición exacta —una medición real no repite el valor al centímetro entre lecturas— y reportar "—" en vez de inventar; (b) barómetro (`Sensor.TYPE_PRESSURE`), slice grande y solo Android.
+- **Deuda concreta que dejó el slice 12:** al usar la precisión vertical real en vez del 2× horizontal, el umbral de acumulación de desnivel cae a **3,0 m, su suelo**, donde antes estaba en 12 m, su techo. Sobre una señal cuantizada eso acumula saltos de cuantización como desnivel. Revisar junto con (a).
 
 ## C — Rutas: importar GPX, listar, detalle y navegación guiada
 
@@ -144,14 +176,16 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 2. ~~**B** — calidad de los datos grabados (B1 filtro, B2a estadísticas, B2b cifras derivadas).~~ Hecho en código.
 3. ~~**Deuda: migraciones SQLDelight.**~~ Saldada en el slice 11.
 4. ~~**C1** — importar, listar y exportar rutas.~~ Hecho en el slice 13.
-5. **Salir con la captura de traza activada** y mirar qué dice la precisión vertical en las ventanas de altitud congelada. **No es código y va primero**: decide si el desnivel se puede arreglar descartando lecturas (un día) o hace falta barómetro (slice grande), y ninguna de las dos se puede planificar sin ese dato.
-6. **C2 → C3** — la ruta en el mapa, y luego seguirla con aviso de desvío.
-7. **D** — offline (además activa el `FileSource` a nivel de app).
-8. **E** — satélite.
-9. **F** — dashboard.
+5. ~~**Salir con la captura de traza activada** y mirar qué dice la precisión vertical en las ventanas de altitud congelada.~~ Hecho el 2026-08-29 (segunda calibración de campo). Respondió su pregunta —la precisión vertical no delata la altitud congelada— y destapó B3.
+6. ~~**B3** — que un teléfono parado no invente distancia.~~ Hecho en el slice 14, calibrado contra las cuatro trazas sin salir a la calle. Queda su `@slice-2`: avisar de que la grabación lleva mucho sin ir a ninguna parte.
+7. **B4** — la altitud rancia, por repetición exacta o por barómetro.
+8. **C2 → C3** — la ruta en el mapa, y luego seguirla con aviso de desvío.
+9. **D** — offline (además activa el `FileSource` a nivel de app).
+10. **E** — satélite.
+11. **F** — dashboard.
 
 **G** (sobrevivir a que el sistema mate el proceso) no tiene posición fija: depende de si en uso real Android está matando la app durante las grabaciones. Si ocurre, sube al principio; si no, puede esperar.
 
-También pendiente de campo, arrastrado desde la primera calibración: repetir la prueba de teléfono quieto **a cielo abierto** (la primera se hizo en interior con fix de red, así que el 0 m salió por el caso fácil) y medir una ruta real para cerrar la duda de la distancia caminando.
+También pendiente de campo, arrastrado desde la primera calibración: repetir la prueba de teléfono quieto **a cielo abierto** (las dos que tenemos, T1 y la parte parada de T4, se hicieron bajo techo) y medir una ruta real para cerrar la duda de la distancia caminando. Ninguna de las dos bloquea B3: la traza T4 ya trae el caso que hay que arreglar.
 
 El orden es una recomendación, no un compromiso: cada slice se aprueba en su momento con su encuadre y su `.feature`.
