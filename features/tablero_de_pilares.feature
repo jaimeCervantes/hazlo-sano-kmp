@@ -93,27 +93,52 @@ Feature: El tablero de un pilar se arma por secciones y ninguna espera apaga la 
 
   # ─────────── Slice 2: esqueletos por sección ───────────
 
-  @slice-2 @future
+  Note: cada sección responde de su propia espera. El tablero es un solo `LazyColumn` en el que el
+  resumen, los campeones y el catálogo se pintan o enseñan su hueco por separado; ya no hay un
+  `when` que elija entre una ruedita a pantalla completa y el tablero entero.
+
+  @slice-2
   Scenario: Un catálogo que tarda no apaga el tablero
     Given un pilar cuyo catálogo todavía no responde
+    And unos campeones ya leídos, que no dependen de la red
     When abro su pestaña
-    Then veo ya los campeones y los retos del pilar
-    And donde van el resumen y la rejilla veo su esqueleto
+    Then veo ya la sección de campeones
+    And donde van el resumen y la rejilla veo su hueco
     And no veo una ruedita a pantalla completa
 
-  @slice-2 @future
-  Scenario: El esqueleto tiene la forma de lo que va a llegar
+  @slice-2
+  Scenario: El hueco tiene la forma de lo que va a llegar
     Given un tablero cargando
     When miro el hueco de la rejilla
-    Then el esqueleto ocupa el mismo alto y la misma rejilla de dos columnas que las tarjetas reales
-    And la pantalla no da un salto cuando llegan
+    Then sus tarjetas salen de dos en dos, como las de la rejilla de verdad
+    And las dos de una misma fila comparten fila y miden lo mismo
 
-  @slice-2 @future
-  Scenario: Reintentar no vuelve a apagar lo que ya estaba
+  @slice-2
+  Scenario Outline: Cada sección enseña lo suyo según en qué estado esté
+    Given un tablero cuyo catálogo <catálogo> y cuyos campeones <campeones>
+    When abro la pestaña
+    Then <resultado>
+
+    Examples:
+      | catálogo        | campeones       | resultado                                            |
+      | todavía no está | ya están        | veo los campeones y el hueco del resumen             |
+      | ya está         | todavía no están| veo el tablero y el hueco de los campeones           |
+      | ya está         | ya están        | no veo ningún hueco                                  |
+      | no se pudo leer | ya están        | se me dice que hace falta conexión, sin hueco eterno |
+
+  @slice-2
+  Scenario: Un catálogo que no se pudo leer no se queda esperando
+    Given un pilar que nunca se descargó
+    When lo abro sin red
+    Then en lugar del hueco del catálogo se me dice que hace falta conexión
+    And los campeones de la semana siguen visibles
+
+  @slice-2
+  Scenario: Reintentar no apaga lo que no depende del catálogo
     Given un tablero cargado
     When pido actualizar
     Then los campeones y los retos siguen visibles
-    And sólo la parte del catálogo vuelve a su esqueleto
+    And sólo la parte del catálogo vuelve a su hueco
 
   # ─────────── Slice 3: Inicio y Sueño cargan por partes ───────────
 
