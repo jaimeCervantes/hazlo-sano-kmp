@@ -1129,3 +1129,115 @@ altitudes se guarda como cero y se pintaba como llano.
 punto C y donde `routeId` deja de ser `null`; (2) arreglar el cero de desnivel en la base, que es una
 migración pequeña; (3) pagar la deuda de i18n de `RoutesScreen`, ahora más barata con el tooling de
 test puesto.
+
+---
+
+## Arreglo — El desnivel desconocido deja de guardarse como cero (2026-08-30)
+
+- **Objetivo:** cerrar lo que C2 destapó y yo había dejado anotado en vez de arreglado. El usuario
+  preguntó si no iba primero. Iba.
+
+### Por qué no bastaba con lo que hice en C2
+
+En C2 arreglé **la pantalla de detalle**, derivando el desnivel desconocido de los puntos: si
+ninguno traía altitud, «—». Lo que no miré es que **`RoutesScreen` sigue pintando
+`route.elevationGain` tal cual**, así que la lista seguía diciendo «0 m» para las mismas rutas. Fixé
+la mitad y lo llamé hecho.
+
+Y el truco no se podía extender: `SqlDelightRouteRepository.getAllRoutes()` carga las rutas
+**sin sus puntos**, a propósito y con su comentario explicándolo — pintar la lista no puede leer
+todos los puntos de todas las rutas. Con sólo la fila en la mano no hay nada con qué distinguir los
+dos casos. **La columna resumen es lo que la lista se cree, así que la columna resumen es la que
+tiene que ser honesta.** Eso es lo que obliga a que el arreglo sea en el origen y no en una pantalla.
+
+### Decisiones + porqué
+
+- **`calculateStats` devuelve `Double?`.** Nulo cuando **ningún par de puntos consecutivos** trae las
+  dos altitudes: sin comparar nada no hay medida. Cero sólo significa cero cuando algo se comparó y
+  no subió — un descenso solo, por ejemplo, sí es una medida y da cero.
+- **El par, no el punto.** Dos altitudes separadas por un punto sin ella no forman ningún par
+  comparable, así que eso también es desconocido. La versión que escribí en C2 miraba «algún punto
+  con altitud», que se equivoca en ese caso.
+- **`Route.elevationGain` pasa a nulable**, y con él la columna. `MovementFormat.elevation(null)` ya
+  sabía pintar «—» desde el slice 12, así que la lista y el detalle quedaron correctos sin tocarles
+  una línea de UI.
+- **La huella no cambia.** `calculateFingerprint` usa `(elevationGain ?: 0.0).toInt()`, que es
+  exactamente lo que se guardaba antes. Si cambiara, las rutas ya importadas dejarían de reconocerse
+  y empezarían a aparecer como duplicados nuevos. Hay un test que lo fija.
+- **La migración rellena mirando los puntos**, con un `EXISTS` sobre `RoutePointEntity`: el 0.0
+  vuelve a NULL sólo donde la ruta no tiene ningún punto con altitud. Es la misma pregunta que hace
+  `calculateStats`, hecha sobre lo ya guardado.
+- **`GpxFormat.parse` devuelve `elevationGain = null`** en vez de 0.0: ahí todavía no se ha medido
+  nada, las cifras las calcula quien importa.
+
+### La migración (`6.sqm`, versión 6 → 7)
+
+SQLite no relaja `NOT NULL`, así que se reconstruye `RouteEntity`. Soltarla es la parte delicada:
+`RoutePointEntity` la referencia con `ON DELETE CASCADE`, y con claves foráneas activadas el DELETE
+implícito de SQLite **se llevaría todos los puntos de todas las rutas**. Este proyecto no las activa
+en ningún driver, y `RouteElevationMigrationTest` lo comprueba en vez de dejarlo razonado — el mismo
+cuidado que `1.sqm` tuvo con las sesiones.
+
+### Un test que afirmaba el bug
+
+`SaveRouteFromSessionUseCaseTest` tenía un caso «Sin altitud», con todos los puntos sin elevación,
+que afirmaba `assertEquals(0.0, route.elevationGain)`. **El test estaba fijando la mentira**: decía
+que una salida de la que no se sabe el desnivel es llana. Ahora afirma `null`. Vale la pena
+anotarlo: una suite verde no dice que el comportamiento sea correcto, sólo que es el que alguien
+escribió.
+
+### Archivos tocados
+
+- core/commonMain: `model/Route.kt` (`elevationGain` nulable, `calculateStats` devuelve `Double?`,
+  huella estable), `parser/GpxFormat.kt` (parse devuelve nulo)
+- core/commonTest: `model/RouteStatsTest.kt` (10, nuevo), `usecase/ImportRouteUseCaseTest.kt` y
+  `usecase/SaveRouteFromSessionUseCaseTest.kt` (adaptados; uno de ellos afirmaba el bug)
+- shared/commonMain sqldelight: `Route.sq` (columna nulable), `6.sqm` (nuevo)
+- shared/commonMain: `feature/movement/routes/presentation/RouteDetailUiState.kt` (se simplifica: el
+  apaño de C2 desaparece)
+- shared/commonTest: `RouteDetailUiStateTest` (los dos casos del apaño se sustituyen por dos de paso
+  a través)
+- shared/jvmTest: `data/db/RouteElevationMigrationTest.kt` (8, nuevo)
+
+**Sin cambios en la UI:** `RoutesScreen` y `RouteDetailScreen` ya pasaban el valor a
+`MovementFormat.elevation`, que acepta nulo desde el slice 12.
+
+### Comandos y resultados
+
+`.\gradlew.bat :core:jvmTest` · `:app:shared:jvmTest` · `:core:check` · `:app:shared:check` ·
+`:app:androidApp:assembleDebug` · `:app:desktopApp:check` · `:app:webApp:check` · `:server:test`
+
+`:core` **114 tests, 0 fallos** (antes 104, +10). `:app:shared:jvmTest` **228 tests, 0 fallos**
+(antes 221, +7 netos: +8 de migración, y dos del detalle sustituidos por dos más simples). Todo lo
+demás BUILD SUCCESSFUL.
+
+**`:core:check` volvió a ganarse el sitio:** falló con `Name contains illegal characters: ","` — un
+nombre de test con coma, que Kotlin/Native no admite entre backticks. Es **exactamente** el fallo del
+slice 13, que aquella entrada dejó anotado como lección de proceso: los comandos de validación por
+defecto están en `AGENTS.md` porque cada uno ve algo que los otros no, y JVM compila esas comas sin
+protestar.
+
+### Sin cobertura de host
+
+- La migración se prueba sobre SQLite en memoria vía JDBC, no sobre `AndroidSqliteDriver`.
+- **Comprobación manual al instalar sobre una base existente:** abrir "Mis rutas" y comprobar que
+  una ruta importada de un GPX sin elevaciones muestra «—» y no «0 m», y que una ruta con desnivel
+  medido sigue enseñando su cifra.
+
+### Lo que esto deja dicho para el pilar
+
+Es la **tercera** vez que aparece el mismo error: un dato ausente guardado como cero. La altitud de
+una lectura (slice 12), la de un `WayPoint` al escribir GPX (slice 13), y el desnivel de una ruta
+(aquí). Las tres veces el síntoma fue el mismo —algo afirmaba «cero» donde no sabía— y las tres el
+arreglo fue nulable. Queda por revisar si `MovementSessionEntity` tiene columnas con el mismo vicio;
+no se ha mirado en este arreglo.
+
+**Recap:** El desnivel de una ruta ya no miente en ninguna de las dos pantallas. La columna es
+nulable, `calculateStats` distingue «no subió» de «no se midió» mirando si llegó a comparar dos
+altitudes, y la migración rellena lo ya guardado preguntando a los puntos. La huella no cambia, así
+que el reconocimiento de duplicados sigue funcionando sobre lo importado antes. Un test que afirmaba
+el comportamiento equivocado quedó corregido.
+
+**Próximos pasos (opciones):** (1) C3, seguir la ruta con aviso de desvío, que es lo que queda del
+punto C; (2) revisar si `MovementSessionEntity` guarda ceros donde quiere decir «no se sabe», que es
+el mismo vicio por tercera vez; (3) la deuda de i18n de `RoutesScreen`.
