@@ -142,37 +142,80 @@ Feature: El tablero de un pilar se arma por secciones y ninguna espera apaga la 
 
   # ─────────── Slice 3: Inicio y Sueño cargan por partes ───────────
 
-  @slice-3 @future
-  Scenario: Inicio enseña los pilares antes de que llegue el feed
-    Given que el contenido de Inicio todavía no está
-    When abro la app
-    Then veo la rejilla de pilares en cuanto está
-    And el feed de la tribu muestra su esqueleto hasta que llega
+  Note: el resumen de anoche no lo carga ninguna de las dos pantallas: llega ya calculado desde el
+  pilar de sueño. Por eso va fuera del estado de Inicio, y por eso se ve aunque Inicio esté esperando.
 
-  @slice-3 @future
+  @slice-3
+  Scenario: El resumen de anoche no espera a que cargue Inicio
+    Given un análisis de sueño ya calculado
+    And el contenido de Inicio todavía sin llegar
+    When abro la app
+    Then veo la tarjeta de la última noche
+    And donde van los pilares, los campeones y el feed veo sus huecos
+
+  @slice-3
+  Scenario: Lo que ya está en Inicio no deja hueco detrás
+    Given el contenido de Inicio ya cargado
+    When lo miro
+    Then veo la rejilla de pilares, los campeones y el feed
+    And no queda ningún hueco en la pantalla
+
+  @slice-3
+  Scenario: Un Inicio que falló lo dice sin esconder lo de anoche
+    Given un contenido de Inicio que no se pudo leer
+    When abro la app
+    Then se me dice que no se pudo cargar
+    And la tarjeta de la última noche sigue visible
+
+  @slice-3
+  Scenario Outline: En Sueño, cada espera enseña lo suyo
+    Given una pestaña de Sueño cuyo análisis <análisis>
+    When la abro
+    Then <resultado>
+    And los campeones de la semana siguen visibles
+
+    Examples:
+      | análisis            | resultado                                       |
+      | se está calculando  | veo el hueco del resumen                        |
+      | ya está             | veo la tarjeta de la última noche, sin hueco    |
+      | no se pudo leer     | se me dice que no se pudo leer, sin hueco       |
+      | no tiene noche aún  | no veo ni tarjeta ni hueco                      |
+
+  @slice-3
   Scenario: El resumen de sueño no espera al catálogo
     Given un análisis de sueño ya calculado y un catálogo que tarda
     When abro la pestaña de Sueño
     Then el resumen de anoche se ve de inmediato
-    And sólo la parte del catálogo muestra esqueleto
+    And sólo la parte del catálogo muestra su hueco
 
   # ─────────── Slice 4: la pantalla del pilar ───────────
 
-  @slice-4 @future
+  Note: el texto sale de hazlosano.com/pilares y vive en el catálogo de recursos, no en un modelo de
+  dominio. Es contenido editorial fijo: no hay nada que ir a buscar, y `core` no alcanza los recursos
+  que lo harían traducible.
+
+  @slice-4
   Scenario: Desde un pilar se llega a qué es ese pilar
-    Given la pestaña de un pilar
-    When toco el resumen del pilar
+    Given la pestaña de un pilar con su tablero cargado
+    When toco el botón de información de la tarjeta del pilar
     Then se abre una pantalla que explica de qué va ese pilar
     And puedo volver al tablero donde estaba
 
-  @slice-4 @future
-  Scenario Outline: Los cuatro pilares tienen su explicación
+  @slice-4
+  Scenario Outline: Los cuatro pilares cuentan lo suyo y proponen una práctica
     Given la pantalla de información de "<pilar>"
-    Then encuentro de qué trata el pilar y qué propone hacer
+    Then leo "<titular>"
+    And la práctica que propone es "<práctica>"
 
     Examples:
-      | pilar      |
-      | Movimiento |
-      | Nutrición  |
-      | Mente      |
-      | Sueño      |
+      | pilar      | titular                                    | práctica                          |
+      | Movimiento | Movimiento natural, local y comunitario    | Movimiento vivo, local y funcional |
+      | Nutrición  | Alimentación natural, nutritiva y local    | Cena real, local y al atardecer    |
+      | Mente      | Mente, espíritu y comunidad cercana        | Presencia, paz y conexión local    |
+      | Sueño      | Sueño y Descanso                           | Del atardecer al amanecer          |
+
+  @slice-4
+  Scenario: Sin catálogo todavía no hay puerta a la explicación
+    Given un pilar que nunca se descargó
+    When lo abro sin red
+    Then no veo la tarjeta del pilar, y con ella tampoco su botón de información

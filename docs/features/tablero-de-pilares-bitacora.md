@@ -163,3 +163,109 @@ va a ocupar. Las dos pantallas que pintan catálogo comparten ese hueco.
 1. Slice 3: Inicio y Sueño por partes, quitando sus dos `LoadingContent`.
 2. Slice 4: la pantalla de información del pilar, con el contenido de hazlosano.com/pilares.
 3. Conservar lo ya leído durante un reintento, en vez de volver al hueco.
+
+## Slice 3 — Inicio y Sueño cargan por partes (2026-08-30)
+
+**Objetivo.** Quitar los dos últimos estados de carga a pantalla completa: los `LoadingContent` de
+`HomeScreen` y `SleepScreen`.
+
+**Decisiones y por qué.**
+
+1. **El resumen de anoche va fuera del estado de Inicio.** No lo carga esa pantalla: llega ya
+   calculado desde el pilar de sueño. Que Inicio esté esperando lo suyo no es razón para esconderlo.
+2. **Los huecos de Inicio viven en su pantalla** (`feature/home/ui/HomeSkeleton.kt`): la rejilla de
+   pilares y el feed son de Inicio y de nadie más. El de campeones sí se reusa —es el mismo que el
+   del tablero de pilar—, y el hueco de título se promovió a `HazloSectionTitleSkeleton` porque lo
+   querían dos pantallas.
+3. **Una noche sin datos no deja hueco.** No es que esté cargando: es que todavía no hay noche que
+   contar, y un hueco eterno haría creer lo contrario. Por eso la pantalla necesita el estado entero
+   y no sólo el análisis nulable.
+4. **`Error(message: String)` pasó a ser `Failed`** en Inicio y en Sueño. Un ViewModel no redacta
+   copia: el `message` de una excepción no es texto que nadie quiera leer y encima no se traduce. La
+   palabra ahora sale de `strings.xml`.
+5. **Un fallo ya no vacía la pantalla:** se dice en una fila, y lo que no dependía de ese fallo
+   —la tarjeta de anoche, los campeones, el catálogo— sigue en su sitio.
+
+**Archivos tocados.** Nuevos: `feature/home/ui/HomeSkeleton.kt`,
+`app/shared/src/jvmTest/.../HomeBoardTest.kt`, `.../SleepDashboardLoadingTest.kt`. Modificados:
+`feature/home/ui/HomeScreen.kt` (entra `HomeBoard`, se va `HomeContent` privada y la `HeaderSection`
+muerta), `feature/home/presentation/HomeUiState.kt`, `HomeViewModel.kt`,
+`feature/sleep/ui/SleepScreen.kt`, `feature/sleep/presentation/SleepUiState.kt`, `SleepViewModel.kt`,
+`core/ui/components/sections/PillarBoardSkeleton.kt`, `composeResources/values/strings.xml`,
+`app/shared/src/jvmTest/.../SleepScreenCatalogTest.kt`, `features/tablero_de_pilares.feature`.
+
+**Comandos clave y validación.** `.\gradlew.bat :app:shared:jvmTest --console=plain` →
+`BUILD SUCCESSFUL`. Este slice suma 8 pruebas nuevas (4 de Inicio y 4 de Sueño) a las 247 con las que
+cerró el slice 2.
+
+**Desviaciones.** Se borró `HeaderSection`, una composable privada de Inicio que no llamaba nadie.
+
+**Seguimiento.** Ni Inicio ni Sueño ofrecen reintentar cuando fallan: sólo lo dicen. `HomeViewModel`
+no tiene `refresh()`, y el de sueño sólo recarga si ya había cargado bien.
+
+## Slice 4 — La pantalla del pilar (2026-08-30)
+
+**Objetivo.** Que desde cada pilar se pueda leer qué es ese pilar y qué propone, con el contenido de
+<https://hazlosano.com/pilares>.
+
+**Decisiones y por qué.**
+
+1. **Sin repositorio, sin ViewModel y sin modelo de dominio.** Es contenido editorial fijo: no hay
+   nada que ir a buscar. Vive en `strings.xml`, que además es lo único traducible —un modelo en
+   `core` habría alejado la copia del único sitio donde una traducción la alcanza—. La pantalla mapea
+   pilar → recursos en un solo `when`, como ya hacía `pillarLabel`.
+2. **La puerta está en la tarjeta de resumen, junto a actualizar.** Es la pregunta que se hace quien
+   abre la pestaña por primera vez; escondida en el título se habría quedado sin encontrar. Los
+   cuatro pilares la tienen: `PillarSummaryCard` para tres, `SleepSummaryCard` para Sueño.
+3. **Se unificó cómo se ve un pilar.** Al querer el nombre y el icono una tercera pantalla salieron
+   dos duplicados que `AGENTS.md` llama fallo de diseño: `pillarColor(pillar)` era lo mismo que
+   `PillarType.toColor()`, y `pillarIcon` estaba dos veces, una de ellas privada dentro de
+   `HomeScreen`. Los tres —nombre, color e icono— se fusionaron en
+   `core/ui/model/PillarVisuals.kt`, que es lo que la propia nota de `PillarText.kt` decía que había
+   que hacer en cuanto una segunda pantalla los quisiera. Fue mover y fusionar, sin dejar copia.
+
+**Archivos tocados.** Nuevos: `feature/pillar/ui/PillarInfoScreen.kt`,
+`core/ui/model/PillarVisuals.kt`, `app/shared/src/jvmTest/.../PillarInfoScreenTest.kt`,
+`.../PillarBoardInfoTest.kt`. Borrados: `core/ui/model/PillarColor.kt`,
+`feature/catalog/ui/PillarText.kt`. Modificados: `feature/catalog/ui/PillarSummaryCard.kt`,
+`PillarCatalogScreen.kt`, `core/ui/components/atomic/SleepSummaryCard.kt`,
+`feature/sleep/ui/SleepScreen.kt`, `feature/main/ui/MainScreen.kt`, `feature/home/ui/HomeScreen.kt`,
+`composeResources/values/strings.xml`, `features/tablero_de_pilares.feature`.
+
+**Comandos clave y validación.**
+
+```
+.\gradlew.bat :app:shared:jvmTest :core:check --console=plain
+```
+
+`BUILD SUCCESSFUL`. `app/shared`: 263 pruebas en JVM, 0 fallos. `core`: 118 en JVM y 118 en el
+navegador, 0 fallos.
+
+**Desviaciones.** La fusión de nombre/color/icono del pilar no estaba en el roadmap; salió de que el
+slice pedía esos tres en una tercera pantalla y de la regla de no dejar un segundo componente casi
+idéntico.
+
+**Nota sobre el historial.** Los slices 3 y 4 van en un solo commit de código. Al fusionar
+`PillarVisuals` y al añadir `onOpenInfo` a las dos pantallas de pilar, los archivos de los dos slices
+quedaron encadenados: separarlos habría dejado un commit intermedio que no compila, que es peor que
+un commit que hace dos cosas.
+
+**Recap.** El diseño del tablero está completo de punta a punta: los cuatro pilares se leen en el
+orden del proyecto de referencia, ninguna espera apaga una pantalla entera —cada sección enseña su
+hueco— y desde cada pilar se llega a qué es ese pilar, con el texto del sitio.
+
+**Próximos pasos (opciones).**
+
+1. Dar otra puerta a la explicación del pilar cuando no hay catálogo que dibuje la tarjeta.
+2. Sacar la copia de `HazloTopAppBar` al catálogo de recursos: es el último atómico con texto dentro.
+3. Unificar `BottomTab` con `pillarLabel`, ahora que vive en `core/ui/model/`.
+4. Ofrecer reintentar en Inicio y en Sueño cuando fallan, no sólo decirlo.
+
+**Seguimiento.**
+
+- Sin catálogo no hay tarjeta de resumen, y con ella se va también la puerta a la explicación del
+  pilar. Falta otra entrada para cuando no hay red.
+- `HazloTopAppBar` lleva "Volver", "Perfil", "Notificaciones" y "Menú" escritos dentro, y es un
+  componente atómico: esa copia debería entrar por parámetro. Es la deuda de i18n que queda viva.
+- `BottomTab` sigue con los cuatro nombres de pilar en duro; ahora que `pillarLabel` está en `core`,
+  unificarlo es un paso corto.
