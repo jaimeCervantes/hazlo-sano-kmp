@@ -103,4 +103,8 @@
     <string name="catalog_section_nearby">Cerca de ti</string>
     <string name="catalog_section_all">Todo el catálogo</string>
     <string name="catalog_refresh">Actualizar</string>
+
+    <!-- Movement tracker -->
+    <string name="tracker_distance_waiting_for_fix">Buscando señal</string>
+    <string name="tracker_distance_confirming">Confirmando…</string>
 </resources>

@@ -953,3 +953,28 @@ El plan que esta bitácora dejaba escrito —"si la precisión vertical se dispa
 **Recap:** El filtro deja de creerse la precisión que declara cada lectura y pasa a preguntar dónde ha estado el receptor: compara la mediana de la última media ventana contra la de la anterior, y hasta que puede responder retiene las lecturas en vez de tirarlas, de modo que confirmar suelta el tramo entero y la distancia se retrasa pero no se pierde. Con eso, y con una puerta de salto que juzga lo alcanzable a partir de lo que el receptor venía haciendo en vez de un límite fijo de velocidad, la media hora con el teléfono en una mesa baja de 2 832 m a ~165, mientras la caminata y la bici reales conservan su distancia (−1,7 % y 0 %). Por el camino, un test destapó que la traza se estaba escribiendo fuera de orden, lo que la habría dejado sin servir para lo único que existe.
 
 **Próximos pasos (opciones):** (1) el aviso de "llevas mucho parado" del `@slice-2`; (2) la puerta de innovación en el Kalman, que cerraría los 165 m que quedan; (3) B4, la altitud rancia; (4) salir a medir una ruta conocida y cerrar de una vez la duda de la distancia caminando.
+
+---
+
+## Slice 15 (B3, `@slice-2` a medias) — La pantalla dice lo que está esperando
+
+- **Objetivo:** que el minuto de espera del slice 14 se entienda en vez de sufrirse. Spec: el `Scenario Outline` `@slice-2` de [`movement_drifting_signal.feature`](../../features/movement_drifting_signal.feature).
+- **El problema exacto, que salió al revisar el slice anterior:** un `0,00 km` mientras llevas 80 m andados y un `0,00 km` de un teléfono que no se ha movido **se ven idénticos y dicen cosas opuestas**. El primero se lee como una app rota. La distancia no se puede adelantar sin devolver la mentira a la pantalla, pero decir que se está esperando no cuesta nada.
+
+- **Decisiones + porqué:**
+  - **Un tipo sellado, no un texto** (`TrackerDistance`: `WaitingForAFix` / `Confirming` / `Travelled`). La regla de `AGENTS.md` es que la presentación no reparte texto ya redactado; además un test sobre "Confirmando…" sería un test sobre la redacción.
+  - **El estado se deriva de lo que ya hay, sin tocar el dominio.** `traveledPoints` vacío es que aún no hay fix; **un solo punto es el sitio donde empezaste, no un viaje** — el filtro está reteniendo lo que ha llegado desde entonces. Dos o más puntos es que hay distancia medida. No hizo falta que el filtro publicara su cola: `RecordingState` ya lo dice.
+  - **En reposo se sigue enseñando el cero de siempre**, porque ahí no hay nada pendiente: no hay sesión.
+  - **Los dos textos nuevos van a `strings.xml`** (`tracker_distance_waiting_for_fix`, `tracker_distance_confirming`), que es lo que pide la regla de i18n para todo lo que se toque de ahora en adelante. El resto de `TrackerScreen` sigue con el texto en duro: es deuda anterior y no se mezcla aquí.
+
+- **Archivos tocados:** shared/commonMain `feature/movement/tracker/presentation/TrackerDistance.kt` (nuevo), `feature/movement/tracker/ui/TrackerScreen.kt`, `composeResources/values/strings.xml`; shared/commonTest `feature/movement/tracker/presentation/TrackerDistanceTest.kt` (nuevo, 4).
+- **Comandos:** `.\gradlew.bat :app:shared:jvmTest`, `.\gradlew.bat :core:check`, `.\gradlew.bat :app:androidApp:assembleDebug`, `.\gradlew.bat :app:desktopApp:check`, `.\gradlew.bat :app:webApp:check`
+- **Resultados:** `:app:shared:jvmTest` **202 tests, 0 fallos** (antes 198, +4). `:core:check`, `assembleDebug`, desktop y web BUILD SUCCESSFUL.
+
+- **Sin cobertura de host:** `TrackerScreen` no tiene test de UI —necesita el mapa `actual` y la factory del ViewModel—, así que lo probado es el mapeo, como se hizo con `SessionDiagnosis`. **Comprobación manual:** al pulsar Iniciar debe verse "Buscando señal", luego "Confirmando…", y al minuto la distancia.
+
+- **Seguimientos:** queda la otra mitad del `@slice-2`, avisar de que la grabación lleva mucho rato sin ir a ninguna parte — que es lo que habría salvado la salida de la segunda calibración. Y una sesión que se quede quieta desde el principio se queda en "Confirmando…" indefinidamente: es cierto, pero ese aviso es justo el que falta.
+
+**Recap:** El minuto que el filtro necesita para no inventarse kilómetros deja de parecer una app rota: mientras no hay fix la pantalla dice que busca señal, mientras el recorrido es solo el punto de partida dice que confirma, y en cuanto hay distancia medida la enseña. El mapa y el cronómetro seguían yendo en vivo desde el principio; lo único que faltaba era que el número dijera la verdad sobre sí mismo.
+
+**Próximos pasos (opciones):** (1) la otra mitad del `@slice-2`, el aviso de llevar mucho parado; (2) la puerta de innovación en el Kalman; (3) B4, la altitud rancia; (4) instalar y salir a medir una ruta conocida.

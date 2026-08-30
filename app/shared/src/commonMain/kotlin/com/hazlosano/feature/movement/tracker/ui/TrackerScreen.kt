@@ -29,9 +29,15 @@ import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.feature.movement.presentation.MovementFormat
+import com.hazlosano.feature.movement.tracker.presentation.TrackerDistance
 import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewModel
+import com.hazlosano.feature.movement.tracker.presentation.trackerDistance
 import com.hazlosano.feature.movement.ui.MovementMap
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.tracker_distance_confirming
+import hazlosano.app.shared.generated.resources.tracker_distance_waiting_for_fix
 import kotlinx.coroutines.delay
+import org.jetbrains.compose.resources.stringResource
 
 /** How long the "session saved" confirmation stays on screen after a recording ends. */
 private const val SAVED_CONFIRMATION_MILLIS = 5_000L
@@ -74,7 +80,7 @@ fun TrackerScreen(
                 modifier = Modifier.fillMaxSize(),
             )
             SessionMetrics(
-                distanceMeters = recording.distanceMeters,
+                distance = recording.trackerDistance(),
                 elapsedSeconds = recording.elapsedSeconds,
                 modifier = Modifier.align(Alignment.TopStart).padding(HazloSpaces.gutter),
             )
@@ -131,7 +137,7 @@ private fun TraceCaptureToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
 
 @Composable
 private fun SessionMetrics(
-    distanceMeters: Double,
+    distance: TrackerDistance,
     elapsedSeconds: Long,
     modifier: Modifier = Modifier,
 ) {
@@ -145,10 +151,22 @@ private fun SessionMetrics(
             modifier = Modifier.padding(horizontal = HazloSpaces.md, vertical = HazloSpaces.sm),
             horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
         ) {
-            Metric(label = "Distancia", value = MovementFormat.distance(distanceMeters))
+            Metric(label = "Distancia", value = distance.shown())
             Metric(label = "Tiempo", value = MovementFormat.duration(elapsedSeconds))
         }
     }
+}
+
+/**
+ * A recording that has not confirmed any movement yet says so, rather than showing the zero it
+ * would show for a phone that had genuinely gone nowhere. The two look identical on screen and mean
+ * opposite things, and the zero is the one that reads as a broken recording.
+ */
+@Composable
+private fun TrackerDistance.shown(): String = when (this) {
+    TrackerDistance.WaitingForAFix -> stringResource(Res.string.tracker_distance_waiting_for_fix)
+    TrackerDistance.Confirming -> stringResource(Res.string.tracker_distance_confirming)
+    is TrackerDistance.Travelled -> MovementFormat.distance(meters)
 }
 
 @Composable

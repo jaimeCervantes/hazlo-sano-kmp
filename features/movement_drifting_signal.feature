@@ -104,12 +104,18 @@ Feature: A phone that is not moving records no distance
     Then its readings excurse as far as the field trace measured, and claim to be precise while doing it
     And the previous synthetic noise no longer stands in for a signal that behaves nothing like it
 
-  @slice-2 @future
-  Scenario: The recording says it is confirming rather than showing a zero
-    Given I have just started recording and I am walking
-    When the first distance has not been confirmed yet
-    Then the screen says what it is waiting for
-    And it does not show a distance of zero as if I had not moved
+  @slice-2
+  Scenario Outline: The recording says what it is waiting for rather than showing a zero
+    Given a recording <state>
+    When I look at the distance
+    Then it reads <shown>
+
+    Examples:
+      | state                                          | shown                    |
+      | that has not had a fix yet                     | that it is looking       |
+      | whose path is only the point it started from   | that it is confirming    |
+      | that has got somewhere                         | the distance travelled   |
+      | that is not running                            | the zero it always shows |
 
   @slice-2 @future
   Scenario: A recording that has gone nowhere for a long time says so
