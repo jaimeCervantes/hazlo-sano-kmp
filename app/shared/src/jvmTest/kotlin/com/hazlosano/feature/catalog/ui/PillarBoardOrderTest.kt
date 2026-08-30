@@ -160,6 +160,8 @@ class PillarBoardOrderTest {
 
     @Test
     fun `highlights that have not arrived do not hold up the board`() = runComposeUiTest {
+        // Su hueco late, y el reloj de prueba no se queda quieto mientras una animación siga viva.
+        mainClock.autoAdvance = false
         setContent {
             PillarCatalogContent(
                 pillar = PillarType.MIND,

@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.hazlosano.core.ui.components.atomic.SleepSummaryCard
-import com.hazlosano.core.ui.components.sections.pillarHighlightsSections
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.theme.PillarSleep
 import com.hazlosano.domain.model.PillarType
@@ -27,6 +26,7 @@ import com.hazlosano.feature.catalog.ui.CatalogStaleNotice
 import com.hazlosano.feature.catalog.ui.pillarCatalogPlaceholder
 import com.hazlosano.feature.catalog.ui.pillarCatalogSections
 import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
+import com.hazlosano.feature.pillar.ui.pillarHighlights
 import com.hazlosano.feature.sleep.presentation.SleepUiState
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 
@@ -114,9 +114,7 @@ internal fun SleepDashboardContent(
         // Campeones y retos salen ahora de la misma fuente que los de los otros tres pilares.
         // Antes vivían escritos dentro de `MockSleepRepository`, que era la única copia de un
         // contenido que los cuatro pilares necesitaban igual.
-        if (highlights is PillarHighlightsUiState.Ready) {
-            pillarHighlightsSections(highlights = highlights.highlights, accent = PillarSleep)
-        }
+        pillarHighlights(state = highlights, accent = PillarSleep)
 
         // El catálogo del pilar, leído del sitio. Hasta la migración esta sección enseñaba una lista
         // escrita en el código —un antifaz a 18.0 que no existía en ninguna parte—, que era la misma
@@ -126,11 +124,7 @@ internal fun SleepDashboardContent(
             item { CatalogStaleNotice() }
         }
 
-        pillarCatalogPlaceholder(
-            state = catalogState,
-            accent = PillarSleep,
-            onRetry = onRetryCatalog,
-        )
+        pillarCatalogPlaceholder(state = catalogState, onRetry = onRetryCatalog)
 
         if (catalogState is PillarCatalogUiState.Ready) {
             pillarCatalogSections(pillar = PillarType.SLEEP, sections = catalogState.sections)

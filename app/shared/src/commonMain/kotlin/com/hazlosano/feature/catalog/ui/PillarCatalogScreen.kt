@@ -2,7 +2,6 @@ package com.hazlosano.feature.catalog.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,7 +32,8 @@ import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.cards.HazloProductCard
 import com.hazlosano.core.ui.components.cards.HazloProductCardImagePlaceholder
 import com.hazlosano.core.ui.components.sections.HazloExploreProductsSection
-import com.hazlosano.core.ui.components.sections.pillarHighlightsSections
+import com.hazlosano.core.ui.components.sections.pillarCatalogSkeleton
+import com.hazlosano.core.ui.components.sections.pillarSummarySkeleton
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.util.formatClockTime
 import com.hazlosano.core.ui.util.formatDate
@@ -48,6 +47,7 @@ import com.hazlosano.feature.catalog.presentation.rememberPillarCatalogViewModel
 import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
 import com.hazlosano.feature.pillar.presentation.PillarHighlightsViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
+import com.hazlosano.feature.pillar.ui.pillarHighlights
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.catalog_empty
 import hazlosano.app.shared.generated.resources.catalog_failed_message
@@ -108,8 +108,13 @@ fun PillarCatalogScreen(
 /**
  * El tablero sin ViewModel, para poder componerlo en un test con un estado cualquiera.
  *
- * Mismo esqueleto que la pantalla de sueño: un `LazyColumn` de secciones separadas por
- * `HazloSpaces.md`, resumen arriba y carruseles debajo.
+ * Un único `LazyColumn` en el que **cada sección responde de su propia espera**: la identidad del
+ * pilar arriba, la comunidad debajo —campeones y retos— y el catálogo al final, con la búsqueda
+ * cerrando la pantalla. Lo que no ha llegado enseña su hueco; lo que ya está se enseña.
+ *
+ * Antes había aquí un `when` que elegía entre una ruedita a pantalla completa y el tablero entero.
+ * Esa forma de esperar apagaba también lo que no dependía de la red: con mala señal, los campeones
+ * de la semana —que estaban en memoria— se escondían detrás del catálogo.
  */
 @Composable
 fun PillarCatalogContent(
@@ -121,81 +126,59 @@ fun PillarCatalogContent(
 ) {
     val accent = pillarColor(pillar)
 
-    Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        when (state) {
-            PillarCatalogUiState.Loading -> CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = accent,
-            )
+    LazyColumn(
+        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
+    ) {
+        // El aviso va encima de todo: enterarse de que el tablero es viejo después de leerlo no
+        // sirve de nada.
+        if (state is PillarCatalogUiState.Ready && state.fromCache) {
+            item { CatalogStaleNotice() }
+            item { Spacer(modifier = Modifier.height(HazloSpaces.sm)) }
+        }
 
-            is PillarCatalogUiState.Ready -> PillarBoard(
-                pillar = pillar,
-                sections = state.sections,
-                highlights = highlights,
-                fromCache = state.fromCache,
-                onRefresh = onRetry,
-            )
+        pillarSummary(pillar = pillar, state = state, onRefresh = onRetry)
 
-            PillarCatalogUiState.Unavailable -> CatalogMessage(
-                title = stringResource(Res.string.catalog_unavailable_title),
-                message = stringResource(Res.string.catalog_unavailable_message),
-                onRetry = onRetry,
-                modifier = Modifier.align(Alignment.Center).testTag(PillarCatalogTags.UNAVAILABLE),
-            )
+        pillarHighlights(state = highlights, accent = accent)
 
-            PillarCatalogUiState.Failed -> CatalogMessage(
-                title = stringResource(Res.string.catalog_failed_title),
-                message = stringResource(Res.string.catalog_failed_message),
-                onRetry = onRetry,
-                modifier = Modifier.align(Alignment.Center),
-            )
+        pillarCatalogPlaceholder(state = state, onRetry = onRetry)
+
+        if (state is PillarCatalogUiState.Ready) {
+            pillarCatalogSections(pillar = pillar, sections = state.sections)
         }
     }
 }
 
 /**
- * El tablero, en el orden del proyecto Android de referencia: la identidad del pilar arriba, la
- * comunidad debajo —campeones y retos— y el catálogo al final, con la búsqueda cerrando la pantalla.
+ * El resumen del pilar: sus cifras cuando están, su hueco mientras se leen.
+ *
+ * Sin catálogo no hay tarjeta. Las tres cifras **son** el catálogo, y una tarjeta con tres ceros
+ * diría que este pilar está vacío, que es distinto de que todavía no se haya podido leer.
  */
-@Composable
-private fun PillarBoard(
+private fun LazyListScope.pillarSummary(
     pillar: PillarType,
-    sections: CatalogSections,
-    highlights: PillarHighlightsUiState,
-    fromCache: Boolean,
+    state: PillarCatalogUiState,
     onRefresh: () -> Unit,
 ) {
-    val label = pillarLabel(pillar)
-    val accent = pillarColor(pillar)
-    val icon = pillarIcon(pillar)
+    when (state) {
+        PillarCatalogUiState.Loading -> pillarSummarySkeleton()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
-    ) {
-        // El aviso va encima de todo: enterarse de que el tablero es viejo después de leerlo no
-        // sirve de nada.
-        if (fromCache) {
-            item { CatalogStaleNotice() }
-            item { Spacer(modifier = Modifier.height(HazloSpaces.sm)) }
-        }
-
-        item {
+        is PillarCatalogUiState.Ready -> item {
             PillarSummaryCard(
-                title = label,
-                icon = icon,
-                accentColor = accent,
+                title = pillarLabel(pillar),
+                icon = pillarIcon(pillar),
+                accentColor = pillarColor(pillar),
                 metrics = listOf(
                     PillarMetric(
-                        value = sections.total.toString(),
+                        value = state.sections.total.toString(),
                         label = stringResource(Res.string.catalog_metric_publications),
                     ),
                     PillarMetric(
-                        value = sections.eventCount.toString(),
+                        value = state.sections.eventCount.toString(),
                         label = stringResource(Res.string.catalog_metric_events),
                     ),
                     PillarMetric(
-                        value = sections.serviceCount.toString(),
+                        value = state.sections.serviceCount.toString(),
                         label = stringResource(Res.string.catalog_metric_services),
                     ),
                 ),
@@ -207,11 +190,7 @@ private fun PillarBoard(
             )
         }
 
-        if (highlights is PillarHighlightsUiState.Ready) {
-            pillarHighlightsSections(highlights = highlights.highlights, accent = accent)
-        }
-
-        pillarCatalogSections(pillar = pillar, sections = sections)
+        PillarCatalogUiState.Unavailable, PillarCatalogUiState.Failed -> Unit
     }
 }
 
@@ -272,28 +251,20 @@ fun LazyListScope.pillarCatalogSections(
 }
 
 /**
- * Qué enseñar del catálogo cuando todavía no hay tablero, dentro de una pantalla que **sí** tiene
- * contenido propio.
+ * Qué enseñar del catálogo mientras no está, dentro de una pantalla que sigue teniendo contenido
+ * propio alrededor.
  *
- * Un pilar sin catálogo no puede dejar en blanco la pantalla de sueño: su panel de análisis sigue
- * siendo útil. Por eso esto ocupa una fila y no la pantalla entera.
+ * Lo usan las dos pantallas que pintan un catálogo de pilar, y por eso el hueco es el mismo en las
+ * dos: un catálogo que tarda nunca deja en blanco ni el tablero ni el panel de sueño.
  */
 fun LazyListScope.pillarCatalogPlaceholder(
     state: PillarCatalogUiState,
-    accent: androidx.compose.ui.graphics.Color,
     onRetry: () -> Unit,
 ) {
     when (state) {
         is PillarCatalogUiState.Ready -> Unit
 
-        PillarCatalogUiState.Loading -> item {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(HazloSpaces.md),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(color = accent)
-            }
-        }
+        PillarCatalogUiState.Loading -> pillarCatalogSkeleton()
 
         PillarCatalogUiState.Unavailable -> item {
             CatalogMessage(
