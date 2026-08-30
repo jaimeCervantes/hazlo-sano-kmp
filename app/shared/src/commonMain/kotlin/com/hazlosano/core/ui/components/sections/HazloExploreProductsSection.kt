@@ -30,8 +30,6 @@ fun HazloExploreProductsSection(
     onFavoriteClick: (HazloProduct) -> Unit = {},
     searchQuery: String = "",
     onSearchQueryChange: ((String) -> Unit)? = null,
-    isLoading: Boolean = false,
-    error: String? = null,
 ) {
     // Un evento sin precio es gratis y se dice; un anuncio sin precio simplemente no se vende, y
     // ahí la línea se queda vacía en lugar de anunciar un "Gratis" que no significa nada.
@@ -90,8 +88,6 @@ fun HazloExploreProductsSection(
             emptyText = emptyText,
             gridColumns = gridColumns,
             accentColor = accentColor,
-            isLoading = isLoading,
-            error = error,
             itemContent = productContent,
         )
     }

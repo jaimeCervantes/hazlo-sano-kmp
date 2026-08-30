@@ -80,8 +80,6 @@ fun <T> HazloExploreItemsSection(
     emptyText: String = stringResource(Res.string.section_products_empty),
     gridColumns: Int = HazloExploreItemsSectionDefaults.gridColumns,
     accentColor: Color = MaterialTheme.colorScheme.primary,
-    isLoading: Boolean = false,
-    error: String? = null,
     itemContent: @Composable (item: T, modifier: Modifier) -> Unit,
 ) {
     val filteredItems = remember(searchQuery, items, matchesQuery) {
@@ -119,31 +117,10 @@ fun <T> HazloExploreItemsSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        error?.let { errorMessage ->
-            Text(
-                text = errorMessage,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        if (isLoading) {
-            Text(
-                text = "Buscando productos...",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        if (filteredItems.isEmpty() && !isLoading) {
+        // Aquí vivían un mensaje de error y un "Buscando productos..." que ningún llamante llegaba a
+        // encender: eran dos parámetros con valor por defecto y nada más. Quien espera al catálogo
+        // ahora enseña su esqueleto, y quien falla lo dice con `CatalogMessage`.
+        if (filteredItems.isEmpty()) {
             Text(
                 text = emptyText,
                 modifier = Modifier
