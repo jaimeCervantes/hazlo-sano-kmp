@@ -54,6 +54,7 @@ import com.hazlosano.feature.movement.routes.presentation.RoutesViewModel
 fun RoutesScreen(
     viewModel: RoutesViewModel,
     onBack: () -> Unit,
+    onOpenRoute: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val routes by viewModel.allRoutes.collectAsState()
@@ -104,6 +105,7 @@ fun RoutesScreen(
             } else {
                 RouteList(
                     routes = routes,
+                    onOpen = { onOpenRoute(it.id) },
                     onRename = { renaming = it },
                     onExport = { viewModel.export(it.id) },
                     onDelete = { viewModel.delete(it.id) },
@@ -146,6 +148,7 @@ fun RoutesScreen(
 @Composable
 private fun RouteList(
     routes: List<Route>,
+    onOpen: (Route) -> Unit,
     onRename: (Route) -> Unit,
     onExport: (Route) -> Unit,
     onDelete: (Route) -> Unit,
@@ -163,6 +166,7 @@ private fun RouteList(
         items(routes, key = { it.id }) { route ->
             RouteRow(
                 route = route,
+                onOpen = { onOpen(route) },
                 onRename = { onRename(route) },
                 onExport = { onExport(route) },
                 onDelete = { onDelete(route) },
@@ -174,11 +178,14 @@ private fun RouteList(
 @Composable
 private fun RouteRow(
     route: Route,
+    onOpen: () -> Unit,
     onRename: () -> Unit,
     onExport: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    LeafCard(modifier = Modifier.fillMaxWidth()) {
+    // Toda la tarjeta abre la ruta. Los tres botones de dentro siguen haciendo lo suyo: en Compose
+    // el hijo se queda el toque, así que no hace falta excluirlos a mano.
+    LeafCard(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(HazloSpaces.md)) {
             Text(
                 text = route.name,

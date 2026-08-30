@@ -104,6 +104,14 @@
     <string name="catalog_section_all">Todo el catálogo</string>
     <string name="catalog_refresh">Actualizar</string>
 
+    <!-- Route detail -->
+    <string name="route_detail_back">Volver</string>
+    <string name="route_detail_distance">Distancia</string>
+    <string name="route_detail_elevation">Desnivel</string>
+    <string name="route_detail_points">Puntos</string>
+    <string name="route_detail_missing">Esa ruta ya no está.</string>
+    <string name="route_detail_no_path">Esta ruta se guardó sin puntos, así que no hay trazado que enseñar.</string>
+
     <!-- Movement tracker -->
     <string name="tracker_distance_waiting_for_fix">Buscando señal</string>
     <string name="tracker_distance_confirming">Confirmando…</string>

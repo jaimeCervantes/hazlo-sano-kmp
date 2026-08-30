@@ -14,6 +14,7 @@ sealed interface MovementDestination {
     data object History : MovementDestination
     data object Routes : MovementDestination
     data class SessionDetail(val sessionId: Long) : MovementDestination
+    data class RouteDetail(val routeId: Long) : MovementDestination
 }
 
 /**
@@ -42,6 +43,10 @@ class MovementNavState {
 
     fun openSessionDetail(sessionId: Long) {
         destination = MovementDestination.SessionDetail(sessionId)
+    }
+
+    fun openRouteDetail(routeId: Long) {
+        destination = MovementDestination.RouteDetail(routeId)
     }
 
     fun close() {
