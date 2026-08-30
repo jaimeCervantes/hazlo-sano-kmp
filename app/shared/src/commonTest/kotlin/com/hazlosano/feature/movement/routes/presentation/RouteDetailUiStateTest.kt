@@ -14,7 +14,7 @@ class RouteDetailUiStateTest {
     private fun route(
         name: String = "Cañón del Sumidero",
         distance: Double = 8_420.0,
-        elevationGain: Double = 350.0,
+        elevationGain: Double? = 350.0,
         points: List<WayPoint> = listOf(
             WayPoint(16.7500, -93.0800, altitude = 520.0),
             WayPoint(16.7510, -93.0790, altitude = 545.0),
@@ -43,49 +43,22 @@ class RouteDetailUiStateTest {
     }
 
     @Test
-    fun `a route with no altitudes has an unknown climb and not a flat one`() {
-        // Un GPX sin elevaciones no describe una ruta llana: no dice nada del desnivel. El 0.0 que
-        // calculateStats acumuló y guardó no puede pintarse como si fuera una medida.
-        val flatlessRoute = route(
-            elevationGain = 0.0,
-            points = listOf(
-                WayPoint(16.7500, -93.0800, altitude = null),
-                WayPoint(16.7510, -93.0790, altitude = null),
-            ),
+    fun `an unknown climb stays unknown instead of becoming a zero`() {
+        // Quién decide que un desnivel es desconocido es `calculateStats` al medir, y la migración
+        // para lo ya guardado. Aquí sólo se comprueba que la pantalla no lo convierte en un cero
+        // por el camino, que es lo que la lista llevaba haciendo.
+        val detail = assertIs<RouteDetailUiState.Detail>(
+            routeDetail(route(elevationGain = null)),
         )
-
-        val detail = assertIs<RouteDetailUiState.Detail>(routeDetail(flatlessRoute))
 
         assertNull(detail.elevationGainMeters)
     }
 
     @Test
-    fun `a genuinely flat route reports zero rather than unknown`() {
-        val flat = route(
-            elevationGain = 0.0,
-            points = listOf(
-                WayPoint(16.7500, -93.0800, altitude = 520.0),
-                WayPoint(16.7510, -93.0790, altitude = 520.0),
-            ),
-        )
-
-        val detail = assertIs<RouteDetailUiState.Detail>(routeDetail(flat))
+    fun `a measured zero is passed through as a zero`() {
+        val detail = assertIs<RouteDetailUiState.Detail>(routeDetail(route(elevationGain = 0.0)))
 
         assertEquals(0.0, detail.elevationGainMeters)
-    }
-
-    @Test
-    fun `one altitude among many is enough to have a measurement`() {
-        val partial = route(
-            points = listOf(
-                WayPoint(16.7500, -93.0800, altitude = null),
-                WayPoint(16.7510, -93.0790, altitude = 545.0),
-            ),
-        )
-
-        val detail = assertIs<RouteDetailUiState.Detail>(routeDetail(partial))
-
-        assertEquals(350.0, detail.elevationGainMeters)
     }
 
     @Test

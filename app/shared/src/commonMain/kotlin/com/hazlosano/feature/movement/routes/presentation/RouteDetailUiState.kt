@@ -20,13 +20,7 @@ sealed interface RouteDetailUiState {
     data class Detail(
         val name: String,
         val distanceMeters: Double,
-        /**
-         * Metros de desnivel, o `null` cuando **no se puede saber**.
-         *
-         * Un GPX sin elevaciones no describe una ruta llana: no dice nada sobre el desnivel.
-         * Guardar un 0.0 y pintarlo sería afirmar que es plana, que es una afirmación distinta y
-         * probablemente falsa. La misma distinción que hace `MovementFormat.elevation`.
-         */
+        /** Metros de desnivel, o `null` cuando la ruta no trae con qué medirlo. */
         val elevationGainMeters: Double?,
         val pointCount: Int,
         val path: List<UserLocation>,
@@ -48,7 +42,7 @@ fun routeDetail(route: Route?): RouteDetailUiState {
     return RouteDetailUiState.Detail(
         name = route.name,
         distanceMeters = route.distance,
-        elevationGainMeters = route.elevationGainOrUnknown(),
+        elevationGainMeters = route.elevationGain,
         pointCount = route.points.size,
         path = route.points.map { point ->
             UserLocation(
@@ -60,13 +54,3 @@ fun routeDetail(route: Route?): RouteDetailUiState {
         },
     )
 }
-
-/**
- * El desnivel sólo significa algo si algún punto traía altitud.
- *
- * `calculateStats` acumula ceros cuando ningún punto la trae, y ese cero acaba guardado en la fila
- * de la ruta indistinguible de un llano de verdad. Aquí se recupera la diferencia mirando los
- * puntos, que es donde está la respuesta.
- */
-private fun Route.elevationGainOrUnknown(): Double? =
-    if (points.any { it.altitude != null }) elevationGain else null
