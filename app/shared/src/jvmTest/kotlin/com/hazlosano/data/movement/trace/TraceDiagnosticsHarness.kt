@@ -31,10 +31,52 @@ class TraceDiagnosticsHarness {
             if (accepted.size < 2) return@forEach
 
             println("\n══ ${file.name}")
+            reportReleases(records)
             reportClimb(records, accepted)
             reportMovingTime(accepted)
             reportAltitudeProfile(records, accepted)
         }
+    }
+
+    /**
+     * Where the recorded distance actually comes from: every time the filter releases a departure
+     * into the path, how much it added and when. A phone that never moved should have none of these
+     * after the first minute, so a session that reports kilometres from a table is read here.
+     */
+    private fun reportReleases(records: List<TraceRecord>) {
+        val start = records.first().reading.timestamp
+        var filter = LocationFilter()
+        var previous: UserLocation? = null
+        val releases = mutableListOf<Triple<Long, Int, Double>>()
+
+        records.forEach { record ->
+            val outcome = filter.accepting(record.reading)
+            filter = outcome.filter
+            if (outcome !is LocationFilterResult.Accepted) return@forEach
+            var added = 0.0
+            outcome.locations.forEach { point ->
+                previous?.let {
+                    added += haversineMeters(it.latitude, it.longitude, point.latitude, point.longitude)
+                }
+                previous = point
+            }
+            releases += Triple(
+                (record.reading.timestamp - start) / 1_000L,
+                outcome.locations.size,
+                added,
+            )
+        }
+
+        println(
+            """
+               releases into the path
+                 how many                      ${releases.size}
+                 metres from them              ${"%.0f".format(releases.sumOf { it.third })}
+                 biggest five                  ${releases.sortedByDescending { it.third }.take(5)
+                .joinToString(", ") { "t+${it.first}s ${it.second}pt ${"%.0f".format(it.third)}m" }}
+                 when they happened            ${releases.take(24).joinToString(", ") { "${it.first}s" }}
+            """.trimIndent(),
+        )
     }
 
     private fun reportClimb(records: List<TraceRecord>, accepted: List<UserLocation>) {
@@ -131,7 +173,7 @@ class TraceDiagnosticsHarness {
         forEach { reading ->
             val outcome = filter.accepting(reading)
             filter = outcome.filter
-            if (outcome is LocationFilterResult.Accepted) accepted += outcome.location
+            if (outcome is LocationFilterResult.Accepted) accepted += outcome.locations
         }
         return accepted
     }

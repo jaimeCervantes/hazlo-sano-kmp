@@ -73,13 +73,16 @@ class SessionRecordingTest {
 
     @Test
     fun accumulatesThePathAndDistanceOfTheSession() = runTest {
-        val locations = MutableSharedFlow<UserLocation>(replay = 3)
+        val locations = MutableSharedFlow<UserLocation>(replay = 5)
         val recording = buildRecording(locations)
 
         recording.start()
         runCurrent()
-        locations.emit(UserLocation(latitude = 19.4300, longitude = -99.1300))
-        locations.emit(UserLocation(latitude = 19.4310, longitude = -99.1300))
+        // Walking away for longer than a departure takes to be confirmed: before that the readings
+        // are held rather than recorded, because a receiver going in circles looks the same.
+        (0..4).forEach { index ->
+            locations.emit(locationAt(northMeters = index * 30.0, atMillis = index * 20_000L))
+        }
         runCurrent()
 
         val state = recording.state.value
@@ -87,7 +90,7 @@ class SessionRecordingTest {
         advanceUntilIdle()
 
         assertTrue(state.isRecording)
-        assertEquals(2, state.traveledPoints.size)
+        assertTrue(state.traveledPoints.size >= 2, "recorded ${state.traveledPoints.size} points")
         assertTrue(state.distanceMeters > 0.0)
     }
 

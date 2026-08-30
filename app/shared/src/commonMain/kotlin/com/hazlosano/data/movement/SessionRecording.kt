@@ -5,7 +5,6 @@ import com.hazlosano.data.movement.trace.TraceStore
 import com.hazlosano.data.movement.trace.createTraceStore
 import com.hazlosano.domain.feature.movement.filter.LocationFilter
 import com.hazlosano.domain.feature.movement.filter.LocationFilterResult
-import com.hazlosano.domain.feature.movement.filter.TraceRecord
 import com.hazlosano.domain.feature.movement.model.RecordingState
 import com.hazlosano.domain.feature.movement.model.elapsedAt
 import com.hazlosano.domain.feature.movement.model.recorded
@@ -51,6 +50,12 @@ class SessionRecording(
     private var traceSink: TraceSink? = null
 
     /**
+     * Owned by the collecting job and closed out by [stop]. Like [state], it assumes the recording
+     * is driven from one thread — the host's — which is how every caller uses it.
+     */
+    private var filter = LocationFilter()
+
+    /**
      * [captureTrace] keeps every reading the receiver delivers, with the filter's verdict, for
      * calibrating the thresholds against a real GPS. It is decided per recording and defaults to
      * off: an app in normal use has no business writing a file for every session.
@@ -64,29 +69,30 @@ class SessionRecording(
         val sink = if (captureTrace) traceStore.openTrace(startedAtMillis) else null
         traceSink = sink
 
+        // Started fresh, so a session begins without any memory of the previous one instead of
+        // inheriting its estimate. It is read again in stop(), to close out the departure the
+        // filter may still be holding.
+        filter = LocationFilter()
         locationJob = scope.launch {
-            // The filter is local to this job, so every session starts without any memory of the
-            // previous one instead of inheriting its estimate.
-            var filter = LocationFilter()
             locationRepository.getLocationUpdates().collect { location ->
                 val outcome = filter.accepting(location)
                 filter = outcome.filter
-                // Recorded before acting on it, and recorded raw: the rejected readings are the
-                // half that a saved session cannot tell you about, and they are what makes the
-                // trace replayable against a different threshold.
-                sink?.append(
-                    TraceRecord(
-                        reading = location,
-                        discardReason = (outcome as? LocationFilterResult.Discarded)?.reason,
-                    ),
-                )
+                // Written raw, and only once the filter has settled the verdict: a departure is
+                // judged a minute after it starts, so writing what a reading looked like on arrival
+                // would report readings as unconfirmed that ended up in the path. The rejected half
+                // is what a saved session cannot tell you about, and what makes the trace
+                // replayable against a different threshold.
+                outcome.settled.forEach { sink?.append(it) }
                 when (outcome) {
-                    // The corrected position is what gets recorded, so the drawn path, the distance
-                    // and the statistics recomputed from the points all describe the same journey.
+                    // The corrected positions are what get recorded, so the drawn path, the
+                    // distance and the statistics recomputed from the points all describe the same
+                    // journey. Normally one; the whole held departure when this reading is the one
+                    // that confirmed it.
                     is LocationFilterResult.Accepted -> {
-                        _state.value = _state.value.recorded(outcome.location)
+                        outcome.locations.forEach { _state.value = _state.value.recorded(it) }
                     }
-                    // Noise, a jump or a fix too vague to be worth metres: the path does not grow.
+                    // Noise, a jump, a fix too vague to be worth metres, or a departure that has
+                    // not held up yet: the path does not grow.
                     is LocationFilterResult.Discarded -> Unit
                 }
             }
@@ -105,13 +111,21 @@ class SessionRecording(
      */
     fun stop(): Job? {
         if (!_state.value.isRecording) return null
-        val finished = _state.value.stopped(timeProvider.nowMillis())
+        val stoppedAtMillis = timeProvider.nowMillis()
         locationJob?.cancel()
         locationJob = null
         tickJob?.cancel()
         tickJob = null
         val sink = traceSink
         traceSink = null
+
+        // The departure the filter was still holding is judged now rather than dropped: someone who
+        // presses stop while still walking would otherwise lose the end of their outing.
+        val closing = filter.closing()
+        closing.settled.forEach { sink?.append(it) }
+        var recorded = _state.value
+        closing.released.forEach { recorded = recorded.recorded(it) }
+        val finished = recorded.stopped(stoppedAtMillis)
 
         // A finished session belongs to the history, not to the tracker: clear it so the screen
         // stops drawing a route that is no longer being recorded.

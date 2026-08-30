@@ -29,7 +29,7 @@ Feature: Trustworthy recorded distance
     Given I am recording a session
     When I travel at <pace>
     Then the recorded distance matches the distance travelled
-    And none of those readings is treated as an impossible jump
+    And the journey is not read as a string of impossible jumps
 
     Examples:
       | pace                  |

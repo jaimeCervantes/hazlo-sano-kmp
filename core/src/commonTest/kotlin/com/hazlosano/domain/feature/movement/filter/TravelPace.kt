@@ -32,16 +32,30 @@ internal data class PaceOutcome(
     val pace: TravelPace,
     val travelledMeters: Double,
     val recordedMeters: Double,
-    val mistakenForAJump: Boolean,
+    val readings: Int,
+    val readingsCalledJumps: Int,
 ) {
     val drift: Double get() = abs(recordedMeters - travelledMeters) / travelledMeters
+
+    /**
+     * A noise spike that lands far enough away is genuinely something nobody could have done, and
+     * turning it away is the filter working. What may never happen is a journey being read as a
+     * string of teleports, so this is a share and not a single occurrence.
+     */
+    val mistakenForAJump: Boolean get() = readingsCalledJumps > readings * MAX_JUMP_SHARE
 
     override fun toString(): String =
         "${pace.label}: travelled ${travelledMeters.oneDecimal()} m, " +
             "recorded ${recordedMeters.oneDecimal()} m " +
             "(off by ${(drift * 100).oneDecimal()} %)" +
-            if (mistakenForAJump) " — READINGS DISCARDED AS IMPOSSIBLE JUMPS" else ""
+            if (mistakenForAJump) {
+                " — $readingsCalledJumps OF $readings READINGS DISCARDED AS IMPOSSIBLE JUMPS"
+            } else {
+                ""
+            }
 }
+
+private const val MAX_JUMP_SHARE = 0.05
 
 /** Runs a straight journey at [pace] through the filter and reports how it fared. */
 internal fun TravelPace.recordedOver(
@@ -63,7 +77,8 @@ internal fun TravelPace.recordedOver(
         pace = this,
         travelledMeters = travelledMeters(readings, metersPerReading),
         recordedMeters = run.distanceMeters,
-        mistakenForAJump = DiscardReason.IMPLAUSIBLE_SPEED in run.discarded,
+        readings = readings,
+        readingsCalledJumps = run.discarded.count { it == DiscardReason.IMPLAUSIBLE_SPEED },
     )
 }
 

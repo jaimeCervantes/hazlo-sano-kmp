@@ -47,7 +47,9 @@ class TrackNavigationUseCase(
                 // Smoothing and the plausibility gate live in the filter, so navigation and plain
                 // recording judge a reading the same way.
                 val filtered = when (outcome) {
-                    is LocationFilterResult.Accepted -> outcome.location
+                    // The newest of however many the filter just released; the ones before it are
+                    // the same departure and would only redraw where the user already is.
+                    is LocationFilterResult.Accepted -> outcome.locations.last()
                     is LocationFilterResult.Discarded -> return@onEach
                 }
 

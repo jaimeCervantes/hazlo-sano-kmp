@@ -75,7 +75,7 @@ class TraceReplayHarness {
         forEach { reading ->
             val outcome = filter.accepting(reading)
             filter = outcome.filter
-            if (outcome is LocationFilterResult.Accepted) accepted += outcome.location
+            if (outcome is LocationFilterResult.Accepted) accepted += outcome.locations
         }
         return Replayed(accepted)
     }

@@ -42,4 +42,5 @@ private fun DiscardReason.label(): String = when (this) {
     DiscardReason.POOR_ACCURACY -> "Precisión insuficiente"
     DiscardReason.IMPLAUSIBLE_SPEED -> "Salto imposible"
     DiscardReason.WITHIN_NOISE -> "Bajo el ruido"
+    DiscardReason.UNCONFIRMED_MOVEMENT -> "Movimiento sin confirmar"
 }

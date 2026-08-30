@@ -163,15 +163,20 @@ class LocationFilterTest {
 
     @Test
     fun correctsThePositionInsteadOfRecordingTheRawReading() {
-        val readings = listOf(
-            locationAt(northMeters = 0.0, accuracyMeters = 10f, atMillis = 0L),
-            locationAt(northMeters = 40.0, accuracyMeters = 10f, atMillis = SAMPLING_INTERVAL_MILLIS),
-        )
+        // Forty metres away in one step and then walking on, for longer than a departure takes to
+        // be confirmed: until it is, nothing is released and there is no stored position to look at.
+        val readings = (0..60).map { index ->
+            locationAt(
+                northMeters = if (index == 0) 0.0 else 40.0 + index * TravelPace.WALKING.metersPerReading,
+                accuracyMeters = 10f,
+                atMillis = index * SAMPLING_INTERVAL_MILLIS,
+            )
+        }
 
         val run = readings.through()
 
-        assertEquals(2, run.accepted.size)
-        val moved = run.distanceMeters
+        assertTrue(run.accepted.size > 1, "the departure was never confirmed")
+        val moved = run.accepted.take(2).pathDistanceMeters()
         assertTrue(moved in 1.0..39.0, "the reading was stored raw instead of corrected: $moved m")
     }
 
