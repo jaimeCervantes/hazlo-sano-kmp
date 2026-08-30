@@ -13,15 +13,18 @@ import com.hazlosano.domain.model.HazloProduct
 import com.hazlosano.domain.model.PublicationKind
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.publication_price_free
+import hazlosano.app.shared.generated.resources.section_products_empty
+import hazlosano.app.shared.generated.resources.section_products_placeholder
+import hazlosano.app.shared.generated.resources.section_products_title
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HazloExploreProductsSection(
     products: List<HazloProduct>,
     modifier: Modifier = Modifier,
-    title: String = HazloSectionDefaults.productSearchTitle,
-    placeholderText: String = HazloSectionDefaults.productSearchPlaceholder,
-    emptyText: String = HazloSectionDefaults.productSearchEmptyText,
+    title: String = stringResource(Res.string.section_products_title),
+    placeholderText: String = stringResource(Res.string.section_products_placeholder),
+    emptyText: String = stringResource(Res.string.section_products_empty),
     gridColumns: Int = 2,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     onFavoriteClick: (HazloProduct) -> Unit = {},

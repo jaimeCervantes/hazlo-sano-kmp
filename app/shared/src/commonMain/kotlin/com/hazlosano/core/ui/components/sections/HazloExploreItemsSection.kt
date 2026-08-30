@@ -22,11 +22,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.section_products_empty
+import hazlosano.app.shared.generated.resources.section_products_placeholder
+import hazlosano.app.shared.generated.resources.section_products_title
+import org.jetbrains.compose.resources.stringResource
 
+/**
+ * Aquí ya no vive ninguna cadena: el título, el marcador de posición y el vacío se leen del catálogo
+ * de recursos, que es la misma redacción que usa `HazloExploreProductsSection`. Tenerlos escritos
+ * también aquí era una segunda copia de la misma copia.
+ */
 object HazloExploreItemsSectionDefaults {
-    const val title: String = "Buscar productos y servicios"
-    const val placeholderText: String = "Buscar productos cercanos..."
-    const val emptyText: String = "No se encontraron productos."
     const val gridColumns: Int = 2
     const val minimumGridColumns: Int = 1
     const val itemWeight: Float = 1f
@@ -37,9 +44,9 @@ fun <T> HazloExploreItemsSection(
     items: List<T>,
     matchesQuery: (T, String) -> Boolean,
     modifier: Modifier = Modifier,
-    title: String = HazloExploreItemsSectionDefaults.title,
-    placeholderText: String = HazloExploreItemsSectionDefaults.placeholderText,
-    emptyText: String = HazloExploreItemsSectionDefaults.emptyText,
+    title: String = stringResource(Res.string.section_products_title),
+    placeholderText: String = stringResource(Res.string.section_products_placeholder),
+    emptyText: String = stringResource(Res.string.section_products_empty),
     gridColumns: Int = HazloExploreItemsSectionDefaults.gridColumns,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     itemContent: @Composable (item: T, modifier: Modifier) -> Unit,
@@ -68,9 +75,9 @@ fun <T> HazloExploreItemsSection(
     onSearchQueryChange: (String) -> Unit,
     matchesQuery: (T, String) -> Boolean,
     modifier: Modifier = Modifier,
-    title: String = HazloExploreItemsSectionDefaults.title,
-    placeholderText: String = HazloExploreItemsSectionDefaults.placeholderText,
-    emptyText: String = HazloExploreItemsSectionDefaults.emptyText,
+    title: String = stringResource(Res.string.section_products_title),
+    placeholderText: String = stringResource(Res.string.section_products_placeholder),
+    emptyText: String = stringResource(Res.string.section_products_empty),
     gridColumns: Int = HazloExploreItemsSectionDefaults.gridColumns,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     isLoading: Boolean = false,

@@ -8,8 +8,10 @@ import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.domain.model.HazloProduct
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.PublicationKind
+import com.hazlosano.domain.model.PillarHighlights
 import com.hazlosano.feature.catalog.presentation.PillarCatalogUiState
 import com.hazlosano.feature.catalog.presentation.catalogSections
+import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
 import kotlin.test.Test
 
 /**
@@ -24,6 +26,10 @@ import kotlin.test.Test
 class PillarCatalogScreenTest {
 
     private val now = 1_788_620_400_000L // 2026-09-05T15:00:00Z
+
+    // Lo que este test mira es el catálogo; los campeones y retos del pilar tienen los suyos en
+    // `PillarBoardOrderTest`, así que aquí el tablero se compone sin ellos.
+    private val noHighlights = PillarHighlightsUiState.Ready(PillarHighlights())
 
     private fun event(id: String, name: String, startsAt: Long?, endsAt: Long? = null) = HazloProduct(
         id = id,
@@ -71,6 +77,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.MOVEMENT,
                 state = ready(publications),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -87,6 +94,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.NUTRITION,
                 state = ready(listOf(product("p1", "Suero natural"))),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -100,6 +108,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.NUTRITION,
                 state = ready(listOf(product("p1", "Suero natural"))),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -113,6 +122,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.NUTRITION,
                 state = ready(listOf(product("p1", "Suero natural", distance = null))),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -126,6 +136,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.MOVEMENT,
                 state = ready(listOf(event("e1", "Rodada del domingo", now + 86_400_000L))),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -139,6 +150,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.SLEEP,
                 state = ready(listOf(product("p1", "Antifaz")), fromCache = true),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -153,6 +165,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.SLEEP,
                 state = ready(listOf(product("p1", "Antifaz"))),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -166,6 +179,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.MIND,
                 state = PillarCatalogUiState.Unavailable,
+                highlights = noHighlights,
                 onRetry = {},
             )
         }
@@ -181,6 +195,7 @@ class PillarCatalogScreenTest {
             PillarCatalogContent(
                 pillar = PillarType.MIND,
                 state = ready(listOf(service("s1", "Masaje deportivo", 60))),
+                highlights = noHighlights,
                 onRetry = {},
             )
         }

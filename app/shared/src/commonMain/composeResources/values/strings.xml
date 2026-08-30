@@ -88,6 +88,18 @@
     <string name="catalog_stale_notice">Sin conexión — mostrando lo último que se descargó</string>
     <string name="catalog_retry">Reintentar</string>
 
+    <!-- Secciones compartidas del tablero. Las usan el tablero de pilar, Sueño e Inicio, así que la
+         redacción vive aquí y no dentro de ningún Composable. -->
+    <string name="section_weekly_champions">Campeones Semanales</string>
+    <string name="section_active_challenges">Retos Activos</string>
+    <string name="section_view_all">Ver Todos →</string>
+    <string name="section_products_title">Buscar productos y servicios</string>
+    <string name="section_products_placeholder">Buscar productos cercanos…</string>
+    <string name="section_products_empty">No se encontraron productos.</string>
+    <string name="champion_achievement_label">Logro</string>
+    <string name="challenge_new_badge">Nuevo</string>
+    <string name="challenge_progress_label">Progreso</string>
+
     <!-- Publication kinds -->
     <string name="publication_kind_event">Evento</string>
     <string name="publication_kind_service">Servicio</string>
@@ -101,7 +113,6 @@
     <string name="catalog_section_upcoming_events">Próximos eventos</string>
     <string name="catalog_section_services">Servicios</string>
     <string name="catalog_section_nearby">Cerca de ti</string>
-    <string name="catalog_section_all">Todo el catálogo</string>
     <string name="catalog_refresh">Actualizar</string>
 
     <!-- Route detail -->

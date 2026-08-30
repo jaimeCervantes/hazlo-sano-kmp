@@ -3,12 +3,12 @@ package com.hazlosano.core.ui.components.sections
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+/**
+ * Dimensiones compartidas de las secciones.
+ *
+ * Aquí ya no vive ninguna cadena: la copia visible salió al catálogo de recursos, que es el único
+ * sitio que una traducción alcanza. Lo que queda es medida, que no se traduce.
+ */
 object HazloSectionDefaults {
-    const val weeklyChampionsTitle: String = "Campeones Semanales"
-    const val activeChallengesTitle: String = "Retos Activos"
-    const val productSearchTitle: String = "Buscar productos y servicios"
-    const val productSearchPlaceholder: String = "Buscar productos cercanos..."
-    const val productSearchEmptyText: String = "No se encontraron productos."
-    const val viewAllActionText: String = "Ver Todos ->"
     val challengeCardWidth: Dp = 280.dp
 }

@@ -34,6 +34,7 @@ import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.cards.HazloProductCard
 import com.hazlosano.core.ui.components.cards.HazloProductCardImagePlaceholder
 import com.hazlosano.core.ui.components.sections.HazloExploreProductsSection
+import com.hazlosano.core.ui.components.sections.pillarHighlightsSections
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.util.formatClockTime
 import com.hazlosano.core.ui.util.formatDate
@@ -44,6 +45,9 @@ import com.hazlosano.feature.catalog.presentation.CatalogSections
 import com.hazlosano.feature.catalog.presentation.PillarCatalogUiState
 import com.hazlosano.feature.catalog.presentation.PillarCatalogViewModel
 import com.hazlosano.feature.catalog.presentation.rememberPillarCatalogViewModel
+import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
+import com.hazlosano.feature.pillar.presentation.PillarHighlightsViewModel
+import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.catalog_empty
 import hazlosano.app.shared.generated.resources.catalog_failed_message
@@ -54,7 +58,6 @@ import hazlosano.app.shared.generated.resources.catalog_metric_services
 import hazlosano.app.shared.generated.resources.catalog_refresh
 import hazlosano.app.shared.generated.resources.catalog_retry
 import hazlosano.app.shared.generated.resources.catalog_search_placeholder
-import hazlosano.app.shared.generated.resources.catalog_section_all
 import hazlosano.app.shared.generated.resources.catalog_section_nearby
 import hazlosano.app.shared.generated.resources.catalog_section_services
 import hazlosano.app.shared.generated.resources.catalog_section_upcoming_events
@@ -63,6 +66,7 @@ import hazlosano.app.shared.generated.resources.catalog_unavailable_message
 import hazlosano.app.shared.generated.resources.catalog_unavailable_title
 import hazlosano.app.shared.generated.resources.publication_duration_minutes
 import hazlosano.app.shared.generated.resources.publication_price_free
+import hazlosano.app.shared.generated.resources.section_products_title
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba. La estructura del tablero se afirma por aquí y no por su redacción. */
@@ -87,12 +91,15 @@ fun PillarCatalogScreen(
     pillar: PillarType,
     modifier: Modifier = Modifier,
     viewModel: PillarCatalogViewModel = rememberPillarCatalogViewModel(pillar),
+    highlightsViewModel: PillarHighlightsViewModel = rememberPillarHighlightsViewModel(pillar),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val highlights by highlightsViewModel.uiState.collectAsState()
 
     PillarCatalogContent(
         pillar = pillar,
         state = state,
+        highlights = highlights,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -108,6 +115,7 @@ fun PillarCatalogScreen(
 fun PillarCatalogContent(
     pillar: PillarType,
     state: PillarCatalogUiState,
+    highlights: PillarHighlightsUiState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -123,6 +131,7 @@ fun PillarCatalogContent(
             is PillarCatalogUiState.Ready -> PillarBoard(
                 pillar = pillar,
                 sections = state.sections,
+                highlights = highlights,
                 fromCache = state.fromCache,
                 onRefresh = onRetry,
             )
@@ -144,10 +153,15 @@ fun PillarCatalogContent(
     }
 }
 
+/**
+ * El tablero, en el orden del proyecto Android de referencia: la identidad del pilar arriba, la
+ * comunidad debajo —campeones y retos— y el catálogo al final, con la búsqueda cerrando la pantalla.
+ */
 @Composable
 private fun PillarBoard(
     pillar: PillarType,
     sections: CatalogSections,
+    highlights: PillarHighlightsUiState,
     fromCache: Boolean,
     onRefresh: () -> Unit,
 ) {
@@ -191,6 +205,10 @@ private fun PillarBoard(
                     .padding(horizontal = HazloSpaces.gutter)
                     .testTag(PillarCatalogTags.SUMMARY),
             )
+        }
+
+        if (highlights is PillarHighlightsUiState.Ready) {
+            pillarHighlightsSections(highlights = highlights.highlights, accent = accent)
         }
 
         pillarCatalogSections(pillar = pillar, sections = sections)
@@ -242,7 +260,7 @@ fun LazyListScope.pillarCatalogSections(
             modifier = Modifier
                 .padding(horizontal = HazloSpaces.gutter)
                 .testTag(PillarCatalogTags.GRID),
-            title = stringResource(Res.string.catalog_section_all),
+            title = stringResource(Res.string.section_products_title),
             placeholderText = stringResource(
                 Res.string.catalog_search_placeholder,
                 pillarLabel(pillar),

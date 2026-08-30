@@ -5,12 +5,15 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
+import com.hazlosano.core.ui.components.sections.PillarHighlightsTags
+import com.hazlosano.domain.model.HazloChampion
 import com.hazlosano.domain.model.HazloProduct
+import com.hazlosano.domain.model.PillarHighlights
 import com.hazlosano.domain.model.PublicationKind
-import com.hazlosano.domain.model.SleepContent
 import com.hazlosano.feature.catalog.presentation.PillarCatalogUiState
 import com.hazlosano.feature.catalog.presentation.catalogSections
 import com.hazlosano.feature.catalog.ui.PillarCatalogTags
+import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
 import kotlin.test.Test
 
 /**
@@ -26,16 +29,17 @@ class SleepScreenCatalogTest {
 
     private val now = 1_788_620_400_000L
 
-    private val content = SleepContent(
-        heroTitle = "Tu descanso",
-        heroSubtitle = "Esta semana",
-        heroMetricLabel = "Promedio",
-        heroMetricValue = "7h 10m",
-        heroMetricSupport = "de 8h",
-        heroProgress = 0.9f,
-        heroImageUrl = "",
-        weeklyChampions = emptyList(),
-        activeChallenges = emptyList(),
+    private val highlights = PillarHighlightsUiState.Ready(
+        PillarHighlights(
+            champions = listOf(
+                HazloChampion(
+                    name = "Valeria N.",
+                    title = "Rutina constante",
+                    stat = "7 noches",
+                    imageUrl = "",
+                ),
+            ),
+        ),
     )
 
     private fun product(id: String, name: String) = HazloProduct(
@@ -55,8 +59,8 @@ class SleepScreenCatalogTest {
     fun `the sleep pillar shows the catalogue read from the site`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                content = content,
                 sleepAnalysis = null,
+                highlights = highlights,
                 catalogState = ready(listOf(product("p1", "Antifaz de seda"))),
                 onRetryCatalog = {},
                 onRefresh = null,
@@ -72,8 +76,8 @@ class SleepScreenCatalogTest {
     fun `a cached catalogue says so inside the sleep board`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                content = content,
                 sleepAnalysis = null,
+                highlights = highlights,
                 catalogState = ready(listOf(product("p1", "Antifaz de seda")), fromCache = true),
                 onRetryCatalog = {},
                 onRefresh = null,
@@ -88,8 +92,8 @@ class SleepScreenCatalogTest {
     fun `a catalogue that cannot be read does not blank the sleep dashboard`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                content = content,
                 sleepAnalysis = null,
+                highlights = highlights,
                 catalogState = PillarCatalogUiState.Unavailable,
                 onRetryCatalog = {},
                 onRefresh = null,
@@ -97,8 +101,9 @@ class SleepScreenCatalogTest {
             )
         }
 
-        // El análisis del sueño es lo que esta pestaña siempre supo hacer, y no depende de la red.
-        onNodeWithText("Campeones Semanales").assertIsDisplayed()
+        // Los campeones de la semana no dependen de la red, y siguen ahí cuando el catálogo falla.
+        onNodeWithTag(PillarHighlightsTags.CHAMPIONS).assertIsDisplayed()
+        onNodeWithText("Valeria N.").assertIsDisplayed()
         onNodeWithTag(PillarCatalogTags.UNAVAILABLE).assertIsDisplayed()
     }
 
@@ -106,8 +111,8 @@ class SleepScreenCatalogTest {
     fun `no second hero card is drawn on top of the sleep summary`() = runComposeUiTest {
         setContent {
             SleepDashboardContent(
-                content = content,
                 sleepAnalysis = null,
+                highlights = highlights,
                 catalogState = ready(listOf(product("p1", "Antifaz de seda"))),
                 onRetryCatalog = {},
                 onRefresh = null,

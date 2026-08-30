@@ -23,6 +23,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
 import com.hazlosano.core.ui.components.atomic.LeafCard
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.champion_achievement_label
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HazloChampionCard(
@@ -59,7 +62,10 @@ fun HazloChampionCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
-                Text("Logro", style = MaterialTheme.typography.labelSmall)
+                Text(
+                    text = stringResource(Res.string.champion_achievement_label),
+                    style = MaterialTheme.typography.labelSmall,
+                )
                 Text(stat, style = MaterialTheme.typography.titleMedium, color = accentColor, fontWeight = FontWeight.Bold)
             }
         }

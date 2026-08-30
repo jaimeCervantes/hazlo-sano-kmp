@@ -5,9 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.model.SleepSession
 import com.hazlosano.domain.repository.SleepSessionRepository
 import com.hazlosano.domain.usecase.GetSleepAnalysisUseCase
-import com.hazlosano.domain.usecase.GetSleepContentUseCase
 import com.hazlosano.domain.model.SleepAnalysis
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +22,6 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 
 class SleepViewModel(
-    private val getSleepContentUseCase: GetSleepContentUseCase,
     private val getSleepAnalysisUseCase: GetSleepAnalysisUseCase,
     private val sleepSessionRepository: SleepSessionRepository? = null,
 ) : ViewModel() {
@@ -50,14 +47,9 @@ class SleepViewModel(
     private fun loadData() {
         viewModelScope.launch {
             try {
-                val content = async { getSleepContentUseCase() }
-                val analysis = async {
-                    val (from, to) = analysisWindow()
-                    getSleepAnalysisUseCase(from, to)
-                }
+                val (from, to) = analysisWindow()
                 _uiState.value = SleepUiState.Success(
-                    content = content.await(),
-                    sleepAnalysis = analysis.await(),
+                    sleepAnalysis = getSleepAnalysisUseCase(from, to),
                 )
             } catch (e: Exception) {
                 _uiState.value = SleepUiState.Error(e.message ?: "Unknown error")

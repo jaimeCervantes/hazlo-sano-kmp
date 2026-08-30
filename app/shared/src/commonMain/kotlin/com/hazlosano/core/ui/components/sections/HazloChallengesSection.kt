@@ -18,12 +18,15 @@ import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.cards.HazloChallengeCard
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.model.HazloChallenge
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.section_active_challenges
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HazloChallengesSection(
     challenges: List<HazloChallenge>,
     modifier: Modifier = Modifier,
-    title: String = HazloSectionDefaults.activeChallengesTitle,
+    title: String = stringResource(Res.string.section_active_challenges),
     challengeCardWidth: Dp = HazloSectionDefaults.challengeCardWidth,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     onChallengeClick: (HazloChallenge) -> Unit = {},

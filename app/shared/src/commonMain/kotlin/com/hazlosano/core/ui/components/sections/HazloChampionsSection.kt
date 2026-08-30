@@ -16,14 +16,18 @@ import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.cards.HazloChampionCard
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.model.HazloChampion
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.section_view_all
+import hazlosano.app.shared.generated.resources.section_weekly_champions
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HazloChampionsSection(
     champions: List<HazloChampion>,
     modifier: Modifier = Modifier,
-    title: String = HazloSectionDefaults.weeklyChampionsTitle,
+    title: String = stringResource(Res.string.section_weekly_champions),
     accentColor: Color = MaterialTheme.colorScheme.primary,
-    actionText: String? = HazloSectionDefaults.viewAllActionText,
+    actionText: String? = stringResource(Res.string.section_view_all),
     onActionClick: (() -> Unit)? = null,
 ) {
     Column(modifier = modifier) {

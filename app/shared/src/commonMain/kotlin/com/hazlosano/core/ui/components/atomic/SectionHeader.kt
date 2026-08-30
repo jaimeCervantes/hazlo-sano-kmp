@@ -11,11 +11,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 
+/**
+ * El encabezado de una sección.
+ *
+ * `actionText` no trae texto por defecto: esto es un componente atómico y no puede llevar copia
+ * escrita dentro —ninguna traducción alcanzaría aquí—, así que la palabra la pone quien lo usa.
+ */
 @Composable
 fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
-    actionText: String? = "Ver Todos ->",
+    actionText: String? = null,
     onActionClick: (() -> Unit)? = null,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     textColor: Color = MaterialTheme.colorScheme.onBackground,

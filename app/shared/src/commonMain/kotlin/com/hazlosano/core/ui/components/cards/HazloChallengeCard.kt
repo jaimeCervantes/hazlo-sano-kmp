@@ -35,6 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.challenge_new_badge
+import hazlosano.app.shared.generated.resources.challenge_progress_label
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 fun HazloChallengeCard(
@@ -73,7 +77,7 @@ fun HazloChallengeCard(
                     modifier = Modifier.padding(16.dp),
                 ) {
                     Text(
-                        text = "Nuevo",
+                        text = stringResource(Res.string.challenge_new_badge),
                         color = Color.White,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -112,7 +116,7 @@ fun HazloChallengeCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        "Progreso",
+                        text = stringResource(Res.string.challenge_progress_label),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                     )

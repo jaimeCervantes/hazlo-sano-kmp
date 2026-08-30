@@ -9,12 +9,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.hazlosano.core.ui.image.HazloImageLoader
 import com.hazlosano.core.ui.theme.HazloSanoTheme
 import com.hazlosano.domain.usecase.GetHomeContentUseCase
-import com.hazlosano.domain.usecase.GetSleepContentUseCase
 import com.hazlosano.feature.main.ui.MainScreen
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.data.repository.MockHomeRepository
-import com.hazlosano.data.repository.MockSleepRepository
 import com.hazlosano.data.sleep.SleepSessionRepositoryImpl
 import com.hazlosano.data.sleep.createSleepDataSource
 import com.hazlosano.domain.usecase.GetSleepAnalysisUseCase
@@ -35,7 +33,6 @@ fun App() {
     }
     val sleepViewModel = remember {
         SleepViewModel(
-            GetSleepContentUseCase(MockSleepRepository()),
             getSleepAnalysisUseCase,
             sleepSessionRepository,
         )

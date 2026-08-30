@@ -48,6 +48,7 @@ import com.hazlosano.feature.movement.history.ui.MovementHistoryScreen
 import com.hazlosano.feature.movement.presentation.MovementDestination
 import com.hazlosano.feature.movement.presentation.MovementNavState
 import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
+import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import com.hazlosano.feature.movement.routes.ui.RouteDetailScreen
 import com.hazlosano.feature.movement.routes.ui.RoutesScreen
 import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
@@ -192,8 +193,11 @@ fun MainScreen(
                     BottomTab.Sueno -> {
                         val sleepCatalog = rememberPillarCatalogViewModel(PillarType.SLEEP)
                         val sleepCatalogState by sleepCatalog.uiState.collectAsState()
+                        val sleepHighlights = rememberPillarHighlightsViewModel(PillarType.SLEEP)
+                        val sleepHighlightsState by sleepHighlights.uiState.collectAsState()
                         SleepScreen(
                             viewModel = sleepViewModel,
+                            highlights = sleepHighlightsState,
                             catalogState = sleepCatalogState,
                             onRetryCatalog = sleepCatalog::refresh,
                             onRefresh = onRefreshSleep,
