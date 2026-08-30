@@ -4,15 +4,52 @@ import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.feature.movement.model.WayPoint
 import com.hazlosano.domain.feature.movement.parser.GpxParser
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
+import kotlinx.coroutines.CoroutineDispatcher
+// El de kotlinx y no el implícito de Java: `Runnable` a secas resuelve en JVM y no existe en los
+// demás targets, así que el test compilaba sólo en la mitad del proyecto.
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.CoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ImportRouteUseCaseTest {
+
+    /**
+     * Corre el bloque en el momento, pero deja constancia de que pasó por aquí.
+     *
+     * Comprobar "está en otro hilo" no serviría en los cinco targets —en web no hay más que uno—,
+     * así que lo que se comprueba es lo que sí es común: que la lectura del archivo sale por el
+     * dispatcher de trabajo y no se queda en el del llamante.
+     */
+    private class RecordingDispatcher : CoroutineDispatcher() {
+        var dispatches: Int = 0
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            dispatches++
+            block.run()
+        }
+    }
+
+    @Test
+    fun `reading the file leaves the caller's dispatcher`() = runTest {
+        // En Android el llamante es `viewModelScope`, o sea el hilo principal, y un GPX de miles de
+        // puntos parseado ahí es un tirón en la interfaz.
+        val dispatcher = RecordingDispatcher()
+        val useCase = ImportRouteUseCase(
+            repository = FakeRouteRepository(),
+            parser = StaticGpxParser(route(name = "Ruta Test")),
+            workDispatcher = dispatcher,
+        )
+
+        useCase(ByteArray(0))
+
+        assertTrue(dispatcher.dispatches > 0, "el archivo se leyó en el hilo de quien llamó")
+    }
 
     @Test
     fun `when a route is imported then stats are calculated and route is saved`() = runTest {

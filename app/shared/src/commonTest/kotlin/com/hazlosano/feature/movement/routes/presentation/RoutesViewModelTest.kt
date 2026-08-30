@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -161,7 +162,10 @@ class RoutesViewModelTest {
 
     private fun viewModel(repository: RouteRepository): RoutesViewModel = RoutesViewModel(
         routes = repository,
-        importRoute = ImportRouteUseCase(repository, GpxFormat),
+        // El caso de uso lee el archivo fuera del hilo del llamante. En un test hay que darle el
+        // dispatcher de prueba o el trabajo se escapa del reloj virtual de `runTest` y las
+        // aserciones corren antes de que haya terminado.
+        importRoute = ImportRouteUseCase(repository, GpxFormat, UnconfinedTestDispatcher()),
         exportRoute = ExportRouteAsGpxUseCase(repository),
     )
 

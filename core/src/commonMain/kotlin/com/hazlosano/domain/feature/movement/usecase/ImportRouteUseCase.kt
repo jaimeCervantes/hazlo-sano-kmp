@@ -6,6 +6,9 @@ import com.hazlosano.domain.feature.movement.model.calculateStats
 import com.hazlosano.domain.feature.movement.parser.GpxFormat
 import com.hazlosano.domain.feature.movement.parser.GpxParser
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Reads a GPX file into a stored route.
@@ -18,6 +21,15 @@ import com.hazlosano.domain.feature.movement.repository.RouteRepository
 class ImportRouteUseCase(
     private val repository: RouteRepository,
     private val parser: GpxParser,
+    /**
+     * Dónde se lee y se mide el archivo.
+     *
+     * Entra por constructor en vez de fijarse dentro porque un test con reloj virtual no puede
+     * seguir a `Dispatchers.Default`: el trabajo se le escapa del scheduler y las aserciones corren
+     * antes de que termine. Que sea inyectable es lo que hace que el cambio de hilo sea comprobable
+     * en vez de una promesa.
+     */
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     sealed interface Result {
         data class Success(val route: Route) : Result
@@ -35,16 +47,25 @@ class ImportRouteUseCase(
         forceOverwrite: Boolean = false,
         fallbackName: String? = null,
     ): Result = try {
-        val parsed = parser.parse(data)
-        val (totalDistance, totalElevation) = parsed.points.calculateStats()
-        val named = if (parsed.name == GpxFormat.DEFAULT_ROUTE_NAME) {
-            fallbackName?.trim()?.takeIf { it.isNotEmpty() } ?: parsed.name
-        } else {
-            parsed.name
+        // Leer un GPX y medirlo es trabajo de CPU sobre un archivo que puede traer miles de puntos,
+        // y hasta ahora corría en el hilo de quien llamara — que en Android es el principal, porque
+        // `viewModelScope` es `Dispatchers.Main`. Lo declara el caso de uso y no cada llamante: es
+        // el que sabe que el trabajo pesa.
+        //
+        // `Dispatchers.Default` es API común, así que vale en los cinco targets. En web, donde no
+        // hay más que un hilo, no hace nada y tampoco estorba.
+        val route = withContext(workDispatcher) {
+            val parsed = parser.parse(data)
+            val (totalDistance, totalElevation) = parsed.points.calculateStats()
+            val named = if (parsed.name == GpxFormat.DEFAULT_ROUTE_NAME) {
+                fallbackName?.trim()?.takeIf { it.isNotEmpty() } ?: parsed.name
+            } else {
+                parsed.name
+            }
+            parsed
+                .copy(name = named, distance = totalDistance, elevationGain = totalElevation)
+                .let { it.copy(fingerprint = it.calculateFingerprint()) }
         }
-        val route = parsed
-            .copy(name = named, distance = totalDistance, elevationGain = totalElevation)
-            .let { it.copy(fingerprint = it.calculateFingerprint()) }
 
         // The fingerprint comes first: it recognises the same track under a different name, which
         // is the case a name comparison cannot see.

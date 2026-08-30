@@ -99,12 +99,27 @@ object GpxFormat : GpxParser {
             null
         }
 
+    /**
+     * The patterns are built once and reused, not compiled per call.
+     *
+     * `attribute` and `elementText` used to build a `Regex` on every invocation, which is four
+     * compilations for every point in the file: a track of a few thousand points paid for tens of
+     * thousands of them. Measured on the JVM it costs about a tenth of a second for eight thousand
+     * points — not the disaster it looks like, but pure waste, and every target pays it.
+     */
+    private val attributePatterns: Map<String, Regex> = listOf("lat", "lon")
+        .associateWith { name -> Regex("""\b$name\s*=\s*["']([^"']*)["']""") }
+
+    private val elementPatterns: Map<String, Regex> = listOf("ele", "time", "name")
+        .associateWith { name ->
+            Regex("""<(?:[\w.-]+:)?$name\b[^>]*>([\s\S]*?)</(?:[\w.-]+:)?$name>""")
+        }
+
     private fun attribute(attributes: String, name: String): String? =
-        Regex("""\b$name\s*=\s*["']([^"']*)["']""").find(attributes)?.groupValues?.get(1)
+        attributePatterns.getValue(name).find(attributes)?.groupValues?.get(1)
 
     private fun elementText(xml: String, name: String): String? =
-        Regex("""<(?:[\w.-]+:)?$name\b[^>]*>([\s\S]*?)</(?:[\w.-]+:)?$name>""")
-            .find(xml)?.groupValues?.get(1)
+        elementPatterns.getValue(name).find(xml)?.groupValues?.get(1)
 
     private fun escape(raw: String): String = raw
         .replace("&", "&amp;")
