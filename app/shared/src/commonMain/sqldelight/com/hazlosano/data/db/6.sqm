@@ -1,0 +1,50 @@
+-- Version 6 -> 7.
+--
+-- A route's climb stops claiming to be flat when it was never measured.
+--
+-- calculateStats accumulated 0.0 when no pair of points carried both altitudes, and that zero was
+-- stored in RouteEntity.elevationGain indistinguishable from ground that really is flat. A GPX with
+-- no elevations does not describe a flat route: it says nothing about the climb.
+--
+-- It matters most in the list, and that is what forces the fix to be here rather than in the
+-- screen. The route list is loaded WITHOUT its points on purpose — drawing it must not read every
+-- point of every route — so with only the row in hand there is nothing to tell the two cases apart.
+-- The summary column is what the list trusts, so the summary column is what has to be honest.
+--
+-- SQLite cannot relax NOT NULL on an existing column, so the table is rebuilt. The rows are carried
+-- across with the zero turned back into NULL wherever the route has no point with an altitude,
+-- which is the same question calculateStats was asking, asked of what was already stored.
+--
+-- Dropping RouteEntity is the part to be careful about: RoutePointEntity references it with
+-- ON DELETE CASCADE, so with foreign keys enabled SQLite's implicit DELETE FROM would take every
+-- point of every route with it. This project enables foreign keys on no driver and neither driver
+-- turns them on by default, which is why the drop is safe — and RouteElevationMigrationTest asserts
+-- exactly that rather than leaving it to be reasoned about, the same way 1.sqm did for sessions.
+
+CREATE TABLE RouteEntityRebuilt (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    distance REAL NOT NULL,
+    elevationGain REAL,
+    fingerprint TEXT,
+    createdAt INTEGER NOT NULL
+);
+
+INSERT INTO RouteEntityRebuilt(id, name, distance, elevationGain, fingerprint, createdAt)
+SELECT
+    r.id,
+    r.name,
+    r.distance,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM RoutePointEntity p
+        WHERE p.routeId = r.id AND p.altitude IS NOT NULL
+    ) THEN r.elevationGain ELSE NULL END,
+    r.fingerprint,
+    r.createdAt
+FROM RouteEntity r;
+
+DROP TABLE RouteEntity;
+
+ALTER TABLE RouteEntityRebuilt RENAME TO RouteEntity;
+
+CREATE INDEX IF NOT EXISTS idx_route_fingerprint ON RouteEntity(fingerprint);

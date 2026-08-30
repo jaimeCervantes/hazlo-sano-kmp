@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class ImportRouteUseCaseTest {
@@ -28,7 +29,7 @@ class ImportRouteUseCaseTest {
         val savedRoute = repository.savedRoutes.single()
         assertEquals("Ruta Test", savedRoute.name)
         assertTrue(savedRoute.distance > 1_000.0)
-        assertEquals(10.0, savedRoute.elevationGain, 0.1)
+        assertEquals(10.0, assertNotNull(savedRoute.elevationGain), 0.1)
         assertTrue(savedRoute.fingerprint?.isNotBlank() == true)
     }
 

@@ -6,12 +6,17 @@
 -- distance and elevationGain are stored, like the session's distanceTraveled and for the same
 -- reason: the route list must draw without reading every point of every route. They are summaries
 -- of the points, refreshed when a route is written, not a second source of truth.
+--
+-- elevationGain is nullable because that summary is exactly what the list has to trust. A route
+-- whose points carry no elevation has no measured climb, and storing 0.0 made "unknown"
+-- indistinguishable from "flat" — with no points loaded, the list had no way to tell them apart
+-- and drew "0 m" for both.
 
 CREATE TABLE IF NOT EXISTS RouteEntity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     distance REAL NOT NULL,             -- meters
-    elevationGain REAL NOT NULL,        -- meters
+    elevationGain REAL,                 -- meters; null when no point carried an elevation
     -- Recognises the same track under a different name, which a name comparison cannot. Nullable
     -- because a route with no points has nothing to fingerprint.
     fingerprint TEXT,

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -28,7 +29,7 @@ class SaveRouteFromSessionUseCaseTest {
         assertEquals("Subida al cerro", result.route.name)
         assertEquals(3, result.route.points.size)
         assertTrue(result.route.distance > 0.0, "the route measured no distance")
-        assertEquals(20.0, result.route.elevationGain, 0.001)
+        assertEquals(20.0, assertNotNull(result.route.elevationGain), 0.001)
         assertTrue(result.route.fingerprint?.isNotBlank() == true)
         assertEquals(1, routes.saved.size)
     }
@@ -81,7 +82,9 @@ class SaveRouteFromSessionUseCaseTest {
 
         val route = (result as SaveRouteFromSessionUseCase.Result.Success).route
         assertTrue(route.points.all { it.altitude == null })
-        assertEquals(0.0, route.elevationGain, 0.001)
+        // Antes esto afirmaba 0.0, que es decir que la salida fue llana. Nadie midió nada: ninguna
+        // lectura traía altitud, así que el desnivel no se conoce.
+        assertNull(route.elevationGain)
         assertNull(GpxFormat.parse(GpxFormat.write(route)).points.first().altitude)
     }
 

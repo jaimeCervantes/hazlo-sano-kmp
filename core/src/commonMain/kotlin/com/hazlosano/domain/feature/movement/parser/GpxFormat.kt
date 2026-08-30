@@ -35,7 +35,9 @@ object GpxFormat : GpxParser {
                 "El archivo no contiene ningún punto de ruta (<trkpt> o <rtept>).",
             )
         }
-        return Route(name = readName(gpx), distance = 0.0, elevationGain = 0.0, points = points)
+        // Las cifras las calcula quien importa, con `calculateStats`. Aquí no se han medido, y un
+        // desnivel sin medir es nulo y no cero.
+        return Route(name = readName(gpx), distance = 0.0, elevationGain = null, points = points)
     }
 
     /**
