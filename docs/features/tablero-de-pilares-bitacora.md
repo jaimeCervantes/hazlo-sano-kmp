@@ -269,3 +269,37 @@ hueco— y desde cada pilar se llega a qué es ese pilar, con el texto del sitio
   componente atómico: esa copia debería entrar por parámetro. Es la deuda de i18n que queda viva.
 - `BottomTab` sigue con los cuatro nombres de pilar en duro; ahora que `pillarLabel` está en `core`,
   unificarlo es un paso corto.
+
+## Slice 5 — La copia de `HazloTopAppBar` sale del Composable (2026-09-02)
+
+**Objetivo.** Que el último componente atómico con texto escrito dentro deje de tenerlo.
+`HazloTopAppBar` llevaba "Volver", "Perfil", "Notificaciones" y "Menú" como `contentDescription` fijos
+en `core/ui/components/atomic/`, que por regla no puede leer el catálogo de recursos.
+
+**Decisiones y por qué.**
+
+1. **Las cuatro descripciones entran por parámetro, nulas por defecto.** El componente no sabe
+   redactar ni traducir; sólo expone dónde va cada texto. El valor por defecto es `null` y no una
+   cadena, para no obligar a fijar una descripción en el icono que la pantalla ni siquiera enseña —de
+   los siete llamadores, sólo `MainScreen` pinta perfil, notificaciones y menú; los otros seis sólo
+   muestran el botón de volver.
+2. **Los siete llamadores pasan `backContentDescription` desde `Res.string.top_app_bar_back`.** Tres
+   de ellos (`MovementHistoryScreen`, `RoutesScreen`, `SessionDetailScreen`) no importaban todavía
+   `stringResource` ni `Res.string`; se añadió el import donde faltaba.
+
+**Archivos tocados.** Nuevos: `top_app_bar_back/profile/notifications/menu` en `strings.xml`,
+`HazloTopAppBarTest.kt`. Modificados: `HazloTopAppBar.kt`, `MainScreen.kt`, `PillarInfoScreen.kt`,
+`MovementHistoryScreen.kt`, `TrackerScreen.kt`, `RoutesScreen.kt`, `SessionDetailScreen.kt`,
+`RouteDetailScreen.kt`.
+
+**Comandos clave y validación.** `.\gradlew.bat :app:shared:jvmTest --console=plain` → `BUILD
+SUCCESSFUL`.
+
+**Desviaciones.** Ninguna respecto al roadmap.
+
+**Seguimiento.** Ninguno nuevo; quedan los slices 6, 7 y 8.
+
+**Recap.** `HazloTopAppBar` ya no tiene copia escrita dentro; sus siete pantallas siguen viéndose
+igual porque el valor que llega es el mismo texto, ahora resuelto desde `strings.xml`.
+
+**Próximos pasos (opciones).** Slice 6 — unificar `BottomTab` con `PillarVisuals`.
