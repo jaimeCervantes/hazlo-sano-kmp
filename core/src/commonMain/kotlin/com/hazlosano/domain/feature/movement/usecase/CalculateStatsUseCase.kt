@@ -20,6 +20,10 @@ import kotlin.math.roundToLong
  *    against the quality of each fix instead of adding up every rise between readings.
  * 3. **Nothing measured reads as null, never as zero.** Zero is an assertion — flat ground, no time
  *    spent moving — and a session that carried no altitude never made it.
+ * 4. **An altitude that got stuck asserts nothing about the climb.** A real reading never repeats
+ *    its exact value; only a receiver that stopped updating does. Once that has held for long enough
+ *    to matter, the whole session's altitude figures fall back to unmeasured rather than mixing a
+ *    stuck stretch into a number that looks complete.
  *
  * Nothing about a *finished* session is "current": a figure taken from the last few readings
  * describes the moment the user slowed down to press stop, not the outing.
@@ -33,7 +37,7 @@ class CalculateStatsUseCase {
         // by comparing against zero, as this used to, cannot tell a missing measurement from a
         // session recorded at sea level.
         val withAltitude = points.mapNotNull { point -> point.altitude?.let { point to it } }
-        val measuresAltitude = withAltitude.isNotEmpty()
+        val measuresAltitude = withAltitude.isNotEmpty() && !withAltitude.hasStaleAltitudeRun()
 
         var elevation = Elevation()
         var maxAltitude = Double.NEGATIVE_INFINITY
@@ -116,6 +120,31 @@ class CalculateStatsUseCase {
     private fun UserLocation.minimumSlopeRun(): Double =
         usableVerticalAccuracy().coerceAtLeast(MIN_SLOPE_RUN_METERS)
 
+    /**
+     * Whether the altitude held its exact value for long enough to be a stuck receiver rather than
+     * genuinely flat terrain.
+     *
+     * The signal is duration, not how many readings repeat: the sampling interval is not constant,
+     * so counting readings would answer a different question on a session with a degraded fix than
+     * on a healthy one. A run's span is measured between its first and last identical reading, which
+     * is exactly what a two-reading run already expresses without needing anything in between.
+     */
+    private fun List<Pair<UserLocation, Double>>.hasStaleAltitudeRun(): Boolean {
+        if (size < 2) return false
+
+        var runStartMillis = this[0].first.timestamp
+        for (index in 1 until size) {
+            val previousAltitude = this[index - 1].second
+            val (point, altitude) = this[index]
+            if (altitude != previousAltitude) {
+                runStartMillis = point.timestamp
+                continue
+            }
+            if (point.timestamp - runStartMillis >= STALE_ALTITUDE_RUN_MILLIS) return true
+        }
+        return false
+    }
+
     private companion object {
         /** One point is a position, not a journey: nothing can be measured from it. */
         const val MINIMUM_POINTS = 2
@@ -127,6 +156,14 @@ class CalculateStatsUseCase {
         const val MIN_SLOPE_RUN_METERS = 20.0
         const val MIN_DISTANCE_FOR_PACE_METERS = 10.0
         const val MIN_SECONDS_FOR_VAM = 30L
+
+        /**
+         * How long an unchanged altitude has to hold before it is treated as a stuck receiver rather
+         * than flat ground. A conservative starting point: well under the 385 s freeze measured in
+         * the field, with no real trace on record showing a short, legitimate repeat. Flagged as the
+         * number to revisit once another field trace is captured.
+         */
+        const val STALE_ALTITUDE_RUN_MILLIS = 60_000L
 
         const val PERCENT = 100.0
         const val MILLIS_PER_SECOND = 1_000.0

@@ -7,6 +7,7 @@ import com.hazlosano.domain.feature.movement.filter.locationAt
 import com.hazlosano.domain.feature.movement.filter.naiveAscentMeters
 import com.hazlosano.domain.feature.movement.filter.through
 import com.hazlosano.domain.feature.movement.filter.trace
+import com.hazlosano.domain.feature.movement.filter.travelledMeters
 import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import kotlin.math.abs
@@ -264,11 +265,15 @@ class CalculateStatsUseCaseTest {
     fun aSessionAtSeaLevelIsNotMistakenForOneWithoutAltitude() {
         // The distinction this pins used not to exist: an altitude of zero was how the code
         // recognised a missing measurement, so a walk along the coast reported no altitude at all.
+        // Altitude noise stays on: a real receiver never holds exactly 0.0 m for two straight
+        // minutes any more than it holds any other value, and B4 is precisely what now tells that
+        // difference from a stuck one.
         val readings = trace(
             readings = 120,
             metersPerReading = TravelPace.WALKING.metersPerReading,
             accuracyMeters = 8f,
             noiseMeters = 5.0,
+            altitudeNoiseMeters = 10.0,
             startAltitudeMeters = 0.0,
         )
 
@@ -303,6 +308,108 @@ class CalculateStatsUseCaseTest {
         )
     }
 
+    // ── B4: an altitude that got stuck asserts nothing about the climb ──
+    // Covers `features/movement_altitude_staleness.feature`. These points are handed to the use
+    // case directly rather than through the Kalman filter: a raw altitude that never changes comes
+    // out of that filter unchanged too (no discrepancy to correct means no correction), so filtering
+    // first would prove nothing extra here while making the exact timestamps harder to control.
+
+    @Test
+    fun aFourSecondHoldStillCountsAsRealTerrain() {
+        assertClimbMeasured(heldSeconds = 4L)
+    }
+
+    @Test
+    fun aFiftyEightSecondHoldStillCountsAsRealTerrain() {
+        assertClimbMeasured(heldSeconds = 58L)
+    }
+
+    @Test
+    fun aSixtySecondHoldSilencesTheSessionsClimb() {
+        assertClimbUnmeasured(heldSeconds = 60L)
+    }
+
+    @Test
+    fun theFieldMeasuredThreeEightyFiveSecondHoldSilencesTheSessionsClimb() {
+        assertClimbUnmeasured(heldSeconds = 385L)
+    }
+
+    @Test
+    fun aLongFreezeSilencesTheWholeSessionNotOnlyTheFrozenStretch() {
+        val before = trace(
+            readings = 10,
+            metersPerReading = TravelPace.WALKING.metersPerReading,
+            accuracyMeters = 8f,
+            noiseMeters = 5.0,
+            climbMetersPerReading = 0.3,
+            altitudeNoiseMeters = 2.0,
+            seed = 31,
+        )
+        val northAtFreeze = travelledMeters(before.size, TravelPace.WALKING.metersPerReading)
+        val freezeStartMillis = before.last().timestamp + SAMPLING_INTERVAL_MILLIS
+        val freezeEndMillis = freezeStartMillis + STALE_HOLD_ABOVE_THRESHOLD_SECONDS * 1_000L
+        val frozen = listOf(
+            locationAt(
+                northMeters = northAtFreeze,
+                accuracyMeters = 8f,
+                atMillis = freezeStartMillis,
+                altitudeMeters = FROZEN_ALTITUDE_METERS,
+            ),
+            locationAt(
+                northMeters = northAtFreeze,
+                accuracyMeters = 8f,
+                atMillis = freezeEndMillis,
+                altitudeMeters = FROZEN_ALTITUDE_METERS,
+            ),
+        )
+        val after = trace(
+            readings = 10,
+            metersPerReading = TravelPace.WALKING.metersPerReading,
+            accuracyMeters = 8f,
+            noiseMeters = 5.0,
+            climbMetersPerReading = 0.3,
+            altitudeNoiseMeters = 2.0,
+            startAltitudeMeters = CLIMBED_ALTITUDE_METERS,
+            seed = 32,
+            startNorthMeters = northAtFreeze,
+            startAtMillis = freezeEndMillis + SAMPLING_INTERVAL_MILLIS,
+        )
+
+        val session = before + frozen + after
+        val stats = CalculateStatsUseCase()(session, session.elapsedSeconds())
+
+        assertNull(stats.maxAltitude, "a stuck stretch should not let a maximum altitude stand")
+        assertNull(stats.minAltitude, "a stuck stretch should not let a minimum altitude stand")
+        assertNull(stats.totalAscent, "a stuck stretch should silence the whole session's ascent")
+        assertNull(stats.totalDescent, "a stuck stretch should silence the whole session's descent")
+        assertNull(stats.avgSlope, "a stuck stretch should silence the average slope")
+        assertNull(stats.maxSlope, "a stuck stretch should silence the maximum slope")
+        assertNull(stats.vam, "a stuck stretch should silence the vertical speed")
+        // What did not depend on altitude is still measured.
+        assertNotNull(stats.movingTime)
+        assertNotNull(stats.avgPace)
+    }
+
+    @Test
+    fun aSessionWithoutAnyStaleRunReportsClimbExactlyAsBefore() {
+        // Real altitude noise never lands on the exact same value twice, so a normal session should
+        // never trip the staleness rule this slice adds. The magnitude of the climb itself is
+        // already covered by `aRealClimbIsMeasured`; what this pins is that it stays measured at all.
+        val trace = trace(
+            readings = 150,
+            metersPerReading = TravelPace.WALKING.metersPerReading,
+            accuracyMeters = 8f,
+            noiseMeters = 5.0,
+            climbMetersPerReading = 0.4,
+            altitudeNoiseMeters = 15.0,
+            seed = 33,
+        )
+
+        val stats = trace.recordedStats()
+
+        assertNotNull(stats.totalAscent, "a normally varying altitude should never read as stuck")
+    }
+
     @Test
     fun aSessionWithNothingRecordedHasNoStatistics() {
         val nothing = CalculateStatsUseCase()(emptyList(), totalTimeSeconds = 0)
@@ -320,6 +427,13 @@ class CalculateStatsUseCaseTest {
     private companion object {
         /** Residual wander the smoothed altitude is allowed to keep around the real terrain. */
         const val ALTITUDE_NOISE_ALLOWANCE_METERS = 15.0
+
+        /** The exact field-measured step: 206.3 m held, then a real 217.1 m. */
+        const val FROZEN_ALTITUDE_METERS = 206.3
+        const val CLIMBED_ALTITUDE_METERS = 217.1
+
+        /** Comfortably past the 60 s staleness threshold, for the whole-session scenario. */
+        const val STALE_HOLD_ABOVE_THRESHOLD_SECONDS = 385L
     }
 
     /** The path as the app would have stored it, then the figures it would report about it. */
@@ -328,6 +442,49 @@ class CalculateStatsUseCaseTest {
 
     private fun List<UserLocation>.elapsedSeconds(): Long =
         if (isEmpty()) 0L else (last().timestamp - first().timestamp) / 1_000L
+
+    /**
+     * Altitude held at [FROZEN_ALTITUDE_METERS] for exactly [heldSeconds], then a real climb to
+     * [CLIMBED_ALTITUDE_METERS]. Two identical readings already express a run's full span; nothing
+     * in between would change what is being measured.
+     */
+    private fun frozenThenClimbed(heldSeconds: Long): List<UserLocation> {
+        val climbedAtMillis = heldSeconds * 1_000L + SAMPLING_INTERVAL_MILLIS
+        return listOf(
+            locationAt(northMeters = 0.0, accuracyMeters = 8f, atMillis = 0L, altitudeMeters = FROZEN_ALTITUDE_METERS),
+            locationAt(
+                northMeters = 0.0,
+                accuracyMeters = 8f,
+                atMillis = heldSeconds * 1_000L,
+                altitudeMeters = FROZEN_ALTITUDE_METERS,
+            ),
+            locationAt(
+                northMeters = 0.0,
+                accuracyMeters = 8f,
+                atMillis = climbedAtMillis,
+                altitudeMeters = CLIMBED_ALTITUDE_METERS,
+            ),
+        )
+    }
+
+    private fun assertClimbMeasured(heldSeconds: Long) {
+        val points = frozenThenClimbed(heldSeconds)
+        val stats = CalculateStatsUseCase()(points, points.elapsedSeconds())
+
+        assertCloseTo(
+            expected = CLIMBED_ALTITUDE_METERS - FROZEN_ALTITUDE_METERS,
+            actual = stats.totalAscent,
+            tolerance = 0.01,
+            what = "ascent after a $heldSeconds s hold",
+        )
+    }
+
+    private fun assertClimbUnmeasured(heldSeconds: Long) {
+        val points = frozenThenClimbed(heldSeconds)
+        val stats = CalculateStatsUseCase()(points, points.elapsedSeconds())
+
+        assertNull(stats.totalAscent, "a $heldSeconds s hold should silence the ascent, not report it")
+    }
 
     private fun assertCloseTo(expected: Double, actual: Double?, tolerance: Double, what: String) {
         val measured = assertNotNull(actual, "$what was not measured at all")
