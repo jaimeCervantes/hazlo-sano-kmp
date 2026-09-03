@@ -92,11 +92,41 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 ## B4 — La altitud rancia
 
-- **Estado:** pendiente, con la vía barata ya descartada por la segunda calibración.
-- **Problem:** la altitud de este teléfono se congela durante minutos (5 valores distintos en 412 lecturas; 385 s seguidos en el mismo valor), y **el sistema no lo señala**: declara ±1,8 m verticales mientras tanto. El desnivel reportado es ficción por defecto, no por exceso.
-- **Savings / Why:** un desnivel que se pueda mirar, o un "—" honesto. Hoy se muestra un número que nadie puede contrastar.
-- **Caminos que quedan:** (a) detectar la altitud rancia por repetición exacta —una medición real no repite el valor al centímetro entre lecturas— y reportar "—" en vez de inventar; (b) barómetro (`Sensor.TYPE_PRESSURE`), slice grande y solo Android.
-- **Deuda concreta que dejó el slice 12:** al usar la precisión vertical real en vez del 2× horizontal, el umbral de acumulación de desnivel cae a **3,0 m, su suelo**, donde antes estaba en 12 m, su techo. Sobre una señal cuantizada eso acumula saltos de cuantización como desnivel. Revisar junto con (a).
+- **Estado:** encuadrado el 2026-09-02, checkpoint 2 en revisión. Spec:
+  [`movement_altitude_staleness.feature`](../../features/movement_altitude_staleness.feature).
+  Vía barata (precisión vertical) descartada por la segunda calibración.
+- **Problem:** la altitud de este teléfono se congela durante minutos (5 valores distintos en 412
+  lecturas; 385 s seguidos en el mismo valor), y **el sistema no lo señala**: declara ±1,8 m
+  verticales mientras tanto. El desnivel reportado es ficción por defecto, no por exceso.
+- **Savings / Why:** un desnivel que se pueda mirar, o un "—" honesto. Hoy se muestra un número que
+  nadie puede contrastar.
+- **Caminos que quedan:** (a) detectar la altitud rancia por repetición exacta —una medición real no
+  repite el valor al centímetro entre lecturas— y reportar "—" en vez de inventar; (b) barómetro
+  (`Sensor.TYPE_PRESSURE`), slice grande y solo Android. El slice 1 ataca (a); (b) queda fuera.
+- **Deuda concreta que dejó el slice 12:** al usar la precisión vertical real en vez del 2× horizontal,
+  el umbral de acumulación de desnivel cae a **3,0 m, su suelo**, donde antes estaba en 12 m, su techo.
+  Sobre una señal cuantizada eso acumula saltos de cuantización como desnivel. Sigue sin revisarse; el
+  slice 1 no lo toca porque una racha rancia ya detectada apaga el desnivel entero de la sesión antes
+  de que ese umbral entre en juego.
+
+### Slice 1 — El desnivel se calla cuando la altitud se queda pegada
+
+Escenarios `@slice-1`. Ataca el camino (a) del punto anterior.
+
+**Regla, afinada frente al encuadre inicial:** la señal no es *cuántas* lecturas seguidas repiten el
+mismo valor (depende del muestreo, que no es constante), sino **cuánto tiempo** seguido no cambia —
+es lo que de verdad importa (cuánto terreno pudo cambiar sin que el sensor se enterara) y es
+comparable directamente con el dato de campo (385 s). Umbral de partida: **60 s** sin cambiar el
+valor exacto, muy por debajo del incidente medido y sin ningún caso real que muestre una repetición
+corta y legítima; queda anotado como el número a validar en la próxima salida de campo.
+
+**Alcance:** `CalculateStatsUseCase` detecta rachas de altitud idéntica por duración; una racha que
+alcanza el umbral apaga **todas** las cifras derivadas de altitud de la sesión entera (máxima, mínima,
+ascenso, descenso, pendiente media y máxima, VAM) — no solo el tramo congelado — porque una sesión que
+pasó minutos con el sensor pegado no puede afirmar un desnivel completo y honesto. El resto de la
+sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igual.
+
+**Fuera de alcance:** el barómetro (camino b) y la deuda del umbral de 3 m del slice 12.
 
 ## C — Rutas: importar GPX, listar, detalle y navegación guiada
 
