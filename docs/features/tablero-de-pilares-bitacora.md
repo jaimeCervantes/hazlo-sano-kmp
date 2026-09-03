@@ -333,3 +333,42 @@ SUCCESSFUL`.
 un icono de pilar ya no exige tocar dos archivos.
 
 **Próximos pasos (opciones).** Slice 7 — reintentar en Inicio y en Sueño cuando fallan.
+
+## Slice 7 — Reintentar en Inicio y en Sueño cuando fallan (2026-09-02)
+
+**Objetivo.** Que un fallo de Inicio o de Sueño se pueda reintentar sin salir de la pantalla.
+`HomeViewModel` no tenía `refresh()`; el de Sueño sólo actuaba si el estado ya era `Success`.
+
+**Decisiones y por qué.**
+
+1. **`HomeViewModel.refresh()` reutiliza la misma carga del `init`.** Se extrajo a `loadContent()`
+   privado; no había razón para dos caminos distintos hacia el mismo contenido.
+2. **`SleepViewModel.refresh()` distingue por estado.** Desde `Failed` no hay nada que proteger, así
+   que se recarga entero, igual que al abrir la pantalla (`loadData()`). Desde `Success` se mantiene
+   el comportamiento existente: actualización silenciosa (`loadAnalysis()`) que no pisa los campeones
+   ni el catálogo, que cargan aparte.
+3. **`catalog_retry` se renombra a `action_retry`.** Antes de añadir un botón "Reintentar" a Inicio y
+   a Sueño, habría sido la tercera copia del mismo texto en tres recursos distintos — el propio fallo
+   de diseño que se acaba de corregir en el slice 6 para los pilares. Los tres sitios usan ahora el
+   mismo recurso.
+4. **`onRetry` con valor por defecto `() -> Unit = {}`** en `HomeBoard` y `SleepDashboardContent`, para
+   no obligar a tocar cada test existente que los compone sueltos — mismo patrón que ya usaba
+   `onOpenInfo`.
+
+**Archivos tocados.** Nuevos: `HomeViewModelTest.kt`, `SleepViewModelTest.kt`. Modificados:
+`HomeViewModel.kt`, `HomeScreen.kt`, `SleepViewModel.kt`, `SleepScreen.kt`, `PillarCatalogScreen.kt`,
+`strings.xml`, `HomeBoardTest.kt`, `SleepDashboardLoadingTest.kt`.
+
+**Comandos clave y validación.** `.\gradlew.bat :app:shared:jvmTest --console=plain` → `BUILD
+SUCCESSFUL`. 280 pruebas, 0 fallos (subiendo de las 263 con las que cerró el slice 4).
+
+**Desviaciones.** El renombre de `catalog_retry` a `action_retry` no estaba detallado en el roadmap
+más que como decisión de diseño; se ejecutó como parte de este slice porque es cuando se necesitaba.
+
+**Seguimiento.** Ninguno nuevo; queda el slice 8.
+
+**Recap.** Un fallo en Inicio o en Sueño ya no es un callejón sin salida: el mismo botón que ya usa el
+catálogo aparece bajo el aviso, y dispara la misma carga que corre al abrir la pantalla.
+
+**Próximos pasos (opciones).** Slice 8 — otra puerta a la explicación del pilar cuando no hay
+catálogo. Es el último de los cuatro seguimientos.
