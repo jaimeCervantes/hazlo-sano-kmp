@@ -6,11 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,11 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
+import com.hazlosano.core.ui.model.pillarIcon
+import com.hazlosano.core.ui.model.pillarLabel
+import com.hazlosano.core.ui.model.toColor
 import com.hazlosano.core.ui.theme.HazloSanoGreen
-import com.hazlosano.core.ui.theme.PillarMind
-import com.hazlosano.core.ui.theme.PillarMovement
-import com.hazlosano.core.ui.theme.PillarNutrition
-import com.hazlosano.core.ui.theme.PillarSleep
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.repository.SleepSessionRepository
@@ -56,6 +51,7 @@ import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.bottom_tab_home
 import hazlosano.app.shared.generated.resources.history_back
 import hazlosano.app.shared.generated.resources.history_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
@@ -64,13 +60,27 @@ import hazlosano.app.shared.generated.resources.top_app_bar_notifications
 import hazlosano.app.shared.generated.resources.top_app_bar_profile
 import org.jetbrains.compose.resources.stringResource
 
-enum class BottomTab(val label: String, val icon: ImageVector, val color: Color) {
-    Inicio("Inicio", Icons.Filled.Home, HazloSanoGreen),
-    Sueno("Sueño", Icons.Filled.Bedtime, PillarSleep),
-    Nutricion("Nutrición", Icons.Filled.Restaurant, PillarNutrition),
-    Movimiento("Movimiento", Icons.AutoMirrored.Filled.DirectionsRun, PillarMovement),
-    Mente("Mente", Icons.Filled.SelfImprovement, PillarMind),
+/**
+ * Una pestaña de la barra inferior: cuatro llevan un pilar y una (Inicio) no.
+ *
+ * El nombre, el icono y el color de las cuatro de pilar salen de `PillarVisuals` — la misma fuente
+ * que usa cada tablero — en vez de una segunda copia de los cuatro pilares.
+ */
+enum class BottomTab(val pillar: PillarType?) {
+    Inicio(null),
+    Sueno(PillarType.SLEEP),
+    Nutricion(PillarType.NUTRITION),
+    Movimiento(PillarType.MOVEMENT),
+    Mente(PillarType.MIND),
 }
+
+@Composable
+internal fun BottomTab.label(): String =
+    pillar?.let { pillarLabel(it) } ?: stringResource(Res.string.bottom_tab_home)
+
+internal fun BottomTab.icon(): ImageVector = pillar?.let { pillarIcon(it) } ?: Icons.Filled.Home
+
+internal fun BottomTab.color(): Color = pillar?.toColor() ?: HazloSanoGreen
 
 @Composable
 fun MainScreen(
@@ -177,20 +187,22 @@ fun MainScreen(
                 ) {
                     BottomTab.entries.forEach { tab ->
                         val selected = selectedTab == tab
+                        val label = tab.label()
+                        val color = tab.color()
                         NavigationBarItem(
                             icon = {
                                 Icon(
-                                    imageVector = tab.icon,
-                                    contentDescription = tab.label,
+                                    imageVector = tab.icon(),
+                                    contentDescription = label,
                                 )
                             },
-                            label = { Text(tab.label) },
+                            label = { Text(label) },
                             selected = selected,
                             onClick = { selectedTab = tab },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Color.White,
-                                selectedTextColor = tab.color,
-                                indicatorColor = tab.color,
+                                selectedTextColor = color,
+                                indicatorColor = color,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             ),

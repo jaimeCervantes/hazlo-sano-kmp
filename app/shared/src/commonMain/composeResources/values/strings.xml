@@ -6,6 +6,9 @@
     <string name="top_app_bar_notifications">Notificaciones</string>
     <string name="top_app_bar_menu">Menú</string>
 
+    <!-- Barra inferior -->
+    <string name="bottom_tab_home">Inicio</string>
+
     <!-- Inicio -->
     <string name="home_feed_title">Feed de la Tribu</string>
     <string name="home_failed_message">No se pudo cargar tu inicio. Vuelve a intentarlo en un momento.</string>
