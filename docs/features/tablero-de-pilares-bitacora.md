@@ -303,3 +303,33 @@ SUCCESSFUL`.
 igual porque el valor que llega es el mismo texto, ahora resuelto desde `strings.xml`.
 
 **Próximos pasos (opciones).** Slice 6 — unificar `BottomTab` con `PillarVisuals`.
+
+## Slice 6 — `BottomTab` deja de duplicar el pilar (2026-09-02)
+
+**Objetivo.** Que la barra inferior deje de llevar su propia copia del nombre, el icono y el color de
+cada pilar, ahora que `PillarVisuals` (slice 4) es la fuente única.
+
+**Decisiones y por qué.**
+
+1. **`BottomTab` guarda un `PillarType?`, no tres campos redactados.** `null` para Inicio, que no es
+   un pilar. El nombre, el icono y el color se resuelven en el punto de uso con `pillarLabel`,
+   `pillarIcon` y `PillarType.toColor()` — las mismas funciones que ya usa cada tablero.
+2. **Inicio necesitaba su propio recurso.** No es un pilar, así que no tenía dónde tomar su nombre
+   de `PillarVisuals`; se añadió `bottom_tab_home`.
+3. **`label()`, `icon()` y `color()` como extensiones `internal` de `BottomTab`**, en el mismo archivo.
+   Es exactamente el tamaño que necesitaba el problema: no ameritaba mover `BottomTab` a su propio
+   archivo ni crear un mapeador aparte.
+
+**Archivos tocados.** Modificados: `MainScreen.kt`, `strings.xml`. Nuevo: `BottomTabTest.kt`.
+
+**Comandos clave y validación.** `.\gradlew.bat :app:shared:jvmTest --console=plain` → `BUILD
+SUCCESSFUL`.
+
+**Desviaciones.** Ninguna respecto al roadmap.
+
+**Seguimiento.** Ninguno nuevo; quedan los slices 7 y 8.
+
+**Recap.** La barra inferior y el tablero de cada pilar leen ahora del mismo sitio: cambiar un color o
+un icono de pilar ya no exige tocar dos archivos.
+
+**Próximos pasos (opciones).** Slice 7 — reintentar en Inicio y en Sueño cuando fallan.
