@@ -219,3 +219,91 @@ Feature: El tablero de un pilar se arma por secciones y ninguna espera apaga la 
     Given un pilar que nunca se descargó
     When lo abro sin red
     Then no veo la tarjeta del pilar, y con ella tampoco su botón de información
+
+  # ─────────── Slice 5: la copia de la barra superior sale del Composable ───────────
+
+  Note: `HazloTopAppBar` es un componente atómico y no puede leer el catálogo de recursos ni llevar
+  copia dentro. Cada descripción de accesibilidad entra por parámetro; quien la usa la resuelve.
+
+  @slice-5
+  Scenario Outline: Cada icono de la barra superior trae su descripción del catálogo de recursos
+    Given la barra superior mostrando el icono de "<icono>"
+    When se le pasa la descripción "<descripción>"
+    Then el icono expone esa descripción de accesibilidad
+
+    Examples:
+      | icono          | descripción    |
+      | volver         | Volver         |
+      | perfil         | Perfil         |
+      | notificaciones | Notificaciones |
+      | menú           | Menú           |
+
+  # ─────────── Slice 6: la pestaña inferior deja de duplicar el pilar ───────────
+
+  Note: `pillarLabel`, `pillarIcon` y `PillarType.toColor()` son la fuente única desde el slice 4;
+  `BottomTab` seguía llevando su propia copia de los cuatro pilares.
+
+  @slice-6
+  Scenario Outline: Una pestaña de pilar se ve igual que el tablero al que lleva
+    Given la barra inferior
+    Then la pestaña "<pilar>" trae el nombre, el icono y el color de ese pilar
+
+    Examples:
+      | pilar      |
+      | Sueño      |
+      | Nutrición  |
+      | Movimiento |
+      | Mente      |
+
+  @slice-6
+  Scenario: La pestaña de Inicio no es un pilar y no toma prestado ninguno
+    Given la barra inferior
+    Then la pestaña "Inicio" trae su propio nombre, icono y color, sin pilar asociado
+
+  # ─────────── Slice 7: reintentar en Inicio y en Sueño cuando fallan ───────────
+
+  Note: antes del slice, un fallo sólo se decía; no había manera de reintentar sin salir de la
+  pantalla. El texto "Reintentar" pasa a ser un único recurso compartido con el catálogo.
+
+  @slice-7
+  Scenario: Un Inicio que falló se puede reintentar sin salir de la pantalla
+    Given Inicio mostrando su aviso de fallo
+    When toco "Reintentar"
+    Then Inicio vuelve a pedir su contenido
+    And si esta vez responde, enseña sus secciones
+
+  @slice-7
+  Scenario: Un Sueño que falló se puede reintentar sin salir de la pantalla
+    Given el pilar de Sueño mostrando su aviso de fallo
+    When toco "Reintentar"
+    Then Sueño vuelve a pedir el análisis de anoche
+    And si esta vez responde, enseña el resumen
+
+  @slice-7
+  Scenario: Reintentar con éxito no pierde el resto de lo que ya cargó
+    Given el pilar de Sueño con campeones ya visibles y el análisis de anoche fallido
+    When toco "Reintentar" y el análisis esta vez responde
+    Then el resumen de anoche aparece
+    And los campeones que ya estaban siguen ahí
+
+  # ─────────── Slice 8: otra puerta a la explicación del pilar sin catálogo ───────────
+
+  Note: la tarjeta de resumen es hoy la única puerta a `PillarInfoScreen`, y esa tarjeta no existe sin
+  catálogo. El aviso de "sin catálogo" y el de "no se pudo cargar" ganan la misma puerta.
+
+  @slice-8
+  Scenario Outline: Sin catálogo, el aviso mismo abre qué es este pilar
+    Given un pilar en el estado "<estado>"
+    When toco "Qué es este pilar" dentro del aviso
+    Then se abre la pantalla que explica ese pilar
+
+    Examples:
+      | estado                    |
+      | sin catálogo todavía      |
+      | catálogo que no cargó     |
+
+  @slice-8
+  Scenario: La puerta del aviso lleva a la misma pantalla que la de la tarjeta
+    Given un pilar con catálogo listo
+    When comparo la pantalla que abre el botón de la tarjeta con la que abre el aviso sin catálogo
+    Then son la misma pantalla de información
