@@ -372,3 +372,38 @@ catálogo aparece bajo el aviso, y dispara la misma carga que corre al abrir la 
 
 **Próximos pasos (opciones).** Slice 8 — otra puerta a la explicación del pilar cuando no hay
 catálogo. Es el último de los cuatro seguimientos.
+
+## Slice 8 — Otra puerta a la explicación del pilar sin catálogo (2026-09-02)
+
+**Objetivo.** Que "qué es este pilar" se pueda leer aunque no haya catálogo. La tarjeta de resumen
+—única puerta desde el slice 4— no se pinta sin catálogo, tal como el propio `PillarBoardInfoTest`
+dejó documentado.
+
+**Decisiones y por qué.**
+
+1. **La puerta vive en el mismo aviso que ya se enseña.** `CatalogMessage` es el componente que ya
+   pintan los estados `Unavailable` y `Failed`, en el tablero de pilar y en Sueño; añadirle un segundo
+   `TextButton` con `pillar_info_open` alcanza los dos sitios sin escribir un componente nuevo.
+2. **Reutiliza el `onOpenInfo` que el tablero ya recibía.** `pillarCatalogPlaceholder` gana el
+   parámetro y lo pasa a `CatalogMessage`; ni `PillarCatalogContent` ni `SleepDashboardContent`
+   necesitaron una segunda función de apertura — ya tenían la que abre `PillarInfoScreen` desde la
+   tarjeta.
+
+**Archivos tocados.** Modificados: `PillarCatalogScreen.kt`, `SleepScreen.kt`, `PillarBoardInfoTest.kt`
+(se quitó la nota de "pendiente" que ya no aplica y se sumaron dos pruebas), `SleepScreenCatalogTest.kt`.
+
+**Comandos clave y validación.** `.\gradlew.bat :app:shared:jvmTest --console=plain` → `BUILD
+SUCCESSFUL`. 283 pruebas, 0 fallos (subiendo de las 280 con las que cerró el slice 7).
+
+**Desviaciones.** Ninguna respecto al roadmap.
+
+**Seguimiento.** Ninguno nuevo. Los cuatro slices de seguimiento (5-8) quedan cerrados.
+
+**Recap.** Los cuatro seguimientos que dejó abiertos el cierre del tablero están resueltos: la barra
+superior y la barra inferior dejaron de llevar copia y datos de pilar duplicados, Inicio y Sueño se
+pueden reintentar sin salir de la pantalla, y la explicación de un pilar se alcanza aunque no haya
+catálogo todavía.
+
+**Próximos pasos (opciones).** No queda ningún seguimiento anotado de esta feature. El backlog vivo
+del repo sigue en `datos-en-postgres` (login del slice 1, bloqueado en aprobación) y en
+`movement-tracking-migration` (validación en dispositivo, C2/C3, deuda de migraciones SQLDelight).
