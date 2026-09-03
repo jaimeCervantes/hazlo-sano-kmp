@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.core.ui.components.sections.PillarHighlightsTags
 import com.hazlosano.domain.model.FeedPost
@@ -15,6 +16,7 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.feature.home.presentation.HomeUiState
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * Inicio carga por partes.
@@ -145,5 +147,25 @@ class HomeBoardTest {
         onNodeWithTag(HomeTags.FAILED).assertIsDisplayed()
         onNodeWithText("Última noche").assertIsDisplayed()
         onNodeWithTag(HomeSkeletonTags.PILLARS).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a failed home offers a retry that asks again`() = runComposeUiTest {
+        var retried = false
+
+        setContent {
+            HomeBoard(
+                state = HomeUiState.Failed,
+                sleepAnalysis = null,
+                onNavigateToTracker = {},
+                onRefreshSleep = null,
+                onSleepCardClick = null,
+                onRetry = { retried = true },
+            )
+        }
+
+        onNodeWithTag(HomeTags.RETRY).performClick()
+
+        assertTrue(retried, "el botón de reintentar de Inicio vuelve a pedir el contenido")
     }
 }

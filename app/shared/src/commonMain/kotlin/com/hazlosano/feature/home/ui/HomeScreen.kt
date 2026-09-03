@@ -26,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +60,7 @@ import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.feature.home.presentation.HomeUiState
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.action_retry
 import hazlosano.app.shared.generated.resources.home_failed_message
 import hazlosano.app.shared.generated.resources.home_feed_title
 import org.jetbrains.compose.resources.stringResource
@@ -69,6 +71,7 @@ object HomeTags {
     const val CHAMPIONS: String = "home_champions"
     const val FEED: String = "home_feed"
     const val FAILED: String = "home_failed"
+    const val RETRY: String = "home_retry"
 }
 
 @Composable
@@ -87,6 +90,7 @@ fun HomeScreen(
         onNavigateToTracker = onNavigateToTracker,
         onRefreshSleep = onRefreshSleep,
         onSleepCardClick = onSleepCardClick,
+        onRetry = viewModel::refresh,
     )
 }
 
@@ -103,6 +107,7 @@ internal fun HomeBoard(
     onNavigateToTracker: () -> Unit,
     onRefreshSleep: (() -> Unit)?,
     onSleepCardClick: (() -> Unit)?,
+    onRetry: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -129,16 +134,21 @@ internal fun HomeBoard(
             }
 
             HomeUiState.Failed -> item {
-                Text(
-                    text = stringResource(Res.string.home_failed_message),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(HazloSpaces.md)
-                        .testTag(HomeTags.FAILED),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = stringResource(Res.string.home_failed_message),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(HazloSpaces.md)
+                            .testTag(HomeTags.FAILED),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    TextButton(onClick = onRetry, modifier = Modifier.testTag(HomeTags.RETRY)) {
+                        Text(stringResource(Res.string.action_retry))
+                    }
+                }
             }
 
             is HomeUiState.Success -> homeSections(

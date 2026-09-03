@@ -40,8 +40,17 @@ class SleepViewModel(
         loadData()
     }
 
+    /**
+     * Tras un fallo no hay nada que proteger: se vuelve a cargar como al abrir la pantalla. Tras un
+     * éxito, en cambio, se actualiza en el sitio para no perder los campeones o el catálogo que ya
+     * cargaron por separado.
+     */
     fun refresh() {
-        viewModelScope.launch { loadAnalysis() }
+        if (_uiState.value is SleepUiState.Failed) {
+            loadData()
+        } else {
+            viewModelScope.launch { loadAnalysis() }
+        }
     }
 
     private fun loadData() {

@@ -125,7 +125,9 @@
     <string name="catalog_failed_title">No se pudo cargar</string>
     <string name="catalog_failed_message">Vuelve a intentarlo en un momento.</string>
     <string name="catalog_stale_notice">Sin conexión — mostrando lo último que se descargó</string>
-    <string name="catalog_retry">Reintentar</string>
+
+    <!-- Acciones compartidas -->
+    <string name="action_retry">Reintentar</string>
 
     <!-- Secciones compartidas del tablero. Las usan el tablero de pilar, Sueño e Inicio, así que la
          redacción vive aquí y no dentro de ningún Composable. -->

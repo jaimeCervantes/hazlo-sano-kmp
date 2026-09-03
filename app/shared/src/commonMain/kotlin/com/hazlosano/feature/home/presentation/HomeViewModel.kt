@@ -16,6 +16,15 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        loadContent()
+    }
+
+    /** Reintenta tras un fallo. Es la misma carga que corre al abrir la pantalla. */
+    fun refresh() {
+        loadContent()
+    }
+
+    private fun loadContent() {
         viewModelScope.launch {
             _uiState.value = runCatching { getHomeContentUseCase() }
                 .fold(

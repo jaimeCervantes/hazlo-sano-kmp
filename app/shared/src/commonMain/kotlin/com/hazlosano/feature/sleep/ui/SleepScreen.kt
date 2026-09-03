@@ -1,6 +1,7 @@
 package com.hazlosano.feature.sleep.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,9 +13,11 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +38,7 @@ import com.hazlosano.feature.pillar.ui.pillarHighlights
 import com.hazlosano.feature.sleep.presentation.SleepUiState
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.action_retry
 import hazlosano.app.shared.generated.resources.pillar_info_open
 import hazlosano.app.shared.generated.resources.sleep_failed_message
 import org.jetbrains.compose.resources.stringResource
@@ -43,6 +47,7 @@ import org.jetbrains.compose.resources.stringResource
 object SleepTags {
     const val SUMMARY_GAP: String = "skeleton_sleep_summary"
     const val FAILED: String = "sleep_failed"
+    const val RETRY: String = "sleep_retry"
 }
 
 /**
@@ -75,6 +80,7 @@ fun SleepScreen(
         onOpenInfo = onOpenInfo,
         onRefresh = onRefresh,
         onCardClick = onCardClick ?: {},
+        onRetry = viewModel::refresh,
     )
 }
 
@@ -95,6 +101,7 @@ internal fun SleepDashboardContent(
     onCardClick: () -> Unit,
     /** Por defecto no lleva a ninguna parte, para poder componer el panel suelto en un test. */
     onOpenInfo: () -> Unit = {},
+    onRetry: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -105,6 +112,7 @@ internal fun SleepDashboardContent(
             onRefresh = onRefresh,
             onCardClick = onCardClick,
             onOpenInfo = onOpenInfo,
+            onRetry = onRetry,
         )
 
         // Campeones y retos salen ahora de la misma fuente que los de los otros tres pilares.
@@ -139,6 +147,7 @@ private fun LazyListScope.sleepSummary(
     onRefresh: (() -> Unit)?,
     onCardClick: () -> Unit,
     onOpenInfo: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     when (state) {
         SleepUiState.Loading -> {
@@ -156,16 +165,21 @@ private fun LazyListScope.sleepSummary(
         }
 
         SleepUiState.Failed -> item {
-            Text(
-                text = stringResource(Res.string.sleep_failed_message),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(HazloSpaces.md)
-                    .testTag(SleepTags.FAILED),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(Res.string.sleep_failed_message),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(HazloSpaces.md)
+                        .testTag(SleepTags.FAILED),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                TextButton(onClick = onRetry, modifier = Modifier.testTag(SleepTags.RETRY)) {
+                    Text(stringResource(Res.string.action_retry))
+                }
+            }
         }
 
         is SleepUiState.Success -> state.sleepAnalysis?.let { analysis ->

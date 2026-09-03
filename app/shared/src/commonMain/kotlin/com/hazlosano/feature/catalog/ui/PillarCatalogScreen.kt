@@ -52,6 +52,7 @@ import com.hazlosano.feature.pillar.presentation.PillarHighlightsViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import com.hazlosano.feature.pillar.ui.pillarHighlights
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.action_retry
 import hazlosano.app.shared.generated.resources.catalog_empty
 import hazlosano.app.shared.generated.resources.catalog_failed_message
 import hazlosano.app.shared.generated.resources.catalog_failed_title
@@ -59,7 +60,6 @@ import hazlosano.app.shared.generated.resources.catalog_metric_events
 import hazlosano.app.shared.generated.resources.catalog_metric_publications
 import hazlosano.app.shared.generated.resources.catalog_metric_services
 import hazlosano.app.shared.generated.resources.catalog_refresh
-import hazlosano.app.shared.generated.resources.catalog_retry
 import hazlosano.app.shared.generated.resources.catalog_search_placeholder
 import hazlosano.app.shared.generated.resources.catalog_section_nearby
 import hazlosano.app.shared.generated.resources.catalog_section_services
@@ -431,7 +431,7 @@ private fun CatalogMessage(
             textAlign = TextAlign.Center,
         )
         TextButton(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
-            Text(stringResource(Res.string.catalog_retry))
+            Text(stringResource(Res.string.action_retry))
         }
     }
 }

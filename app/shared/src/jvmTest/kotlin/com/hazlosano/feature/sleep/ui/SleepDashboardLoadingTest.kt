@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.core.ui.components.sections.PillarHighlightsTags
 import com.hazlosano.domain.model.HazloChampion
@@ -17,6 +18,7 @@ import com.hazlosano.feature.catalog.ui.PillarCatalogTags
 import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
 import com.hazlosano.feature.sleep.presentation.SleepUiState
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * Las tres esperas de la pestaña de sueño son independientes: el análisis de anoche, los campeones y
@@ -101,6 +103,28 @@ class SleepDashboardLoadingTest {
         onNodeWithTag(SleepTags.FAILED).assertIsDisplayed()
         onNodeWithTag(SleepTags.SUMMARY_GAP).assertDoesNotExist()
         onNodeWithTag(PillarHighlightsTags.CHAMPIONS).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a night that could not be read offers a retry that asks again`() = runComposeUiTest {
+        mainClock.autoAdvance = false
+        var retried = false
+
+        setContent {
+            SleepDashboardContent(
+                state = SleepUiState.Failed,
+                highlights = highlights,
+                catalogState = readyCatalog(),
+                onRetryCatalog = {},
+                onRefresh = null,
+                onCardClick = {},
+                onRetry = { retried = true },
+            )
+        }
+
+        onNodeWithTag(SleepTags.RETRY).performClick()
+
+        assertTrue(retried, "el botón de reintentar de Sueño vuelve a pedir el análisis")
     }
 
     @Test
