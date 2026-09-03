@@ -1241,3 +1241,77 @@ el comportamiento equivocado quedó corregido.
 **Próximos pasos (opciones):** (1) C3, seguir la ruta con aviso de desvío, que es lo que queda del
 punto C; (2) revisar si `MovementSessionEntity` guarda ceros donde quiere decir «no se sabe», que es
 el mismo vicio por tercera vez; (3) la deuda de i18n de `RoutesScreen`.
+
+---
+
+## Slice — B4, slice 1: el desnivel se calla cuando la altitud se queda pegada
+
+- **Objetivo:** que una sesión con la altitud congelada deje de reportar un desnivel con la misma
+  confianza que una con señal sana. Spec: [`movement_altitude_staleness.feature`](../../features/movement_altitude_staleness.feature)
+  (5 escenarios). Ataca el camino (a) que dejó abierto el slice 12; el barómetro (camino b) queda
+  fuera.
+
+- **Decisiones + porqué:**
+  - **La señal es duración, no cuántas lecturas repiten.** El encuadre inicial proponía contar
+    repeticiones ("a la tercera lectura idéntica en adelante"); se cambió antes de escribir código
+    porque el muestreo no es constante (jitter, señal degradada a 6 s), así que contar lecturas
+    respondería una pregunta distinta según la calidad del fix. Medir cuánto tiempo lleva sin cambiar
+    es lo que de verdad importa —cuánto terreno pudo cambiar sin que el sensor se enterara— y es
+    comparable directamente con los 385 s medidos en campo.
+  - **Umbral de partida: 60 s.** Muy por debajo del incidente medido, sin ningún caso real que muestre
+    una repetición corta y legítima. Anotado explícitamente como el número a revisar en la próxima
+    salida de campo, no como una constante ya calibrada.
+  - **Una racha rancia apaga el desnivel de la sesión entera, no solo el tramo congelado.** Una sesión
+    que pasó minutos con el sensor pegado no puede afirmar un desnivel completo y honesto aunque el
+    resto de su altitud se vea sano; mezclar un tramo fiable con uno inventado seguiría siendo
+    ficción, solo que parcial. Distancia, tiempo en movimiento y ritmo no dependen de la altitud y no
+    se tocan.
+  - **Una racha de dos lecturas ya expresa su span completo.** El detector compara el timestamp de la
+    lectura actual contra el de la primera lectura de la racha (no contra el número de lecturas en
+    medio), así que dos lecturas separadas por el umbral bastan para probar el límite exacto sin
+    depender de cuántas veces se muestreó entre medio.
+  - **El umbral de 3 m que dejó el slice 12 no se toca en este slice.** Con la racha ya detectada, el
+    desnivel completo de la sesión se apaga antes de que ese umbral entre en juego; queda como deuda
+    aparte, tal como decía el roadmap.
+
+- **Lo que salió al escribir los tests, no al planificar:** un test ya existente
+  (`aSessionAtSeaLevelIsNotMistakenForOneWithoutAltitude`) construía su traza con
+  `altitudeNoiseMeters` en su valor por defecto, `0.0` — una altitud de verdad constante, exactamente
+  lo que este slice existe para detectar. Antes de esta regla eso era inofensivo; ahora colisiona con
+  ella. Se le añadió ruido de altitud realista (`10.0`), preservando lo que el test siempre quiso
+  probar (nivel del mar no se confunde con "sin altitud"), porque un GPS real jamás sostiene un valor
+  exacto sin variar. Uno de los tests nuevos también tuvo que simplificarse: comparaba una magnitud
+  exacta de ascenso con un `seed` que no la sostenía dentro de la tolerancia — no era un fallo de la
+  regla, era ruido de la semilla elegida; se dejó afirmando solo que el ascenso sigue midiéndose (que
+  es lo que la escena realmente necesita probar), ya que la magnitud exacta la cubre
+  `aRealClimbIsMeasured`.
+
+- **Archivos tocados:**
+  - core/commonMain: `usecase/CalculateStatsUseCase.kt` (`hasStaleAltitudeRun()`, nueva constante
+    `STALE_ALTITUDE_RUN_MILLIS`, `measuresAltitude` ahora también exige que no haya racha rancia)
+  - core/commonTest: `usecase/CalculateStatsUseCaseTest.kt` (+6, uno de ellos corrigiendo la traza de
+    un test existente)
+  - features: `movement_altitude_staleness.feature` (nuevo)
+  - docs: `movement-tracking-migration.md` (B4, slice 1 encuadrado)
+
+- **Comandos:** `.\gradlew.bat :core:jvmTest`, `.\gradlew.bat :core:check`.
+- **Resultados:** `:core:jvmTest` **124 tests, 0 fallos** (subiendo de los 118 con los que cerró el
+  slice 14 — 6 pruebas nuevas de este slice, más las que se sumaron entre medias). `:core:check`
+  BUILD SUCCESSFUL en JVM, JS e iOS (`iosSimulatorArm64Test` se salta en Windows, como siempre).
+
+- **Sin validar en dispositivo:** el umbral de 60 s es una elección conservadora sin contraejemplo
+  real que la contradiga, no un número calibrado contra una segunda traza. Sigue pendiente salir a
+  medir otra sesión con GPS débil para confirmar que 60 s no es ni demasiado corto (falsos positivos
+  en una pausa corta y legítima) ni demasiado largo (deja pasar una racha rancia más breve que también
+  merecería silenciarse).
+
+**Recap:** `CalculateStatsUseCase` ya distingue terreno llano de verdad de un receptor que dejó de
+actualizar: una racha de altitud idéntica que se sostiene 60 s o más apaga el desnivel de la sesión
+entera —máxima, mínima, ascenso, descenso, pendiente y VAM— en vez de mezclarlo con un número que
+parece completo sin serlo. Lo que no depende de la altitud sigue igual. El camino (b), barómetro,
+queda fuera; la deuda del umbral de 3 m del slice 12 también.
+
+**Próximos pasos (opciones):** (1) salir a medir con GPS débil para validar (o ajustar) el umbral de
+60 s; (2) revisar el umbral de 3 m del slice 12 ahora que las rachas largas ya no lo alcanzan a
+ensuciar; (3) el barómetro (`TYPE_PRESSURE`) si la detección por repetición no basta en uso real; (4)
+C3, seguir una ruta con aviso de desvío, que sigue siendo el punto más grande sin tocar del pilar.

@@ -35,8 +35,9 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Rutas: importar GPX, listar, renombrar, exportar, guardar una salida como ruta | Hecho (slice 13, punto C1) |
 | Detalle de una ruta guardada en el mapa | Hecho (punto C2). Primera pantalla del pilar con test de host |
 | Que el ruido del receptor no se convierta en kilómetros | Hecho (slice 14, punto B3). De 2 832 m a ~165 con el teléfono quieto media hora, sin costarle distancia a las salidas reales |
+| El desnivel se calla cuando la altitud se queda pegada | Hecho (B4, slice 1). Una racha rancia de 60 s o más apaga el desnivel de la sesión entera; umbral conservador, sin validar contra una segunda traza |
 
-**Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. El slice 12 se contrastó contra una cuarta traza en la segunda calibración, que respondió su pregunta y destapó B3. Los slices 10, 11 y 13 no se han probado en una salida real.
+**Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. El slice 12 se contrastó contra una cuarta traza en la segunda calibración, que respondió su pregunta y destapó B3. Los slices 10, 11, 13 y B4 (slice 1) no se han probado en una salida real.
 
 ---
 
@@ -92,9 +93,10 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 
 ## B4 — La altitud rancia
 
-- **Estado:** encuadrado el 2026-09-02, checkpoint 2 en revisión. Spec:
+- **Estado: slice 1 hecho** (2026-09-02). Spec:
   [`movement_altitude_staleness.feature`](../../features/movement_altitude_staleness.feature).
-  Vía barata (precisión vertical) descartada por la segunda calibración.
+  Vía barata (precisión vertical) descartada por la segunda calibración. Sin validar en dispositivo:
+  el umbral de 60 s es conservador, no calibrado contra una segunda traza.
 - **Problem:** la altitud de este teléfono se congela durante minutos (5 valores distintos en 412
   lecturas; 385 s seguidos en el mismo valor), y **el sistema no lo señala**: declara ±1,8 m
   verticales mientras tanto. El desnivel reportado es ficción por defecto, no por exceso.
