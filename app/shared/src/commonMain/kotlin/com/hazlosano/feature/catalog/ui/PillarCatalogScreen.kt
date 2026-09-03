@@ -82,6 +82,7 @@ object PillarCatalogTags {
     const val NEARBY: String = "catalog_nearby"
     const val GRID: String = "catalog_grid"
     const val UNAVAILABLE: String = "catalog_unavailable"
+    const val MESSAGE_INFO: String = "catalog_message_info"
 }
 
 /**
@@ -154,7 +155,7 @@ fun PillarCatalogContent(
 
         pillarHighlights(state = highlights, accent = accent)
 
-        pillarCatalogPlaceholder(state = state, onRetry = onRetry)
+        pillarCatalogPlaceholder(state = state, onRetry = onRetry, onOpenInfo = onOpenInfo)
 
         if (state is PillarCatalogUiState.Ready) {
             pillarCatalogSections(pillar = pillar, sections = state.sections)
@@ -276,6 +277,8 @@ fun LazyListScope.pillarCatalogSections(
 fun LazyListScope.pillarCatalogPlaceholder(
     state: PillarCatalogUiState,
     onRetry: () -> Unit,
+    /** Por defecto no lleva a ninguna parte para poder componer el hueco suelto en un test. */
+    onOpenInfo: () -> Unit = {},
 ) {
     when (state) {
         is PillarCatalogUiState.Ready -> Unit
@@ -287,6 +290,7 @@ fun LazyListScope.pillarCatalogPlaceholder(
                 title = stringResource(Res.string.catalog_unavailable_title),
                 message = stringResource(Res.string.catalog_unavailable_message),
                 onRetry = onRetry,
+                onOpenInfo = onOpenInfo,
                 modifier = Modifier.fillMaxWidth().testTag(PillarCatalogTags.UNAVAILABLE),
             )
         }
@@ -296,6 +300,7 @@ fun LazyListScope.pillarCatalogPlaceholder(
                 title = stringResource(Res.string.catalog_failed_title),
                 message = stringResource(Res.string.catalog_failed_message),
                 onRetry = onRetry,
+                onOpenInfo = onOpenInfo,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -410,11 +415,16 @@ fun CatalogStaleNotice(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Sin catálogo, la tarjeta de resumen del pilar no se pinta, y con ella se va también su botón de
+ * información. Este aviso es la otra puerta a esa misma explicación.
+ */
 @Composable
 private fun CatalogMessage(
     title: String,
     message: String,
     onRetry: () -> Unit,
+    onOpenInfo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -432,6 +442,12 @@ private fun CatalogMessage(
         )
         TextButton(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
             Text(stringResource(Res.string.action_retry))
+        }
+        TextButton(
+            onClick = onOpenInfo,
+            modifier = Modifier.testTag(PillarCatalogTags.MESSAGE_INFO),
+        ) {
+            Text(stringResource(Res.string.pillar_info_open))
         }
     }
 }

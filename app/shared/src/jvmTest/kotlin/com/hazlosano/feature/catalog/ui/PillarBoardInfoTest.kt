@@ -71,8 +71,48 @@ class PillarBoardInfoTest {
             )
         }
 
-        // Sin catálogo no hay tarjeta de resumen, así que tampoco su botón. Queda pendiente darle
-        // otra puerta a la explicación del pilar cuando no hay red.
+        // Sin catálogo no hay tarjeta de resumen, así que tampoco su botón. La puerta a la
+        // explicación sigue existiendo, pero por otro sitio: el aviso de "sin catálogo" que sigue.
         onNodeWithTag(PillarSummaryCardTags.INFO).assertDoesNotExist()
     }
+
+    @Test
+    fun `a board with no catalogue yet still opens what this pillar is from its message`() =
+        runComposeUiTest {
+            var opened = false
+
+            setContent {
+                PillarCatalogContent(
+                    pillar = PillarType.MOVEMENT,
+                    state = PillarCatalogUiState.Unavailable,
+                    highlights = PillarHighlightsUiState.Ready(PillarHighlights()),
+                    onRetry = {},
+                    onOpenInfo = { opened = true },
+                )
+            }
+
+            onNodeWithTag(PillarCatalogTags.MESSAGE_INFO).performClick()
+
+            assertTrue(opened, "el aviso de sin catálogo también abre la explicación del pilar")
+        }
+
+    @Test
+    fun `a board that failed to load also opens what this pillar is from its message`() =
+        runComposeUiTest {
+            var opened = false
+
+            setContent {
+                PillarCatalogContent(
+                    pillar = PillarType.MOVEMENT,
+                    state = PillarCatalogUiState.Failed,
+                    highlights = PillarHighlightsUiState.Ready(PillarHighlights()),
+                    onRetry = {},
+                    onOpenInfo = { opened = true },
+                )
+            }
+
+            onNodeWithTag(PillarCatalogTags.MESSAGE_INFO).performClick()
+
+            assertTrue(opened, "el aviso de fallo también abre la explicación del pilar")
+        }
 }

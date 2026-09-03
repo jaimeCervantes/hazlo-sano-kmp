@@ -128,7 +128,7 @@ internal fun SleepDashboardContent(
             item { CatalogStaleNotice() }
         }
 
-        pillarCatalogPlaceholder(state = catalogState, onRetry = onRetryCatalog)
+        pillarCatalogPlaceholder(state = catalogState, onRetry = onRetryCatalog, onOpenInfo = onOpenInfo)
 
         if (catalogState is PillarCatalogUiState.Ready) {
             pillarCatalogSections(pillar = PillarType.SLEEP, sections = catalogState.sections)

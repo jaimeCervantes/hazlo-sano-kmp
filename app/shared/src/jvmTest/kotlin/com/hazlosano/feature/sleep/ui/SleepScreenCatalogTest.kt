@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.core.ui.components.sections.PillarHighlightsTags
 import com.hazlosano.domain.model.HazloChampion
@@ -16,6 +17,7 @@ import com.hazlosano.feature.catalog.ui.PillarCatalogTags
 import com.hazlosano.feature.pillar.presentation.PillarHighlightsUiState
 import com.hazlosano.feature.sleep.presentation.SleepUiState
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 /**
  * El pilar de sueño enseña el catálogo del sitio debajo de su panel de análisis.
@@ -106,6 +108,27 @@ class SleepScreenCatalogTest {
         onNodeWithTag(PillarHighlightsTags.CHAMPIONS).assertIsDisplayed()
         onNodeWithText("Valeria N.").assertIsDisplayed()
         onNodeWithTag(PillarCatalogTags.UNAVAILABLE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a sleep catalogue that cannot be read still opens what this pillar is`() = runComposeUiTest {
+        var opened = false
+
+        setContent {
+            SleepDashboardContent(
+                state = SleepUiState.Success(sleepAnalysis = null),
+                highlights = highlights,
+                catalogState = PillarCatalogUiState.Unavailable,
+                onRetryCatalog = {},
+                onRefresh = null,
+                onCardClick = {},
+                onOpenInfo = { opened = true },
+            )
+        }
+
+        onNodeWithTag(PillarCatalogTags.MESSAGE_INFO).performClick()
+
+        assertTrue(opened, "sin catálogo, el aviso de Sueño también abre la explicación del pilar")
     }
 
     @Test
