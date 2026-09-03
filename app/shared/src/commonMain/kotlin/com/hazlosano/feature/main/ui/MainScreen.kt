@@ -58,6 +58,10 @@ import com.hazlosano.feature.sleep.ui.SleepScreen
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.history_back
 import hazlosano.app.shared.generated.resources.history_title
+import hazlosano.app.shared.generated.resources.top_app_bar_back
+import hazlosano.app.shared.generated.resources.top_app_bar_menu
+import hazlosano.app.shared.generated.resources.top_app_bar_notifications
+import hazlosano.app.shared.generated.resources.top_app_bar_profile
 import org.jetbrains.compose.resources.stringResource
 
 enum class BottomTab(val label: String, val icon: ImageVector, val color: Color) {
@@ -153,6 +157,10 @@ fun MainScreen(
             title = if (showSleepHistory) stringResource(Res.string.history_title) else "Hazlo Sano",
             showBackButton = showSleepHistory,
             onBackClick = { showSleepHistory = false },
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
+            profileContentDescription = stringResource(Res.string.top_app_bar_profile),
+            notificationsContentDescription = stringResource(Res.string.top_app_bar_notifications),
+            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
         )
         if (showSleepHistory && sleepSessionRepository != null) {
             val historyViewModel = remember {

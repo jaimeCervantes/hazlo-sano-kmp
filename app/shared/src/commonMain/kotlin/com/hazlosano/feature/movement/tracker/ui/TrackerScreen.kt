@@ -38,6 +38,7 @@ import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.tracker_distance_confirming
 import hazlosano.app.shared.generated.resources.tracker_distance_waiting_for_fix
 import hazlosano.app.shared.generated.resources.tracker_gone_nowhere
+import hazlosano.app.shared.generated.resources.top_app_bar_back
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
@@ -73,7 +74,12 @@ fun TrackerScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(title = "Movimiento", showBackButton = true, onBackClick = onBack)
+        HazloTopAppBar(
+            title = "Movimiento",
+            showBackButton = true,
+            onBackClick = onBack,
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
+        )
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             MovementMap(

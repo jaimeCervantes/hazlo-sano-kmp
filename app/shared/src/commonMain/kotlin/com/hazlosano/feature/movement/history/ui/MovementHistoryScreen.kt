@@ -31,6 +31,9 @@ import com.hazlosano.core.ui.theme.PillarMovement
 import com.hazlosano.feature.movement.history.presentation.MovementHistoryUiState
 import com.hazlosano.feature.movement.history.presentation.SessionListItem
 import com.hazlosano.feature.movement.history.presentation.createMovementHistoryViewModel
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.top_app_bar_back
+import org.jetbrains.compose.resources.stringResource
 
 /** Lists the sessions recorded with the tracker, newest first. */
 @Composable
@@ -44,7 +47,12 @@ fun MovementHistoryScreen(
     val state by viewModel.state.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(title = "Historial", showBackButton = true, onBackClick = onBack)
+        HazloTopAppBar(
+            title = "Historial",
+            showBackButton = true,
+            onBackClick = onBack,
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
+        )
 
         TextButton(
             onClick = onOpenRoutes,

@@ -42,6 +42,9 @@ import com.hazlosano.core.ui.theme.PillarMovement
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.routes.presentation.RoutesViewModel
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.top_app_bar_back
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * The routes you can follow: imported from a GPX file, or kept from an outing you recorded.
@@ -74,7 +77,12 @@ fun RoutesScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(title = "Mis rutas", showBackButton = true, onBackClick = onBack)
+        HazloTopAppBar(
+            title = "Mis rutas",
+            showBackButton = true,
+            onBackClick = onBack,
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
+        )
 
         state.message?.let { message ->
             Text(

@@ -34,6 +34,9 @@ import com.hazlosano.feature.movement.detail.presentation.SessionDetailUiState
 import com.hazlosano.feature.movement.detail.presentation.SessionDiagnosisUi
 import com.hazlosano.feature.movement.detail.presentation.createSessionDetailViewModel
 import com.hazlosano.feature.movement.ui.MovementMap
+import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.top_app_bar_back
+import org.jetbrains.compose.resources.stringResource
 
 private const val METRICS_PER_ROW = 4
 
@@ -47,7 +50,12 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val title = (state as? SessionDetailUiState.Detail)?.session?.name ?: "Sesión"
-        HazloTopAppBar(title = title, showBackButton = true, onBackClick = onBack)
+        HazloTopAppBar(
+            title = title,
+            showBackButton = true,
+            onBackClick = onBack,
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
+        )
 
         if (viewModel.canSaveAsRoute && state is SessionDetailUiState.Detail) {
             TextButton(

@@ -34,6 +34,10 @@ fun HazloTopAppBar(
     onNotificationsClick: () -> Unit = {},
     onMenuClick: () -> Unit = {},
     leadingIcon: ImageVector? = null,
+    backContentDescription: String? = null,
+    profileContentDescription: String? = null,
+    notificationsContentDescription: String? = null,
+    menuContentDescription: String? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -49,7 +53,7 @@ fun HazloTopAppBar(
             IconButton(onClick = onBackClick, modifier = Modifier.size(40.dp)) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Volver",
+                    contentDescription = backContentDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -57,7 +61,7 @@ fun HazloTopAppBar(
             IconButton(onClick = onProfileClick, modifier = Modifier.size(40.dp)) {
                 Icon(
                     imageVector = leadingIcon,
-                    contentDescription = "Perfil",
+                    contentDescription = profileContentDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -65,7 +69,7 @@ fun HazloTopAppBar(
             IconButton(onClick = onProfileClick, modifier = Modifier.size(40.dp)) {
                 Icon(
                     imageVector = Icons.Filled.Person,
-                    contentDescription = "Perfil",
+                    contentDescription = profileContentDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -83,7 +87,7 @@ fun HazloTopAppBar(
             ) {
                 Icon(
                     imageVector = Icons.Filled.Notifications,
-                    contentDescription = "Notificaciones",
+                    contentDescription = notificationsContentDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -93,7 +97,7 @@ fun HazloTopAppBar(
             ) {
                 Icon(
                     imageVector = Icons.Filled.MoreVert,
-                    contentDescription = "Menú",
+                    contentDescription = menuContentDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

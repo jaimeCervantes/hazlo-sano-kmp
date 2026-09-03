@@ -32,6 +32,7 @@ import hazlosano.app.shared.generated.resources.route_detail_elevation
 import hazlosano.app.shared.generated.resources.route_detail_missing
 import hazlosano.app.shared.generated.resources.route_detail_no_path
 import hazlosano.app.shared.generated.resources.route_detail_points
+import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la estructura se afirma por aquí, no por la redacción. */
@@ -65,6 +66,7 @@ fun RouteDetailContent(
             title = (state as? RouteDetailUiState.Detail)?.name.orEmpty(),
             showBackButton = true,
             onBackClick = onBack,
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
         )
 
         when (state) {

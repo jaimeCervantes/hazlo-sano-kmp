@@ -48,6 +48,7 @@ import hazlosano.app.shared.generated.resources.pillar_info_sleep_body
 import hazlosano.app.shared.generated.resources.pillar_info_sleep_practice
 import hazlosano.app.shared.generated.resources.pillar_info_sleep_tagline
 import hazlosano.app.shared.generated.resources.pillar_info_sleep_title
+import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -80,6 +81,7 @@ fun PillarInfoScreen(
             title = pillarLabel(pillar),
             showBackButton = true,
             onBackClick = onBack,
+            backContentDescription = stringResource(Res.string.top_app_bar_back),
         )
 
         LazyColumn(

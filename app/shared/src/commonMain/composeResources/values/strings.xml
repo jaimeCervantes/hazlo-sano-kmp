@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Top app bar -->
+    <string name="top_app_bar_back">Volver</string>
+    <string name="top_app_bar_profile">Perfil</string>
+    <string name="top_app_bar_notifications">Notificaciones</string>
+    <string name="top_app_bar_menu">Menú</string>
+
     <!-- Inicio -->
     <string name="home_feed_title">Feed de la Tribu</string>
     <string name="home_failed_message">No se pudo cargar tu inicio. Vuelve a intentarlo en un momento.</string>
