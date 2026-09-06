@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,8 +25,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
@@ -32,6 +37,8 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.history.presentation.MovementHistoryUiState
 import com.hazlosano.feature.movement.history.presentation.SessionListItem
 import com.hazlosano.feature.movement.history.presentation.createMovementHistoryViewModel
+import com.hazlosano.feature.movement.ui.TrackSilhouetteGap
+import com.hazlosano.feature.movement.ui.TrackSilhouetteView
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.movement_metric_distance
 import hazlosano.app.shared.generated.resources.movement_metric_duration
@@ -41,6 +48,11 @@ import hazlosano.app.shared.generated.resources.outings_open_routes
 import hazlosano.app.shared.generated.resources.outings_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
+
+/** Etiquetas de prueba: la lista se afirma por aquí y no por su redacción. */
+object MovementHistoryTags {
+    fun silhouette(sessionId: Long): String = "outing_silhouette_$sessionId"
+}
 
 /** Lists the sessions recorded with the tracker, newest first. */
 @Composable
@@ -85,14 +97,18 @@ fun MovementHistoryScreen(
                     )
                 }
 
-                is MovementHistoryUiState.Sessions -> SessionList(current.items, onOpenSession)
+                is MovementHistoryUiState.Sessions -> OutingList(current.items, onOpenSession)
             }
         }
     }
 }
 
+/**
+ * La lista sin ViewModel, para poder componerla en un test con las salidas que hagan falta — el
+ * mismo patrón que `PillarCatalogContent` y `SettingsContent`.
+ */
 @Composable
-private fun SessionList(items: List<SessionListItem>, onOpenSession: (Long) -> Unit) {
+internal fun OutingList(items: List<SessionListItem>, onOpenSession: (Long) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -109,37 +125,72 @@ private fun SessionList(items: List<SessionListItem>, onOpenSession: (Long) -> U
     }
 }
 
+/**
+ * Una salida en la lista: su silueta a la izquierda y lo que se puede decir de ella a la derecha.
+ *
+ * La silueta es lo que permite **reconocerla sin abrirla**. Antes la lista eran tres renglones de
+ * texto y dos salidas de la misma distancia por sitios distintos se leían igual.
+ */
 @Composable
 private fun SessionRow(item: SessionListItem, onClick: () -> Unit) {
     LeafCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(HazloSpaces.md)) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = item.dateLabel,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = HazloSpaces.sm),
-                horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
-            ) {
-                SessionMetric(
-                    label = stringResource(Res.string.movement_metric_distance),
-                    value = item.distanceLabel,
+        Row(
+            modifier = Modifier.padding(HazloSpaces.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SessionSilhouette(item)
+            Spacer(modifier = Modifier.width(HazloSpaces.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                SessionMetric(
-                    label = stringResource(Res.string.movement_metric_duration),
-                    value = item.durationLabel,
+                Text(
+                    text = item.dateLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = HazloSpaces.sm),
+                    horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
+                ) {
+                    SessionMetric(
+                        label = stringResource(Res.string.movement_metric_distance),
+                        value = item.distanceLabel,
+                    )
+                    SessionMetric(
+                        label = stringResource(Res.string.movement_metric_duration),
+                        value = item.durationLabel,
+                    )
+                }
             }
         }
     }
 }
+
+/**
+ * La silueta, o su hueco.
+ *
+ * Una salida grabada antes de que se guardara la silueta no tiene forma que dibujar. Enseña un hueco
+ * en vez de un recuadro vacío o un trazado inventado: no se sabe por dónde fue sin abrirla.
+ */
+@Composable
+private fun SessionSilhouette(item: SessionListItem) {
+    val size = Modifier.size(SILHOUETTE_SIZE).testTag(MovementHistoryTags.silhouette(item.id))
+    if (item.silhouette.isDrawable) {
+        TrackSilhouetteView(
+            silhouette = item.silhouette,
+            color = PillarType.MOVEMENT.palette().ink,
+            modifier = size,
+        )
+    } else {
+        TrackSilhouetteGap(modifier = size)
+    }
+}
+
+private val SILHOUETTE_SIZE = 64.dp
 
 @Composable
 private fun SessionMetric(label: String, value: String) {

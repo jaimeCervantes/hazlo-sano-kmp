@@ -1,0 +1,20 @@
+-- Version 8 -> 9.
+--
+-- La silueta de una salida entra en la fila, para que el historial pueda dibujarla.
+--
+-- `previewPoints` lleva escribiéndose en memoria desde el slice 11: `SaveSessionUseCase` muestrea la
+-- traza a 200 puntos y la pone en `MovementSession`, pero no había columna donde guardarla y el
+-- camino de lectura la devolvía siempre vacía. Era un campo que se calculaba y moría ahí.
+--
+-- Guardarla parece contradecir la regla del pilar —las cifras se derivan de los puntos cada vez— y
+-- no la contradice: es el mismo caso que `distanceTraveled`, la excepción ya declarada, y por el
+-- mismo motivo. La lista no puede leer todos los puntos de todas las salidas para dibujarse. Y una
+-- silueta no es una cifra: congelarla no congela ninguna medición.
+--
+-- Nulable, y sin rellenar lo que ya existe. Las salidas grabadas antes de esto tienen sus puntos en
+-- MovementPointEntity, así que se podrían muestrear aquí; no se hace a propósito, porque eso es
+-- exactamente el "leer todos los puntos de todas las salidas" que la columna viene a evitar, sólo
+-- que una vez. La lista enseña su hueco para ellas, que es honesto: no se sabe su silueta sin
+-- abrirlas.
+
+ALTER TABLE MovementSessionEntity ADD COLUMN previewPoints TEXT;

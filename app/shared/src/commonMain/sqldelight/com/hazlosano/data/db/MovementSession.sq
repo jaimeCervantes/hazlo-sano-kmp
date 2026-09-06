@@ -17,7 +17,11 @@ CREATE TABLE IF NOT EXISTS MovementSessionEntity (
     name TEXT NOT NULL,
     date INTEGER NOT NULL,              -- epoch millis
     elapsedTime INTEGER NOT NULL,       -- seconds, wall clock from start to stop
-    distanceTraveled REAL NOT NULL      -- meters, summary refreshed on read
+    distanceTraveled REAL NOT NULL,     -- meters, summary refreshed on read
+    -- La silueta del recorrido, muestreada a 200 puntos al guardar. Nulable: las salidas grabadas
+    -- antes de que existiera esta columna no la tienen, y la lista enseña su hueco en vez de
+    -- inventarles un trazado. Ver 8.sqm para por qué se guarda en vez de derivarse.
+    previewPoints TEXT
 );
 
 -- altitude and verticalAccuracy are nullable because the receiver does not always report them, and
@@ -43,8 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_movement_session_date ON MovementSessionEntity(da
 CREATE INDEX IF NOT EXISTS idx_movement_point_session ON MovementPointEntity(sessionId, seq);
 
 insertSession:
-INSERT INTO MovementSessionEntity(routeId, name, date, elapsedTime, distanceTraveled)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO MovementSessionEntity(routeId, name, date, elapsedTime, distanceTraveled, previewPoints)
+VALUES (?, ?, ?, ?, ?, ?);
 
 lastInsertedSessionId:
 SELECT last_insert_rowid();

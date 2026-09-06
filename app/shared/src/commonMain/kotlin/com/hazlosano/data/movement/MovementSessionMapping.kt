@@ -8,10 +8,12 @@ import com.hazlosano.domain.feature.movement.model.UserLocation
 /**
  * Maps a persisted session row to the domain model. Points are loaded separately, and everything
  * the route shows is derived from them when the session is opened rather than read from here.
+ *
+ * La silueta sí sale de la fila, y es la segunda excepción declarada junto a `distanceTraveled`: la
+ * lista la necesita para dibujarse y no puede leer todos los puntos de todas las salidas. Una salida
+ * guardada antes de que existiera la columna vuelve con la silueta vacía, y la lista enseña su hueco.
  */
-internal fun MovementSessionEntity.toDomain(
-    previewPoints: List<UserLocation> = emptyList(),
-): MovementSession =
+internal fun MovementSessionEntity.toDomain(): MovementSession =
     MovementSession(
         id = id,
         routeId = routeId,
@@ -19,7 +21,7 @@ internal fun MovementSessionEntity.toDomain(
         date = date,
         elapsedTime = elapsedTime,
         distanceTraveled = distanceTraveled,
-        previewPoints = previewPoints,
+        previewPoints = TrackPreviewFormat.decode(previewPoints),
     )
 
 internal fun MovementPointEntity.toDomain(): UserLocation =

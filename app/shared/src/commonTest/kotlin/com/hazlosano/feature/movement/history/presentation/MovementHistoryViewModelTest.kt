@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.datetime.TimeZone
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
+import com.hazlosano.feature.movement.presentation.TrackSilhouette
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -73,6 +74,8 @@ class MovementHistoryViewModelTest {
                 dateLabel = "24 jul 2026 · 07:15",
                 distanceLabel = "1.25 km",
                 durationLabel = "10:00",
+                // Esta salida se construye sin puntos de silueta, así que no hay forma que dibujar.
+                silhouette = TrackSilhouette(emptyList()),
             ),
             state.items.single(),
         )

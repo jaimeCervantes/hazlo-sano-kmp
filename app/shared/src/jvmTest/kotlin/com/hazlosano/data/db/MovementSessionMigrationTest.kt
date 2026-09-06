@@ -51,7 +51,18 @@ class MovementSessionMigrationTest {
 
         val columns = driver.columnsOf("MovementSessionEntity")
         assertEquals(
-            setOf("id", "routeId", "name", "date", "elapsedTime", "distanceTraveled"),
+            // `previewPoints` es la segunda excepción declarada junto a `distanceTraveled`, y por el
+            // mismo motivo: la lista no puede leer todos los puntos de todas las salidas para
+            // dibujarse. No es una cifra derivada, es una silueta.
+            setOf(
+                "id",
+                "routeId",
+                "name",
+                "date",
+                "elapsedTime",
+                "distanceTraveled",
+                "previewPoints",
+            ),
             columns,
         )
     }

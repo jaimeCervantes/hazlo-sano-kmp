@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.feature.movement.model.MovementSession
 import com.hazlosano.domain.feature.movement.usecase.GetSessionsUseCase
 import com.hazlosano.feature.movement.presentation.MovementFormat
+import com.hazlosano.feature.movement.presentation.TrackSilhouette
+import com.hazlosano.feature.movement.presentation.toSilhouette
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +21,11 @@ data class SessionListItem(
     val dateLabel: String,
     val distanceLabel: String,
     val durationLabel: String,
+    /**
+     * La forma del recorrido, ya proyectada. Vacía en las salidas grabadas antes de que se guardara
+     * la silueta: la lista enseña su hueco en vez de inventarles un trazado.
+     */
+    val silhouette: TrackSilhouette,
 )
 
 sealed interface MovementHistoryUiState {
@@ -73,5 +80,6 @@ class MovementHistoryViewModel(
             dateLabel = MovementFormat.dateTime(date, timeZone),
             distanceLabel = MovementFormat.distance(distanceTraveled),
             durationLabel = MovementFormat.duration(elapsedTime),
+            silhouette = previewPoints.toSilhouette(),
         )
 }

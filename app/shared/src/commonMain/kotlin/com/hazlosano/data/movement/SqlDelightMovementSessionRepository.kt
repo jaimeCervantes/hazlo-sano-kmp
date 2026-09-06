@@ -39,6 +39,9 @@ class SqlDelightMovementSessionRepository(
                     date = session.date,
                     elapsedTime = session.elapsedTime,
                     distanceTraveled = session.distanceTraveled,
+                    // La silueta que `SaveSessionUseCase` muestreó al cerrar la grabación. Llevaba
+                    // desde el slice 11 calculándose y sin tener dónde guardarse.
+                    previewPoints = TrackPreviewFormat.encode(session.previewPoints),
                 )
                 val sessionId = queries.lastInsertedSessionId().executeAsOne()
                 rawPoints.forEachIndexed { index, point ->
