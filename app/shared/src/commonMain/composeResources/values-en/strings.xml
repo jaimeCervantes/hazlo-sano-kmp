@@ -138,6 +138,12 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_system_description">Whatever your phone is set to</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_system">Follow the system</string>
+    <string name="settings_language_system_description">Whatever your phone is set to</string>
+    <string name="settings_language_spanish">Spanish</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_needs_restart">On this device the language comes from the system, so this setting won\'t change what you see.</string>
 
     <!-- The brand. Not translated: it is a proper name. -->
     <string name="app_name">Hazlo Sano</string>

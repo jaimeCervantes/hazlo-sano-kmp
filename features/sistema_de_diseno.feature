@@ -184,9 +184,50 @@ Feature: El app habla el idioma de diseño del sitio
 
   # ─────────────────── Slice 5 — el idioma se elige ───────────────────
 
-  @slice-5 @future
+  Note: al construirlo se descubrió que el camino previsto no existe. En Compose Multiplatform 1.11
+  la interfaz `ComposeEnvironment`, `LocalComposeEnvironment` y el constructor de
+  `ResourceEnvironment` son **internos**, así que no se puede proveer un entorno de recursos con
+  otro idioma desde fuera de la librería. Lo que sí es alcanzable es su entrada: el entorno se
+  calcula desde `Locale.current` y se memoiza con él como clave, así que mover el locale de la
+  plataforma mueve el idioma de los recursos.
+  Consecuencia, y por eso los escenarios de abajo distinguen plataformas: en Android y escritorio el
+  cambio es inmediato; en iOS el locale sólo se mueve reiniciando el app, y en la web no se mueve en
+  absoluto. Allí el ajuste se guarda, el app sigue al sistema —que es lo que hacía antes— y la
+  pantalla lo dice en vez de ofrecer un control que no hace nada.
+
+  @slice-5
   Scenario: El idioma se cambia sin cerrar la app
     Given el app en español
     When se elige inglés en los ajustes
     Then los textos visibles pasan a inglés de inmediato
     And siguen en inglés la próxima vez que se abre
+
+  @slice-5
+  Scenario: Se puede volver a seguir al sistema
+    Given el app con el inglés elegido a mano
+    When se elige "seguir al sistema"
+    Then vuelve al idioma con el que arrancó
+    And no se queda en inglés para siempre
+
+  @slice-5
+  Scenario Outline: Donde el idioma no se puede aplicar, se dice
+    Given el app corriendo en "<plataforma>"
+    When se abren los ajustes
+    Then <dice> que este ajuste no cambia lo que se ve
+
+    Examples: lo aplican en caliente
+      | plataforma | dice    |
+      | Android    | no dice |
+      | escritorio | no dice |
+
+    Examples: no lo aplican — el locale no se puede mover desde el app
+      | plataforma | dice |
+      | iOS        | dice |
+      | web        | dice |
+
+  @slice-5
+  Scenario: Los dos ajustes no se pisan
+    Given el tema en oscuro y el idioma en inglés
+    When se lee cada uno
+    Then cada uno conserva lo suyo
+    And añadir el idioma no necesitó ninguna migración nueva

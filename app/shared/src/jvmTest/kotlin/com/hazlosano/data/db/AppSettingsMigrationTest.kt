@@ -1,6 +1,7 @@
 package com.hazlosano.data.db
 
 import com.hazlosano.data.settings.SqlDelightAppSettingsRepository
+import com.hazlosano.domain.settings.LanguagePreference
 import com.hazlosano.domain.settings.ThemePreference
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -72,6 +73,30 @@ class AppSettingsMigrationTest {
         repository.setThemePreference(ThemePreference.SYSTEM)
 
         assertEquals(ThemePreference.SYSTEM, repository.themePreference().first())
+    }
+
+    @Test
+    fun `the chosen language survives being stored`() = runTest {
+        val repository = SqlDelightAppSettingsRepository(inMemoryHazloSanoDatabase())
+
+        repository.setLanguagePreference(LanguagePreference.ENGLISH)
+
+        assertEquals(LanguagePreference.ENGLISH, repository.languagePreference().first())
+    }
+
+    /**
+     * Los dos ajustes viven en la misma tabla y no se pisan: es la propiedad que hace que añadir el
+     * idioma no necesitara migración ninguna.
+     */
+    @Test
+    fun `theme and language are kept apart in the same table`() = runTest {
+        val repository = SqlDelightAppSettingsRepository(inMemoryHazloSanoDatabase())
+
+        repository.setThemePreference(ThemePreference.DARK)
+        repository.setLanguagePreference(LanguagePreference.ENGLISH)
+
+        assertEquals(ThemePreference.DARK, repository.themePreference().first())
+        assertEquals(LanguagePreference.ENGLISH, repository.languagePreference().first())
     }
 
     /**

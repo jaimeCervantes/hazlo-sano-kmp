@@ -3,6 +3,7 @@ package com.hazlosano.feature.settings.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.settings.AppSettingsRepository
+import com.hazlosano.domain.settings.LanguagePreference
 import com.hazlosano.domain.settings.ThemePreference
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,8 +28,19 @@ class SettingsViewModel(
             initialValue = ThemePreference.DEFAULT,
         )
 
+    val languagePreference: StateFlow<LanguagePreference> = repository.languagePreference()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS),
+            initialValue = LanguagePreference.DEFAULT,
+        )
+
     fun chooseTheme(preference: ThemePreference) {
         viewModelScope.launch { repository.setThemePreference(preference) }
+    }
+
+    fun chooseLanguage(preference: LanguagePreference) {
+        viewModelScope.launch { repository.setLanguagePreference(preference) }
     }
 
     private companion object {

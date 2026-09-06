@@ -7,6 +7,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import com.hazlosano.core.ui.HazloLanguage
 import com.hazlosano.core.ui.image.HazloImageLoader
 import com.hazlosano.core.ui.theme.HazloSanoTheme
 import com.hazlosano.domain.usecase.GetHomeContentUseCase
@@ -57,19 +58,22 @@ fun App() {
         scope.launch { sleepViewModel.refresh() }
     }
 
-    // El tema elegido se lee aquí arriba, que es donde el app entero puede repintarse cuando cambia.
+    // Los dos ajustes se leen aquí arriba, que es donde el app entero puede repintarse al cambiarlos.
     val settingsViewModel = rememberSettingsViewModel()
     val themePreference by settingsViewModel.themePreference.collectAsState()
+    val languagePreference by settingsViewModel.languagePreference.collectAsState()
 
     HazloSanoTheme(darkTheme = themePreference.resolvesToDark(isSystemInDarkTheme())) {
-        HazloImageLoader {
-            MainScreen(
-                homeViewModel = viewModel,
-                sleepViewModel = sleepViewModel,
-                sleepAnalysis = sleepAnalysis,
-                onRefreshSleep = onRefreshSleep,
-                sleepSessionRepository = sleepSessionRepository,
-            )
+        HazloLanguage(languagePreference) {
+            HazloImageLoader {
+                MainScreen(
+                    homeViewModel = viewModel,
+                    sleepViewModel = sleepViewModel,
+                    sleepAnalysis = sleepAnalysis,
+                    onRefreshSleep = onRefreshSleep,
+                    sleepSessionRepository = sleepSessionRepository,
+                )
+            }
         }
     }
 }

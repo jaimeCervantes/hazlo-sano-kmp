@@ -2,6 +2,7 @@ package com.hazlosano.data.settings
 
 import com.hazlosano.data.db.DatabaseProvider
 import com.hazlosano.domain.settings.AppSettingsRepository
+import com.hazlosano.domain.settings.LanguagePreference
 import com.hazlosano.domain.settings.ThemePreference
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,13 +24,20 @@ internal fun appSettingsRepository(): AppSettingsRepository =
         InMemoryAppSettingsRepository
     }
 
-/** Recuerda el ajuste mientras el app siga abierto, y nada más. Ver la nota de arriba. */
+/** Recuerda los ajustes mientras el app siga abierto, y nada más. Ver la nota de arriba. */
 internal object InMemoryAppSettingsRepository : AppSettingsRepository {
     private val theme = MutableStateFlow(ThemePreference.DEFAULT)
+    private val language = MutableStateFlow(LanguagePreference.DEFAULT)
 
     override fun themePreference(): Flow<ThemePreference> = theme.asStateFlow()
 
     override suspend fun setThemePreference(preference: ThemePreference) {
         theme.value = preference
+    }
+
+    override fun languagePreference(): Flow<LanguagePreference> = language.asStateFlow()
+
+    override suspend fun setLanguagePreference(preference: LanguagePreference) {
+        language.value = preference
     }
 }

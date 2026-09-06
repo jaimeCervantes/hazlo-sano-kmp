@@ -140,6 +140,12 @@
     <string name="settings_theme_light">Claro</string>
     <string name="settings_theme_dark">Oscuro</string>
     <string name="settings_theme_system_description">El que tenga puesto tu teléfono</string>
+    <string name="settings_language_title">Idioma</string>
+    <string name="settings_language_system">Seguir al sistema</string>
+    <string name="settings_language_system_description">El que tenga puesto tu teléfono</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_language_english">Inglés</string>
+    <string name="settings_language_needs_restart">En este dispositivo el idioma se toma del sistema, así que este ajuste no cambia lo que ves.</string>
 
     <!-- La marca. No se traduce: es un nombre propio. Vive en el catálogo igualmente para que
          ninguna pantalla lleve texto visible escrito dentro. -->

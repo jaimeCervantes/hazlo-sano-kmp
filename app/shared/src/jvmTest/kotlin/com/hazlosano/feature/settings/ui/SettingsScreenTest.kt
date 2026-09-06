@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.core.ui.theme.HazloSanoTheme
+import com.hazlosano.domain.settings.LanguagePreference
 import com.hazlosano.domain.settings.ThemePreference
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,7 +26,9 @@ class SettingsScreenTest {
             HazloSanoTheme {
                 SettingsContent(
                     theme = ThemePreference.DARK,
+                    language = LanguagePreference.DEFAULT,
                     onChooseTheme = {},
+                    onChooseLanguage = {},
                     onBack = {},
                 )
             }
@@ -40,7 +43,9 @@ class SettingsScreenTest {
             HazloSanoTheme {
                 SettingsContent(
                     theme = ThemePreference.DEFAULT,
+                    language = LanguagePreference.DEFAULT,
                     onChooseTheme = {},
+                    onChooseLanguage = {},
                     onBack = {},
                 )
             }
@@ -59,7 +64,9 @@ class SettingsScreenTest {
                         SettingsContent(
                             // Se parte de otra opción para que el toque tenga algo que cambiar.
                             theme = ThemePreference.entries.first { it != preference },
+                            language = LanguagePreference.DEFAULT,
                             onChooseTheme = { chosen += it },
+                            onChooseLanguage = {},
                             onBack = {},
                         )
                     }
@@ -83,7 +90,9 @@ class SettingsScreenTest {
             HazloSanoTheme {
                 SettingsContent(
                     theme = ThemePreference.SYSTEM,
+                    language = LanguagePreference.DEFAULT,
                     onChooseTheme = { chosen += it },
+                    onChooseLanguage = {},
                     onBack = {},
                 )
             }
@@ -92,5 +101,86 @@ class SettingsScreenTest {
         onNodeWithTag(SettingsTags.themeOption(ThemePreference.LIGHT)).performClick()
 
         assertEquals(listOf(ThemePreference.LIGHT), chosen)
+    }
+
+    @Test
+    fun `the stored language is the one that shows as chosen`() = runComposeUiTest {
+        setContent {
+            HazloSanoTheme {
+                SettingsContent(
+                    theme = ThemePreference.DEFAULT,
+                    language = LanguagePreference.ENGLISH,
+                    onChooseTheme = {},
+                    onChooseLanguage = {},
+                    onBack = {},
+                )
+            }
+        }
+
+        onNodeWithTag(SettingsTags.languageOption(LanguagePreference.ENGLISH)).assertIsSelected()
+    }
+
+    @Test
+    fun `each language reports itself when touched`() {
+        for (preference in LanguagePreference.entries) {
+            runComposeUiTest {
+                val chosen = mutableListOf<LanguagePreference>()
+                setContent {
+                    HazloSanoTheme {
+                        SettingsContent(
+                            theme = ThemePreference.DEFAULT,
+                            language = LanguagePreference.entries.first { it != preference },
+                            onChooseTheme = {},
+                            onChooseLanguage = { chosen += it },
+                            onBack = {},
+                        )
+                    }
+                }
+
+                onNodeWithTag(SettingsTags.languageOption(preference)).performClick()
+
+                assertEquals(listOf(preference), chosen)
+            }
+        }
+    }
+
+    /**
+     * Donde el idioma no se puede cambiar en caliente —iOS y web— se dice, en vez de dejar tres
+     * opciones que se marcan y no hacen nada.
+     */
+    @Test
+    fun `a platform that cannot apply the language says so`() = runComposeUiTest {
+        setContent {
+            HazloSanoTheme {
+                SettingsContent(
+                    theme = ThemePreference.DEFAULT,
+                    language = LanguagePreference.ENGLISH,
+                    onChooseTheme = {},
+                    onChooseLanguage = {},
+                    onBack = {},
+                    languageApplies = false,
+                )
+            }
+        }
+
+        onNodeWithTag(SettingsTags.LANGUAGE_NOTICE).assertExists()
+    }
+
+    @Test
+    fun `a platform that can apply the language keeps quiet`() = runComposeUiTest {
+        setContent {
+            HazloSanoTheme {
+                SettingsContent(
+                    theme = ThemePreference.DEFAULT,
+                    language = LanguagePreference.ENGLISH,
+                    onChooseTheme = {},
+                    onChooseLanguage = {},
+                    onBack = {},
+                    languageApplies = true,
+                )
+            }
+        }
+
+        onNodeWithTag(SettingsTags.LANGUAGE_NOTICE).assertDoesNotExist()
     }
 }

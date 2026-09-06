@@ -500,3 +500,130 @@ silencio.
 **Próximos pasos (opciones).** (1) El slice 5, el selector de idioma, que ya no tiene nada que le
 falte y además es lo que permite mirar el inglés en pantalla; (2) la pantalla de licencias;
 (3) saltar a las puertas de Movimiento.
+
+---
+
+## Slice 5 — El idioma se elige (2026-09-06)
+
+**Objetivo.** Que el idioma deje de decidirlo el teléfono, igual que el tema en el slice 3. Spec:
+escenarios `@slice-5`.
+
+### El camino previsto no existía, y hay que decirlo
+
+Al escribir el checkpoint 2 anoté que «Compose Multiplatform 1.11 trae `LocalComposeEnvironment` y
+`LanguageQualifier`, así que el selector de idioma es viable». **Eso era falso, y el error fue de
+método:** comprobé que los símbolos existían en el jar, no que fueran accesibles. Son `internal`:
+
+- `ComposeEnvironment` (la interfaz), `LocalComposeEnvironment` (la `CompositionLocal`) y el
+  constructor de `ResourceEnvironment`, los tres internos. No se puede construir un entorno de
+  recursos con otro idioma ni sustituir el que la librería calcula.
+
+Se descubrió al compilar, con nueve errores de «cannot access … it is internal».
+
+### El asidero que sí existe
+
+Mirando el bytecode de `DefaultComposeEnvironment.rememberEnvironment()`: el entorno se calcula desde
+**`androidx.compose.ui.text.intl.Locale.current`** y se memoiza con ese locale **como clave**. O sea
+que la entrada del cálculo sí es alcanzable — mover el locale de la plataforma mueve el idioma de los
+recursos, sin tocar nada interno.
+
+De ahí salen las dos piezas de `HazloLanguage`, y hacen falta las dos:
+
+1. **Mover el locale** (`applyPlatformLanguage`). Se hace **en la composición** y no en un
+   `LaunchedEffect`: un efecto corre después del primer pintado y dejaría la primera pasada en el
+   idioma anterior.
+2. **Remontar el subárbol** con `key(preference)`. El entorno se memoiza con el locale como clave,
+   pero `Locale.current` no es estado observable: nada dispara la recomposición al cambiarlo. El
+   `key` fuerza el remonte y el entorno se reconstruye leyendo el locale nuevo.
+
+### Dónde funciona y dónde no
+
+| Plataforma | Qué pasa |
+|---|---|
+| **Android** | En caliente. `LocaleList.getDefault()` sigue a `Locale.setDefault()` |
+| **Escritorio** | En caliente. `Locale.current` sale del locale por defecto de la JVM |
+| **iOS** | No se aplica. Sale de `NSLocale.currentLocale`, que se cambia escribiendo `AppleLanguages` y **sólo surte efecto al reiniciar** |
+| **Web** | No se aplica. Sale de `navigator.language`, que la página no puede cambiar |
+
+**Donde no se aplica, la pantalla lo dice.** Es `platformAppliesLanguage`, un `expect val` que la
+pantalla consulta para pintar un aviso: tres opciones que se marcan y no hacen nada son peores que no
+ofrecerlas. El ajuste se guarda igualmente y el app sigue al sistema, que es lo que hacía antes — se
+degrada a lo anterior en vez de romperse.
+
+Esto **desvía del escenario acordado**, que decía «el idioma se cambia sin cerrar la app» sin
+distinguir plataformas. El `.feature` se corrigió para decir la verdad, con una nota explicando por
+qué, en vez de dejar una spec que promete lo que el código no da.
+
+### Decisiones y por qué
+
+1. **`LanguagePreference` con la etiqueta dentro** (`es`, `en`, y `null` para seguir al sistema). La
+   etiqueta es lo que nombra la carpeta del catálogo, así que el enum y el catálogo no pueden
+   separarse sin que se note.
+2. **Añadir el idioma no necesitó migración.** Era la apuesta del slice 3 al hacer la tabla
+   clave/valor, y se cumplió: dos claves en la misma tabla, cero DDL. Hay un test que lo fija.
+3. **«Seguir al sistema» restaura el locale de arranque**, capturado en un `val` privado antes de que
+   nadie lo mueva. Sin eso, elegir un idioma una vez dejaría el app en él para siempre: una vez
+   llamado `Locale.setDefault`, el original ya no se puede consultar.
+4. **`settingSection` extraída.** El bloque idioma habría sido un segundo copiar-pegar del de tema;
+   ahora los dos son la misma función con otro contenido.
+5. **`languageApplies` entra como parámetro de `SettingsContent`**, con el valor de plataforma por
+   defecto. Es lo que permite probar en la JVM el caso que la JVM nunca produce.
+
+### Un test que salió mal planteado
+
+`following the system leaves the platform locale alone` falló, y el fallo era del test: fijaba un
+locale a mano y esperaba que «seguir al sistema» no lo tocara. Pero seguir al sistema **sí** toca el
+locale — lo devuelve al de arranque, que es justo lo que permite volver atrás. Se reescribió para
+afirmar esa propiedad, que es la que importa.
+
+### Archivos tocados
+
+- **core:** `settings/LanguagePreference.kt` (nuevo); `AppSettingsRepository` gana el idioma.
+- **Datos:** `SqlDelightAppSettingsRepository` (dos claves, un helper común),
+  `AppSettingsRepositoryProvider` (el respaldo en memoria también).
+- **UI multiplataforma:** `core/ui/PlatformLanguage.kt` (`expect`) con sus cuatro `actual`
+  —android, jvm, ios, js—, y `core/ui/HazloLanguage.kt`.
+- **Presentación/UI:** `SettingsViewModel`, `SettingsScreen` (sección de idioma + aviso),
+  `App.kt` (envuelve el árbol).
+- **Recursos:** siete cadenas por idioma; los catálogos quedan en **200 y 200**.
+- **Tests:** `LanguagePreferenceTest` (5), `HazloLanguageTest` (4, con la lectura real del catálogo
+  en inglés), `SettingsViewModelTest` (+2), `SettingsScreenTest` (+4), `AppSettingsMigrationTest`
+  (+2).
+- **Spec:** `features/sistema_de_diseno.feature`, escenarios `@slice-5` reescritos con la limitación.
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **134 pruebas, 0 fallos** (venían 129).
+- `.\gradlew.bat :app:shared:jvmTest` → **329 pruebas, 0 fallos** (venían 317).
+- `.\gradlew.bat :core:check` y `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL los tres.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **`HazloLanguageTest` corre en la JVM**, así que prueba el camino de escritorio. Que Android siga a
+  `Locale.setDefault()` está razonado desde cómo funciona `LocaleList.getDefault()`, no medido en un
+  dispositivo.
+- **iOS y web sólo tienen el `actual` vacío y el aviso**; que el aviso salga allí no lo prueba nada,
+  porque el test fuerza el parámetro.
+- **Sigue sin haber ojos sobre el inglés en pantalla.** Ahora ya se puede mirar: elegir inglés en
+  ajustes y recorrer las pantallas buscando texto que desborde. Es el seguimiento que dejó el slice 4
+  y sigue abierto.
+
+### Seguimientos
+
+- **Mirar el inglés en un dispositivo**, buscando desbordes. Ya es posible.
+- **La pantalla de licencias**, pendiente desde el slice 2, sigue sin hacer.
+- **Compose Multiplatform**: si una versión futura hace público `ComposeEnvironment`, este rodeo se
+  puede cambiar por el camino directo y el idioma funcionaría también en iOS y web.
+
+**Recap.** El idioma se elige en la misma pantalla que el tema, se guarda sin migración nueva —la
+tabla clave/valor del slice 3 se pagó sola— y en Android y escritorio cambia el app en caliente. El
+camino previsto para hacerlo no existía: las piezas de Compose Resources que hacían falta son
+internas, así que se mueve el locale de la plataforma, que es la entrada del cálculo que sí es
+alcanzable. En iOS y web el ajuste se guarda pero no se aplica, y la pantalla lo dice en vez de
+fingir.
+
+**Próximos pasos (opciones).** (1) Las puertas de Movimiento, que es lo que pediste primero y ya no
+tiene nada delante; (2) la pantalla de licencias, que sigue barata; (3) mirar el inglés en el
+teléfono antes de seguir construyendo encima.

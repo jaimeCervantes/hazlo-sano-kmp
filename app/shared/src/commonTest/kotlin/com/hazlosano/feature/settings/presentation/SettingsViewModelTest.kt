@@ -1,6 +1,7 @@
 package com.hazlosano.feature.settings.presentation
 
 import com.hazlosano.domain.settings.AppSettingsRepository
+import com.hazlosano.domain.settings.LanguagePreference
 import com.hazlosano.domain.settings.ThemePreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -20,13 +21,22 @@ private class FakeAppSettingsRepository(
     initial: ThemePreference = ThemePreference.DEFAULT,
 ) : AppSettingsRepository {
     private val theme = MutableStateFlow(initial)
+    private val language = MutableStateFlow(LanguagePreference.DEFAULT)
     val written = mutableListOf<ThemePreference>()
+    val languagesWritten = mutableListOf<LanguagePreference>()
 
     override fun themePreference(): Flow<ThemePreference> = theme.asStateFlow()
 
     override suspend fun setThemePreference(preference: ThemePreference) {
         written += preference
         theme.value = preference
+    }
+
+    override fun languagePreference(): Flow<LanguagePreference> = language.asStateFlow()
+
+    override suspend fun setLanguagePreference(preference: LanguagePreference) {
+        languagesWritten += preference
+        language.value = preference
     }
 }
 
@@ -64,6 +74,31 @@ class SettingsViewModelTest {
         viewModel.chooseTheme(ThemePreference.LIGHT)
 
         assertEquals(listOf(ThemePreference.LIGHT), repository.written)
+    }
+
+    @Test
+    fun `choosing a language stores it and reaches whoever is watching`() = runTest {
+        val repository = FakeAppSettingsRepository()
+        val viewModel = SettingsViewModel(repository)
+
+        viewModel.chooseLanguage(LanguagePreference.ENGLISH)
+
+        assertEquals(listOf(LanguagePreference.ENGLISH), repository.languagesWritten)
+        assertEquals(
+            LanguagePreference.ENGLISH,
+            viewModel.languagePreference.first { it == LanguagePreference.ENGLISH },
+        )
+    }
+
+    /** Los dos ajustes van por flujos distintos: elegir uno no toca el otro. */
+    @Test
+    fun `choosing a language leaves the theme alone`() = runTest {
+        val repository = FakeAppSettingsRepository(ThemePreference.DARK)
+        val viewModel = SettingsViewModel(repository)
+
+        viewModel.chooseLanguage(LanguagePreference.ENGLISH)
+
+        assertEquals(emptyList(), repository.written)
     }
 
     /**
