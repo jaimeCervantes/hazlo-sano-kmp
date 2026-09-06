@@ -89,6 +89,9 @@
     <string name="pillar_nutrition">Alimentación</string>
     <string name="pillar_movement">Movimiento</string>
     <string name="pillar_mind">Mente y Espíritu</string>
+    <!-- Forma corta para sitios estrechos, hoy sólo la barra inferior: es el único pilar cuyo
+         nombre son tres palabras, y en una barra de cinco pestañas parte en dos renglones. -->
+    <string name="pillar_mind_short">Mente</string>
 
     <!-- Qué es cada pilar. El texto viene de hazlosano.com/pilares y vive aquí, y no en `core`,
          porque es copia de cara al usuario: en el catálogo de recursos es lo único traducible. -->

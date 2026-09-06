@@ -15,6 +15,7 @@ import com.hazlosano.core.ui.theme.PillarPalette
 import com.hazlosano.domain.model.PillarType
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.pillar_mind
+import hazlosano.app.shared.generated.resources.pillar_mind_short
 import hazlosano.app.shared.generated.resources.pillar_movement
 import hazlosano.app.shared.generated.resources.pillar_nutrition
 import hazlosano.app.shared.generated.resources.pillar_sleep
@@ -45,6 +46,20 @@ fun pillarLabel(pillar: PillarType): String = stringResource(
         PillarType.MIND -> Res.string.pillar_mind
     },
 )
+
+/**
+ * El rótulo del pilar para sitios estrechos.
+ *
+ * Sólo Mente y Espíritu tiene forma corta, porque es el único cuyo nombre son tres palabras: en la
+ * barra inferior, con cinco pestañas, partía en dos renglones y dejaba esa pestaña más alta que las
+ * otras cuatro. Los demás devuelven su nombre completo, así que quien necesite la versión compacta
+ * puede pedirla siempre sin preguntar de qué pilar se trata.
+ */
+@Composable
+fun pillarShortLabel(pillar: PillarType): String = when (pillar) {
+    PillarType.MIND -> stringResource(Res.string.pillar_mind_short)
+    else -> pillarLabel(pillar)
+}
 
 /**
  * Los tres papeles del pilar: relleno, papel tenue y tinta.

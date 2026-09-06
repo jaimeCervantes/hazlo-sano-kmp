@@ -23,10 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
 import com.hazlosano.core.ui.model.pillarLabel
+import com.hazlosano.core.ui.model.pillarShortLabel
 import com.hazlosano.core.ui.theme.LocalHazloPalette
 import com.hazlosano.core.ui.theme.PillarPalette
 import com.hazlosano.domain.model.PillarType
@@ -75,8 +78,22 @@ enum class BottomTab(val pillar: PillarType?) {
     Mente(PillarType.MIND),
 }
 
+/**
+ * Lo que se lee en la pestaña, en su forma compacta: la barra reparte el ancho entre cinco, y
+ * "Mente y Espíritu" entero partía en dos renglones y dejaba esa pestaña más alta que las otras.
+ */
 @Composable
 internal fun BottomTab.label(): String =
+    pillar?.let { pillarShortLabel(it) } ?: stringResource(Res.string.bottom_tab_home)
+
+/**
+ * El nombre entero del pilar, para quien no tiene el ancho por límite.
+ *
+ * Es lo que oye un lector de pantalla: acortar por falta de sitio es una decisión visual, y no hay
+ * razón para que le llegue también a quien no está mirando la barra.
+ */
+@Composable
+internal fun BottomTab.accessibleLabel(): String =
     pillar?.let { pillarLabel(it) } ?: stringResource(Res.string.bottom_tab_home)
 
 internal fun BottomTab.icon(): ImageVector = pillar?.let { pillarIcon(it) } ?: Icons.Filled.Home
@@ -209,10 +226,23 @@ fun MainScreen(
                             icon = {
                                 Icon(
                                     imageVector = tab.icon(),
-                                    contentDescription = label,
+                                    contentDescription = tab.accessibleLabel(),
                                 )
                             },
-                            label = { Text(label) },
+                            label = {
+                                // Un renglón siempre: la altura de la barra no puede depender de lo
+                                // largo que sea el nombre de un pilar.
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    // Si una traducción futura no cabe, que se corte con puntos
+                                    // suspensivos en vez de quedar cortada a hachazo.
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                )
+                            },
                             selected = selected,
                             onClick = { selectedTab = tab },
                             colors = NavigationBarItemDefaults.colors(
