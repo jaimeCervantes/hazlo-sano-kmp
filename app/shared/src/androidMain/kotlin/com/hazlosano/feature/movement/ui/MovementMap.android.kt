@@ -56,6 +56,7 @@ actual fun MovementMap(
     path: List<UserLocation>,
     modifier: Modifier,
     fitPathInView: Boolean,
+    routePath: List<UserLocation>,
 ) {
     var framedPathKey by remember { mutableStateOf<String?>(null) }
     var centeredOnUser by remember { mutableStateOf(false) }
@@ -117,6 +118,7 @@ actual fun MovementMap(
                 view.getMapAsync { map ->
                     val style = map.style ?: return@getMapAsync
                     style.drawUser(userLocation)
+                    style.drawRoute(routePath)
                     style.drawPath(path)
 
                     if (fitPathInView) {
@@ -202,6 +204,17 @@ private fun Style.drawUser(userLocation: UserLocation?) {
         .fromGeometry(Point.fromLngLat(userLocation.longitude, userLocation.latitude))
         .apply { addNumberProperty("bearing", userLocation.bearing) }
     source.setGeoJson(FeatureCollection.fromFeature(feature))
+}
+
+/** La ruta que se sigue, en su propia capa: va debajo del recorrido real y con su propio color. */
+private fun Style.drawRoute(route: List<UserLocation>) {
+    val source = getSource(MapLayers.SOURCE_ROUTE) as? GeoJsonSource ?: return
+    if (route.size < 2) {
+        source.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        return
+    }
+    val line = LineString.fromLngLats(route.map { Point.fromLngLat(it.longitude, it.latitude) })
+    source.setGeoJson(Feature.fromGeometry(line))
 }
 
 private fun Style.drawPath(path: List<UserLocation>) {

@@ -202,3 +202,100 @@ anteriores enseñan su hueco en vez de un trazado inventado.
 **Próximos pasos (opciones).** (1) El slice 3, empezar una salida desde cero o siguiendo una ruta, que
 es la otra mitad de lo que pediste; (2) mirar en el teléfono que las siluetas se reconozcan a 64 dp;
 (3) el botón atrás del sistema, que sigue anotado desde el slice 1.
+
+---
+
+## Slice 3 — Empezar una salida: desde cero, o siguiendo una ruta (2026-09-06)
+
+**Objetivo.** Que se pueda salir con una ruta cargada: verla dibujada mientras se graba y que la
+sesión recuerde con cuál salió. Spec: escenarios `@slice-3`.
+
+**Sin avisos de desvío**, por decisión tuya en el alignment gate: la ruta se carga, se pinta y se
+recuerda. Proyectar la posición sobre el trazado y avisar de que te saliste es C3 del backlog, una
+feature propia.
+
+### Dos cosas que llevaban tiempo esperando a este slice
+
+1. **`MovementSessionEntity.routeId` guardaba `null` en todas las sesiones**, desde que la columna
+   existe. La tabla a la que apunta lleva desde el slice 13, pero nadie tenía cómo decirle a una
+   grabación con qué ruta salía. Ahora el `routeId` viaja desde la pantalla hasta la fila.
+2. **`MapLayers` tenía una capa de ruta —`SOURCE_ROUTE`, `LAYER_ROUTE`, con sus flechas— copiada de
+   la referencia y jamás alimentada.** No hubo que dibujar nada nuevo: sólo conectarla.
+
+### Decisiones y por qué
+
+1. **La ruta viaja como `routeId` por el contrato, no como puntos.** En Android la grabación vive en
+   un servicio en primer plano y cruza un `Intent`; mandar cientos de puntos por ahí sería absurdo
+   cuando el servicio tiene la base al lado. Al cruzar, «sin ruta» se codifica como `-1` y no como
+   `0`, porque `0` es un id de fila válido.
+2. **Los puntos se cargan al elegir la ruta, no al arrancar.** Si se cargaran al arrancar, el mapa
+   pasaría un instante grabando sin enseñar la ruta y quien pulsa Iniciar no sabría si se cargó.
+3. **La ruta se dibuja debajo del recorrido real**, en su propia capa y con su propio color, para
+   poder comparar los dos de un vistazo. Dibujar no es seguir.
+4. **No se importa un GPX desde el diálogo de elegir ruta.** Importar ya vive en «Mis rutas», con su
+   diálogo de duplicados y su acceso a archivos por plataforma; una segunda puerta a lo mismo sería
+   el componente casi idéntico que `AGENTS.md` llama fallo de diseño. El estado vacío dice dónde se
+   importa. **Esto se aparta del roadmap**, que decía «o importar un GPX en el momento».
+5. **Mientras se graba, la ruta sólo se dice, no se cambia.** La sesión ya recuerda con cuál empezó,
+   así que cambiarla a mitad no significaría nada — y un control que no hace nada es peor que no
+   tenerlo. Es la misma regla que ya seguía el interruptor de la traza de diagnóstico.
+6. **Un punto de ruta sin hora vale igual.** Un GPX de un trazado planificado no trae `timestamp`;
+   como esto sólo se dibuja, se le pone `0` en vez de descartar el punto.
+
+### Deuda que este slice paga de paso
+
+`FakeRecordingController` era privado dentro de `TrackerViewModelTest`. Al necesitarlo un segundo
+test, escribir una segunda copia habría sido una redeclaración —y dos dobles de la misma interfaz
+envejeciendo aparte—, así que **se movió** a su propio archivo, `internal`, y ganó memoria de con qué
+ruta arrancó cada grabación. `FakeRoutes` nació ya compartido por el mismo motivo.
+
+### Archivos tocados
+
+- **core:** `RecordingController.kt` (`startRecording` lleva la ruta).
+- **Datos:** `SessionRecording.kt` (la recuerda y la usa al guardar),
+  `InProcessRecordingController.kt`, `MovementRecordingService.kt` (la cruza por el `Intent`),
+  `RecordingControllerFactory.android.kt`.
+- **Mapa:** `MovementMap.kt` (`routePath`) y sus cuatro `actual`; el de Android alimenta la capa que
+  ya existía.
+- **Presentación:** `TrackerViewModel.kt` (rutas guardadas, ruta seguida, `followRoute`,
+  `stopFollowingRoute`), `TrackerViewModelFactory.kt`.
+- **UI:** `TrackerScreen.kt` (fila de la ruta seguida y diálogo de elección).
+- **Recursos:** seis cadenas por idioma; los catálogos quedan en **205 y 205**.
+- **Tests:** `FollowARouteTest` (nuevo, 6), `FakeRecordingController.kt` y `FakeRoutes.kt` (nuevos,
+  dobles compartidos), `TrackerViewModelTest` (pierde su copia privada).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **134 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **358 pruebas, 0 fallos** (venían 352).
+- `.\gradlew.bat :core:check` y `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL los tres.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **Nadie ha visto una ruta dibujada bajo un recorrido.** El mapa es Android y sólo se prueba en
+  dispositivo; lo que se comprueba aquí es que los puntos llegan al parámetro. Es lo primero que hay
+  que mirar.
+- **El `routeId` no se ha visto cruzar el servicio en un teléfono.** El camino por el `Intent` está
+  escrito y compila, pero el servicio en primer plano no tiene cobertura de host — es la misma deuda
+  que arrastra el slice 7 del pilar.
+- **No hay test de la pantalla**, sólo del ViewModel. El diálogo de elección y la fila de la ruta
+  seguida se ven al abrirlos.
+- **Que la sesión guardada traiga el `routeId` correcto** se comprueba en el ViewModel, no leyendo la
+  fila después de una grabación real.
+
+### Seguimientos
+
+- **C3**: seguir la ruta de verdad, con aviso de desvío. Ahora tiene todo lo que necesita delante.
+- El botón «atrás» del sistema, anotado desde el slice 1.
+- La pantalla de licencias, desde el slice 2 del sistema de diseño.
+
+**Recap.** Se puede salir con una ruta: se elige entre las guardadas, se carga con sus puntos, se
+dibuja debajo del recorrido real mientras se graba, y la sesión guarda con cuál salió — cerrando un
+`routeId` que llevaba desde que existe guardando `null`. La capa del mapa que lo dibuja llevaba
+copiada de la referencia y sin alimentar desde el principio. No hay seguimiento ni avisos: eso es C3.
+
+**Próximos pasos (opciones).** (1) El slice 4, las pantallas de rutas al lenguaje de las apps del
+ramo, que cierra este roadmap; (2) mirar en el teléfono lo de este slice, que es lo que menos
+cobertura tiene; (3) C3, que ya tiene el terreno preparado.

@@ -11,6 +11,11 @@ import com.hazlosano.domain.feature.movement.model.UserLocation
  *
  * Set [fitPathInView] to frame the whole [path] instead of following the live position — that is
  * what a finished session needs, since it has no current position to follow.
+ *
+ * [routePath] es la ruta que se está siguiendo, dibujada **debajo** del recorrido real para poder
+ * compararlos de un vistazo. Dibujarla no implica seguirla: avisar de un desvío es otra cosa, y es
+ * C3 del backlog. La capa ya existía en `MapLayers` desde que se copió de la referencia; lo que
+ * faltaba era que alguien la alimentara.
  */
 @Composable
 expect fun MovementMap(
@@ -18,4 +23,5 @@ expect fun MovementMap(
     path: List<UserLocation>,
     modifier: Modifier = Modifier,
     fitPathInView: Boolean = false,
+    routePath: List<UserLocation> = emptyList(),
 )

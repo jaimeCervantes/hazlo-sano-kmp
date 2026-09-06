@@ -57,7 +57,11 @@ class MovementRecordingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> start(intent.getBooleanExtra(EXTRA_CAPTURE_TRACE, false))
+            ACTION_START -> start(
+                captureTrace = intent.getBooleanExtra(EXTRA_CAPTURE_TRACE, false),
+                // -1 y no 0: `0` es un id de fila válido, así que no puede significar "ninguna".
+                routeId = intent.getLongExtra(EXTRA_ROUTE_ID, NO_ROUTE).takeIf { it != NO_ROUTE },
+            )
             ACTION_STOP -> stop()
             // No action means the system recreated the service on its own. Whatever it was
             // recording is gone — nothing is persisted to resume from — so shut down instead of
@@ -69,9 +73,9 @@ class MovementRecordingService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun start(captureTrace: Boolean) {
+    private fun start(captureTrace: Boolean, routeId: Long?) {
         startForeground(NOTIFICATION_ID, buildNotification(RecordingState()))
-        recording.start(captureTrace)
+        recording.start(captureTrace, routeId)
     }
 
     private fun stop() {
@@ -129,10 +133,16 @@ class MovementRecordingService : Service() {
         private const val ACTION_START = "com.hazlosano.movement.START_RECORDING"
         private const val ACTION_STOP = "com.hazlosano.movement.STOP_RECORDING"
         private const val EXTRA_CAPTURE_TRACE = "com.hazlosano.movement.CAPTURE_TRACE"
+        private const val EXTRA_ROUTE_ID = "com.hazlosano.movement.ROUTE_ID"
 
-        fun start(context: Context, captureTrace: Boolean) {
+        /** Lo que quiere decir "sin ruta" al cruzar el Intent. Ver `onStartCommand`. */
+        private const val NO_ROUTE = -1L
+
+        fun start(context: Context, captureTrace: Boolean, routeId: Long?) {
             context.startForegroundService(
-                intent(context, ACTION_START).putExtra(EXTRA_CAPTURE_TRACE, captureTrace),
+                intent(context, ACTION_START)
+                    .putExtra(EXTRA_CAPTURE_TRACE, captureTrace)
+                    .putExtra(EXTRA_ROUTE_ID, routeId ?: NO_ROUTE),
             )
         }
 

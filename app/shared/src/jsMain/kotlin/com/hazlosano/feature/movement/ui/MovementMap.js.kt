@@ -14,6 +14,7 @@ actual fun MovementMap(
     path: List<UserLocation>,
     modifier: Modifier,
     fitPathInView: Boolean,
+    routePath: List<UserLocation>,
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(

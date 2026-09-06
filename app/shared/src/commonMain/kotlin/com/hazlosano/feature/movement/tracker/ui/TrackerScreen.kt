@@ -1,6 +1,23 @@
 package com.hazlosano.feature.movement.tracker.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.feature.movement.tracker.presentation.FollowedRoute
+import hazlosano.app.shared.generated.resources.action_cancel
+import hazlosano.app.shared.generated.resources.tracker_follow_route
+import hazlosano.app.shared.generated.resources.tracker_following_route
+import hazlosano.app.shared.generated.resources.tracker_pick_route_empty
+import hazlosano.app.shared.generated.resources.tracker_pick_route_title
+import hazlosano.app.shared.generated.resources.tracker_stop_following_route
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +68,16 @@ import hazlosano.app.shared.generated.resources.top_app_bar_back
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
+/** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
+object TrackerTags {
+    const val FOLLOW_ROUTE: String = "tracker_follow_route"
+    const val FOLLOWED_ROUTE: String = "tracker_followed_route"
+    const val CLEAR_ROUTE: String = "tracker_clear_route"
+    const val ROUTE_CHOICES: String = "tracker_route_choices"
+
+    fun routeChoice(routeId: Long): String = "tracker_route_choice_$routeId"
+}
+
 /** How long the "session saved" confirmation stays on screen after a recording ends. */
 private const val SAVED_CONFIRMATION_MILLIS = 5_000L
 
@@ -68,6 +95,9 @@ fun TrackerScreen(
     LocationPermissionEffect(onGranted = viewModel::startTracking)
 
     val userLocation by viewModel.userLocation.collectAsState()
+    val followedRoute by viewModel.followedRoute.collectAsState()
+    val savedRoutes by viewModel.savedRoutes.collectAsState()
+    var pickingRoute by remember { mutableStateOf(false) }
     val recording by viewModel.recording.collectAsState()
     val savedSession by viewModel.lastSavedSession.collectAsState()
     val captureTrace by viewModel.captureTrace.collectAsState()
@@ -95,6 +125,7 @@ fun TrackerScreen(
                 userLocation = userLocation,
                 path = recording.traveledPoints,
                 modifier = Modifier.fillMaxSize(),
+                routePath = followedRoute?.points.orEmpty(),
             )
             SessionMetrics(
                 distance = recording.trackerDistance(),
@@ -122,6 +153,15 @@ fun TrackerScreen(
                 textAlign = TextAlign.Center,
             )
         }
+        // Igual que el interruptor de la traza: la ruta pertenece a la salida que se va a empezar,
+        // y ofrecer cambiarla a mitad de una grabacion seria ofrecer algo que no se puede hacer.
+        FollowedRouteRow(
+            route = followedRoute,
+            isRecording = isRecording,
+            onPick = { pickingRoute = true },
+            onClear = viewModel::stopFollowingRoute,
+        )
+
         // Only offered while idle: the choice applies to the recording being started, and showing a
         // switch that silently does nothing mid-session would be a lie.
         if (!isRecording) {
@@ -134,6 +174,106 @@ fun TrackerScreen(
             onOpenHistory = onOpenHistory,
         )
     }
+
+    if (pickingRoute) {
+        PickRouteDialog(
+            routes = savedRoutes,
+            onDismiss = { pickingRoute = false },
+            onPick = { routeId ->
+                viewModel.followRoute(routeId)
+                pickingRoute = false
+            },
+        )
+    }
+}
+
+/**
+ * Con que ruta se sale, o la puerta para elegir una.
+ *
+ * Mientras se graba solo se dice cual es: cambiarla a mitad de una salida no significa nada -la
+ * sesion ya recuerda con cual empezo- y un control que no hace nada es peor que no tenerlo.
+ */
+@Composable
+private fun FollowedRouteRow(
+    route: FollowedRoute?,
+    isRecording: Boolean,
+    onPick: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (route == null) {
+            if (!isRecording) {
+                TextButton(
+                    onClick = onPick,
+                    modifier = Modifier.testTag(TrackerTags.FOLLOW_ROUTE),
+                ) {
+                    Text(stringResource(Res.string.tracker_follow_route))
+                }
+            }
+            return@Row
+        }
+
+        Text(
+            text = stringResource(Res.string.tracker_following_route, route.name),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).testTag(TrackerTags.FOLLOWED_ROUTE),
+        )
+        if (!isRecording) {
+            TextButton(onClick = onClear, modifier = Modifier.testTag(TrackerTags.CLEAR_ROUTE)) {
+                Text(stringResource(Res.string.tracker_stop_following_route))
+            }
+        }
+    }
+}
+
+/**
+ * Las rutas guardadas, para elegir con cual se sale.
+ *
+ * No importa un GPX desde aqui: importar ya vive en "Mis rutas", con su dialogo de duplicados y su
+ * acceso a archivos por plataforma. Una segunda puerta a lo mismo seria el componente casi identico
+ * que AGENTS.md llama fallo de diseno; el estado vacio dice donde se importa.
+ */
+@Composable
+private fun PickRouteDialog(
+    routes: List<Route>,
+    onDismiss: () -> Unit,
+    onPick: (Long) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(Res.string.tracker_pick_route_title)) },
+        text = {
+            if (routes.isEmpty()) {
+                Text(stringResource(Res.string.tracker_pick_route_empty))
+            } else {
+                LazyColumn(modifier = Modifier.testTag(TrackerTags.ROUTE_CHOICES)) {
+                    items(routes, key = { it.id }) { route ->
+                        Text(
+                            text = route.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(route.id) }
+                                .padding(vertical = HazloSpaces.sm)
+                                .testTag(TrackerTags.routeChoice(route.id)),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(Res.string.action_cancel))
+            }
+        },
+    )
 }
 
 @Composable

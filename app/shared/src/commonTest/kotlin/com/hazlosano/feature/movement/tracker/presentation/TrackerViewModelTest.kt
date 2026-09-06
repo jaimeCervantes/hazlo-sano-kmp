@@ -31,44 +31,6 @@ private class FakeLocationRepository(
     override fun getLocationUpdates(): Flow<UserLocation> = updates
 }
 
-/** Stands in for the foreground service (or its in-process equivalent). */
-private class FakeRecordingController : RecordingController {
-    private val _state = MutableStateFlow(RecordingState())
-    override val state: StateFlow<RecordingState> = _state.asStateFlow()
-
-    private val _lastSavedSession = MutableStateFlow<RecordingState?>(null)
-    override val lastSavedSession: StateFlow<RecordingState?> = _lastSavedSession.asStateFlow()
-
-    var startCount: Int = 0
-        private set
-    var stopCount: Int = 0
-        private set
-    var startedWithTraceCapture: Boolean? = null
-        private set
-
-    override fun startRecording(captureTrace: Boolean) {
-        startCount++
-        startedWithTraceCapture = captureTrace
-        _lastSavedSession.value = null
-        _state.value = RecordingState(isRecording = true, startedAtMillis = 0)
-    }
-
-    override fun stopRecording() {
-        stopCount++
-        _lastSavedSession.value = _state.value.copy(isRecording = false)
-        _state.value = RecordingState()
-    }
-
-    override fun acknowledgeSavedSession() {
-        _lastSavedSession.value = null
-    }
-
-    /** Simulates what the service records while the screen is elsewhere. */
-    fun publish(state: RecordingState) {
-        _state.value = state
-    }
-}
-
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrackerViewModelTest {
 
@@ -89,6 +51,7 @@ class TrackerViewModelTest {
         TrackerViewModel(
             locationRepository = FakeLocationRepository(updates),
             recordingController = controller,
+            routes = FakeRoutes(),
         )
 
     @Test

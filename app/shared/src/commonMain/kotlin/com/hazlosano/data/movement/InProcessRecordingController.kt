@@ -31,7 +31,8 @@ class InProcessRecordingController(
     override val state: StateFlow<RecordingState> = recording.state
     override val lastSavedSession: StateFlow<RecordingState?> = recording.lastSavedSession
 
-    override fun startRecording(captureTrace: Boolean) = recording.start(captureTrace)
+    override fun startRecording(captureTrace: Boolean, routeId: Long?) =
+        recording.start(captureTrace, routeId)
 
     override fun stopRecording() {
         recording.stop()

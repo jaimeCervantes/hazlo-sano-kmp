@@ -23,8 +23,15 @@ interface RecordingController {
      * [captureTrace] asks for every reading the receiver delivers to be kept, with the filter's
      * verdict, so the thresholds can be calibrated against a real GPS. It belongs to the recording
      * being started rather than to the app, which is why it is an argument and not a setting.
+     *
+     * [routeId] es la ruta que esta salida va siguiendo, o `null` si se sale sin ninguna. Viaja desde
+     * aquí hasta la fila de la sesión: `MovementSessionEntity.routeId` llevaba desde que existe
+     * guardando siempre `null` porque nadie tenía cómo decírselo.
+     *
+     * **No implica seguimiento.** Con la ruta cargada se dibuja el trazado debajo del recorrido real
+     * y nada más: avisar de un desvío es otra cosa, y es C3 del backlog.
      */
-    fun startRecording(captureTrace: Boolean = false)
+    fun startRecording(captureTrace: Boolean = false, routeId: Long? = null)
 
     fun stopRecording()
 

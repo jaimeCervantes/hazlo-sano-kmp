@@ -57,13 +57,20 @@ class SessionRecording(
     private var filter = LocationFilter()
 
     /**
+     * La ruta que la salida en curso va siguiendo, si alguna. Se guarda al arrancar porque al cerrar
+     * ya no hay de dónde sacarla, y es lo que hace que la sesión recuerde con qué salió.
+     */
+    private var followedRouteId: Long? = null
+
+    /**
      * [captureTrace] keeps every reading the receiver delivers, with the filter's verdict, for
      * calibrating the thresholds against a real GPS. It is decided per recording and defaults to
      * off: an app in normal use has no business writing a file for every session.
      */
-    fun start(captureTrace: Boolean = false) {
+    fun start(captureTrace: Boolean = false, routeId: Long? = null) {
         if (_state.value.isRecording) return
         _lastSavedSession.value = null
+        followedRouteId = routeId
         val startedAtMillis = timeProvider.nowMillis()
         _state.value = RecordingState().started(startedAtMillis)
 
@@ -146,7 +153,7 @@ class SessionRecording(
                     // algorithm and leave this session stale after the next improvement.
                     saveSession(
                         name = sessionName,
-                        routeId = null,
+                        routeId = followedRouteId,
                         points = finished.traveledPoints,
                         elapsedSeconds = finished.elapsedSeconds,
                         distanceMeters = finished.distanceMeters,
