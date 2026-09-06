@@ -16,7 +16,9 @@ import com.hazlosano.feature.movement.history.presentation.MovementHistoryUiStat
 import com.hazlosano.feature.movement.history.presentation.MovementHistoryViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -110,7 +112,36 @@ class SessionDetailIntegrationTest {
 
         detailOf(repository, historySessionIds(repository).single())
 
-        assertEquals("390 m", historyDistanceLabels(repository).single())
+        // Se espera a que la fila cambie, en vez de leerla una vez.
+        //
+        // El ViewModel emite el detalle **antes** de refrescar el resumen —enseñar la sesión sin
+        // esperar a la escritura es lo correcto para quien la abre— y ese refresco entra en
+        // `Dispatchers.Default`, que `runTest` no controla. Leer el historial justo después es una
+        // carrera que se gana casi siempre: el test pasó decenas de veces y falló una, informando
+        // "1.25 km" porque la escritura todavía no había aterrizado.
+        assertEquals("390 m", historyDistanceLabelOnceRefreshed(repository, expected = "390 m"))
+    }
+
+    /**
+     * La distancia que el historial acaba enseñando, esperando a que la fila se actualice.
+     *
+     * El flujo de SQLDelight vuelve a emitir cuando la sesión se reescribe, así que basta con
+     * quedarse en él hasta ver el valor esperado. Si nunca llega, `runTest` corta por su propio
+     * tiempo límite — un fallo más feo que una aserción, pero fallo al fin, y sin la intermitencia
+     * de leer una sola vez.
+     */
+    private suspend fun historyDistanceLabelOnceRefreshed(
+        repository: MovementSessionRepository,
+        expected: String,
+    ): String {
+        val history = MovementHistoryViewModel(
+            getSessions = GetSessionsUseCase(repository),
+            timeZone = TimeZone.UTC,
+        )
+        return history.state
+            .filterIsInstance<MovementHistoryUiState.Sessions>()
+            .map { it.items.single().distanceLabel }
+            .first { it == expected }
     }
 
     private suspend fun historyDistanceLabels(
