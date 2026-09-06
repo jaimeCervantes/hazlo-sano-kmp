@@ -16,7 +16,18 @@ data class Route(
      */
     val elevationGain: Double?,
     val points: List<WayPoint>,
-    val fingerprint: String? = null
+    val fingerprint: String? = null,
+    /**
+     * La forma de la ruta, muestreada al guardarla.
+     *
+     * Existe por lo mismo que [distance] y [elevationGain] se guardan: **la lista no puede leer todos
+     * los puntos de todas las rutas** para dibujarse. Cuando se abre una ruta entera, [points] trae
+     * el recorrido completo y esto sobra; en la lista es al reves, y es lo unico que hay.
+     *
+     * Vacia en las rutas guardadas antes de que existiera la columna: la lista ensena su hueco en
+     * vez de inventarles un trazado.
+     */
+    val previewPoints: List<WayPoint> = emptyList(),
 )
 
 /**

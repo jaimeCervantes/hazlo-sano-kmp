@@ -39,11 +39,21 @@ private const val MIN_LONGITUDE_SCALE = 0.01
  * un circuito: la forma es lo único que esta silueta comunica, así que deformarla es mentir. El
  * recorrido se centra en el eje que le sobra.
  */
-fun List<UserLocation>.toSilhouette(): TrackSilhouette {
-    if (size < 2) return TrackSilhouette(emptyList())
+fun List<UserLocation>.toSilhouette(): TrackSilhouette =
+    silhouetteOf(map { it.latitude to it.longitude })
 
-    val latitudes = map { it.latitude }
-    val longitudes = map { it.longitude }
+/**
+ * La misma proyeccion, sobre coordenadas sueltas.
+ *
+ * Toma pares y no un tipo del dominio porque la necesitan dos cosas distintas -una salida guarda
+ * `UserLocation` y una ruta `WayPoint`- y en Kotlin dos extensiones de `List<T>` con distinto `T`
+ * chocan al compilar. Lo que comparten es la geometria, no el tipo del punto.
+ */
+fun silhouetteOf(coordinates: List<Pair<Double, Double>>): TrackSilhouette {
+    if (coordinates.size < 2) return TrackSilhouette(emptyList())
+
+    val latitudes = coordinates.map { it.first }
+    val longitudes = coordinates.map { it.second }
     val minLatitude = latitudes.min()
     val maxLatitude = latitudes.max()
     val minLongitude = longitudes.min()
@@ -62,10 +72,10 @@ fun List<UserLocation>.toSilhouette(): TrackSilhouette {
     val verticalPadding = (span - height) / 2.0
 
     return TrackSilhouette(
-        map { point ->
-            val x = ((point.longitude - minLongitude) * longitudeScale + horizontalPadding) / span
+        coordinates.map { (latitude, longitude) ->
+            val x = ((longitude - minLongitude) * longitudeScale + horizontalPadding) / span
             // La latitud crece hacia el norte y la pantalla hacia abajo, así que el eje se invierte.
-            val y = 1.0 - ((point.latitude - minLatitude) + verticalPadding) / span
+            val y = 1.0 - ((latitude - minLatitude) + verticalPadding) / span
             SilhouettePoint(
                 x = x.coerceIn(0.0, 1.0).toFloat(),
                 y = y.coerceIn(0.0, 1.0).toFloat(),

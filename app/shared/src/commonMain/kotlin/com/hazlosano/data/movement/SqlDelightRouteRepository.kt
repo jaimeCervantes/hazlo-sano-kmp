@@ -8,6 +8,7 @@ import com.hazlosano.data.db.HazloSanoDatabase
 import com.hazlosano.data.db.RouteEntity
 import com.hazlosano.data.db.RoutePointEntity
 import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.domain.feature.movement.model.sampledForPreview
 import com.hazlosano.domain.feature.movement.model.WayPoint
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,7 @@ class SqlDelightRouteRepository(
                     distance = route.distance,
                     elevationGain = route.elevationGain,
                     fingerprint = route.fingerprint,
+                    previewPoints = route.storedPreview(),
                     id = route.id,
                 )
                 queries.deletePointsByRoute(route.id)
@@ -78,6 +80,7 @@ class SqlDelightRouteRepository(
                     elevationGain = route.elevationGain,
                     fingerprint = route.fingerprint,
                     createdAt = now(),
+                    previewPoints = route.storedPreview(),
                 )
                 queries.lastInsertedRouteId().executeAsOne()
             }
@@ -127,6 +130,7 @@ internal fun RouteEntity.toDomain(points: List<WayPoint>): Route = Route(
     elevationGain = elevationGain,
     points = points,
     fingerprint = fingerprint,
+    previewPoints = RoutePreviewFormat.decode(previewPoints),
 )
 
 internal fun RoutePointEntity.toDomain(): WayPoint = WayPoint(
@@ -135,3 +139,13 @@ internal fun RoutePointEntity.toDomain(): WayPoint = WayPoint(
     altitude = altitude,
     timestamp = timestamp,
 )
+
+/**
+ * La silueta que se guarda de una ruta: sus puntos muestreados.
+ *
+ * Se calcula aqui y no en los casos de uso porque las dos formas de guardar una ruta -importar un
+ * GPX y quedarse una salida- pasan por este mismo sitio, y ninguna de las dos tiene por que saber
+ * que existe una columna para dibujarla.
+ */
+private fun Route.storedPreview(): String? =
+    RoutePreviewFormat.encode(points.sampledForPreview())

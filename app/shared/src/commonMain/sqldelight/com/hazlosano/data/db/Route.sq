@@ -20,7 +20,11 @@ CREATE TABLE IF NOT EXISTS RouteEntity (
     -- Recognises the same track under a different name, which a name comparison cannot. Nullable
     -- because a route with no points has nothing to fingerprint.
     fingerprint TEXT,
-    createdAt INTEGER NOT NULL          -- epoch millis
+    createdAt INTEGER NOT NULL,         -- epoch millis
+    -- La forma de la ruta, muestreada al guardarla, para que la lista pueda dibujarla sin leer
+    -- todos los puntos de todas las rutas. Nulable: las guardadas antes de que existiera la columna
+    -- no la tienen y la lista ensena su hueco. Ver 9.sqm.
+    previewPoints TEXT
 );
 
 -- altitude and timestamp are nullable because GPX makes both optional: a route drawn on a map has
@@ -69,15 +73,15 @@ WHERE routeId = ?
 ORDER BY seq ASC;
 
 insertRoute:
-INSERT INTO RouteEntity(name, distance, elevationGain, fingerprint, createdAt)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO RouteEntity(name, distance, elevationGain, fingerprint, createdAt, previewPoints)
+VALUES (?, ?, ?, ?, ?, ?);
 
 lastInsertedRouteId:
 SELECT last_insert_rowid();
 
 updateRoute:
 UPDATE RouteEntity
-SET name = ?, distance = ?, elevationGain = ?, fingerprint = ?
+SET name = ?, distance = ?, elevationGain = ?, fingerprint = ?, previewPoints = ?
 WHERE id = ?;
 
 renameRoute:

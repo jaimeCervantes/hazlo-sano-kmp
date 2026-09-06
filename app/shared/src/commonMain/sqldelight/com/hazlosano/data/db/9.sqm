@@ -1,0 +1,10 @@
+-- Version 9 -> 10.
+--
+-- La silueta de una ruta entra en la fila, igual que la de una salida en la 8.sqm y por lo mismo:
+-- «Mis rutas» no puede leer todos los puntos de todas las rutas para dibujarse.
+--
+-- Nulable, y sin rellenar lo que ya existe: sus puntos estan en RoutePointEntity y muestrearlos aqui
+-- seria justamente el recorrido completo que la columna viene a evitar, solo que una vez. Esas rutas
+-- ensenan su hueco hasta que se vuelvan a guardar.
+
+ALTER TABLE RouteEntity ADD COLUMN previewPoints TEXT;

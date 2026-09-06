@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -33,8 +37,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
@@ -42,9 +48,12 @@ import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.presentation.MovementFormat
+import com.hazlosano.feature.movement.presentation.silhouetteOf
 import com.hazlosano.feature.movement.routes.presentation.RoutesViewModel
-import hazlosano.app.shared.generated.resources.Res
+import com.hazlosano.feature.movement.ui.TrackSilhouetteGap
+import com.hazlosano.feature.movement.ui.TrackSilhouetteView
 import com.hazlosano.feature.movement.ui.text
+import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.action_cancel
 import hazlosano.app.shared.generated.resources.action_save
 import hazlosano.app.shared.generated.resources.movement_metric_distance
@@ -64,6 +73,13 @@ import hazlosano.app.shared.generated.resources.routes_rename
 import hazlosano.app.shared.generated.resources.routes_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
+
+/** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
+object RoutesTags {
+    const val EMPTY_IMPORT: String = "routes_empty_import"
+
+    fun silhouette(routeId: Long): String = "route_silhouette_$routeId"
+}
 
 /**
  * The routes you can follow: imported from a GPX file, or kept from an outing you recorded.
@@ -114,7 +130,9 @@ fun RoutesScreen(
             )
         }
 
-        if (gpxFileAccessAvailable) {
+        // Sin rutas no se pinta: el estado vacio ya ofrece importar, y dos botones identicos a
+        // dos pulgadas uno de otro no dan una opcion mas, dan una duda.
+        if (gpxFileAccessAvailable && routes.isNotEmpty()) {
             Button(
                 onClick = pickGpx,
                 modifier = Modifier
@@ -131,7 +149,7 @@ fun RoutesScreen(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (routes.isEmpty()) {
-                EmptyRoutes()
+                EmptyRoutes(onImport = pickGpx)
             } else {
                 RouteList(
                     routes = routes,
@@ -223,52 +241,85 @@ private fun RouteRow(
     // Toda la tarjeta abre la ruta. Los tres botones de dentro siguen haciendo lo suyo: en Compose
     // el hijo se queda el toque, así que no hace falta excluirlos a mano.
     LeafCard(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(HazloSpaces.md)) {
-            Text(
-                text = route.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = HazloSpaces.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RouteMetric(
-                    label = stringResource(Res.string.movement_metric_distance),
-                    value = MovementFormat.distance(route.distance),
+        Row(
+            modifier = Modifier.padding(HazloSpaces.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RouteSilhouette(route)
+            Spacer(modifier = Modifier.width(HazloSpaces.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = route.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                Box(modifier = Modifier.padding(start = HazloSpaces.lg)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = HazloSpaces.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     RouteMetric(
-                        label = stringResource(Res.string.movement_metric_elevation),
-                        value = MovementFormat.elevation(route.elevationGain),
+                        label = stringResource(Res.string.movement_metric_distance),
+                        value = MovementFormat.distance(route.distance),
                     )
-                }
-                Box(modifier = Modifier.weight(1f))
-                IconButton(onClick = onRename) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = stringResource(Res.string.routes_rename),
-                    )
-                }
-                if (gpxFileAccessAvailable) {
-                    IconButton(onClick = onExport) {
-                        Icon(
-                            Icons.Default.FileDownload,
-                            contentDescription = stringResource(Res.string.routes_export),
+                    Box(modifier = Modifier.padding(start = HazloSpaces.lg)) {
+                        RouteMetric(
+                            label = stringResource(Res.string.movement_metric_elevation),
+                            value = MovementFormat.elevation(route.elevationGain),
                         )
                     }
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = stringResource(Res.string.routes_delete),
-                    )
+                    Box(modifier = Modifier.weight(1f))
+                    IconButton(onClick = onRename) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = stringResource(Res.string.routes_rename),
+                        )
+                    }
+                    if (gpxFileAccessAvailable) {
+                        IconButton(onClick = onExport) {
+                            Icon(
+                                Icons.Default.FileDownload,
+                                contentDescription = stringResource(Res.string.routes_export),
+                            )
+                        }
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = stringResource(Res.string.routes_delete),
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+/**
+ * La forma de la ruta, o su hueco.
+ *
+ * Una ruta guardada antes de que se guardara la silueta no tiene forma que dibujar. Ensena un hueco
+ * en vez de un trazado inventado: no se sabe por donde va sin abrirla.
+ */
+@Composable
+private fun RouteSilhouette(route: Route) {
+    val silhouette = remember(route.id, route.previewPoints) {
+        silhouetteOf(route.previewPoints.map { it.latitude to it.longitude })
+    }
+    val size = Modifier.size(SILHOUETTE_SIZE).testTag(RoutesTags.silhouette(route.id))
+
+    if (silhouette.isDrawable) {
+        TrackSilhouetteView(
+            silhouette = silhouette,
+            color = PillarType.MOVEMENT.palette().ink,
+            modifier = size,
+        )
+    } else {
+        TrackSilhouetteGap(modifier = size)
+    }
+}
+
+private val SILHOUETTE_SIZE = 64.dp
 
 @Composable
 private fun RouteMetric(label: String, value: String) {
@@ -316,11 +367,18 @@ private fun RenameRouteDialog(
     )
 }
 
+/**
+ * Un estado vacio que **ofrece la accion**, no solo la explica.
+ *
+ * Donde se pueden abrir archivos, importar esta a un toque aqui mismo. Donde no, la explicacion es
+ * lo unico honesto que se puede poner: un boton que no lleva a ninguna parte es peor que una frase.
+ */
 @Composable
-private fun EmptyRoutes() {
-    Box(
+private fun EmptyRoutes(onImport: () -> Unit) {
+    Column(
         modifier = Modifier.fillMaxSize().padding(HazloSpaces.gutter),
-        contentAlignment = Alignment.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = stringResource(
@@ -334,5 +392,15 @@ private fun EmptyRoutes() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        if (gpxFileAccessAvailable) {
+            Spacer(modifier = Modifier.height(HazloSpaces.md))
+            Button(onClick = onImport, modifier = Modifier.testTag(RoutesTags.EMPTY_IMPORT)) {
+                Icon(Icons.Default.FileUpload, contentDescription = null)
+                Text(
+                    text = stringResource(Res.string.routes_import_gpx),
+                    modifier = Modifier.padding(start = HazloSpaces.sm),
+                )
+            }
+        }
     }
 }

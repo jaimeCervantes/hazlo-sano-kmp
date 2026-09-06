@@ -20,6 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.unit.dp
+import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.presentation.MovementFormat
@@ -87,12 +91,18 @@ fun RouteDetailContent(
     }
 }
 
+/**
+ * El detalle es **mapa con hoja inferior**, no una ficha con un mapa dentro.
+ *
+ * Es el patrón que el proyecto hermano fijó para lo mismo (`034-panel-detalle-tienda-mapa`): la hoja
+ * se superpone sin empujar el contenido, así que el trazado usa la pantalla entera y las cifras
+ * quedan a mano encima. Es también a lo que han convergido las apps del ramo, y aquí importa más que
+ * en ningún otro sitio: lo que se viene a ver es por dónde va la ruta.
+ */
 @Composable
 private fun androidx.compose.foundation.layout.ColumnScope.RouteDetailBody(
     state: RouteDetailUiState.Detail,
 ) {
-    RouteMetrics(state)
-
     Box(
         modifier = Modifier.weight(1f).fillMaxWidth(),
         contentAlignment = Alignment.Center,
@@ -112,15 +122,27 @@ private fun androidx.compose.foundation.layout.ColumnScope.RouteDetailBody(
                 modifier = Modifier.testTag(RouteDetailTags.NO_PATH),
             )
         }
+
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = HazloShapes.panel, topEnd = HazloShapes.panel),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = SHEET_ELEVATION,
+        ) {
+            RouteMetrics(state)
+        }
     }
 }
+
+/** Lo justo para que la hoja se despegue del mapa sin taparlo con una sombra. */
+private val SHEET_ELEVATION = 3.dp
 
 @Composable
 private fun RouteMetrics(state: RouteDetailUiState.Detail) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm)
+            .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.md)
             .testTag(RouteDetailTags.METRICS),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {

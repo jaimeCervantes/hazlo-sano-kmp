@@ -1,6 +1,7 @@
 # Feature: el pilar de Movimiento tiene puerta
 
-Roadmap de slices. Escrito el **2026-09-05**.
+Roadmap de slices. Escrito el **2026-09-05**. **Cerrado el 2026-09-06**: los cuatro slices están
+hechos. Ver [`puertas-de-movimiento-bitacora.md`](puertas-de-movimiento-bitacora.md).
 Spec: [`features/puertas_de_movimiento.feature`](../../features/puertas_de_movimiento.feature).
 
 Va **después** de [`sistema-de-diseno.md`](sistema-de-diseno.md), por decisión del usuario
@@ -68,7 +69,7 @@ con la vieja y repintarse un slice más tarde.
 
 ## Slices
 
-### Slice 1 — La pestaña de Movimiento es la puerta del pilar
+### Slice 1 — La pestaña de Movimiento es la puerta del pilar — **HECHO (2026-09-06)**
 
 Escenarios `@slice-1`.
 
@@ -98,21 +99,21 @@ Escenarios `@slice-1`.
 **Tests:** Compose UI test en `jvmTest` afirmando por `testTag` que el tablero de Movimiento trae las
 tres acciones y el de Nutrición ninguna; test de `MovementNavState` para el retorno al pilar.
 
-### Slice 2 — Mis salidas, con el trazado a la vista
+### Slice 2 — Mis salidas, con el trazado a la vista — **HECHO (2026-09-06)**
 
 Escenarios `@slice-2`. `previewPoints` deja de ser un campo muerto: migración `7.sqm` que añade la
 columna, el repositorio la escribe y la lee, y la tarjeta de cada salida dibuja la silueta del
 recorrido con `Canvas`. La pantalla pasa a llamarse "Mis salidas". Una salida sin puntos guardados
 —las grabadas antes de esta migración— enseña su hueco en vez de un recuadro vacío.
 
-### Slice 3 — Empezar una salida: desde cero, o siguiendo una ruta
+### Slice 3 — Empezar una salida: desde cero, o siguiendo una ruta — **HECHO (2026-09-06)**
 
 Escenarios `@slice-3`. La pantalla de empezar adopta el patrón de casa: mapa a pantalla completa con
 una hoja inferior. Dos puertas — empezar desde cero, o elegir una ruta guardada (o importar un GPX en
 el momento). La ruta elegida se pinta bajo tu trazado real mientras grabas, y
 `MovementSessionEntity.routeId` deja por fin de guardar `null`. Sin avisos de desvío: eso es C3.
 
-### Slice 4 — Las rutas se ven como en las apps del ramo
+### Slice 4 — Las rutas se ven como en las apps del ramo — **HECHO (2026-09-06)**
 
 Escenarios `@slice-4`. `RoutesScreen` y `RouteDetailScreen` pasan al mismo patrón: el detalle es mapa
 con hoja inferior, la lista enseña la silueta de cada ruta junto a sus cifras, y el estado vacío

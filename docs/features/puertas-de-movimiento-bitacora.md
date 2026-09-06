@@ -299,3 +299,93 @@ copiada de la referencia y sin alimentar desde el principio. No hay seguimiento 
 **Próximos pasos (opciones).** (1) El slice 4, las pantallas de rutas al lenguaje de las apps del
 ramo, que cierra este roadmap; (2) mirar en el teléfono lo de este slice, que es lo que menos
 cobertura tiene; (3) C3, que ya tiene el terreno preparado.
+
+---
+
+## Slice 4 — Las rutas se ven como en las apps del ramo (2026-09-06)
+
+**Objetivo.** Que «Mis rutas» y el detalle de una ruta se lean como en las apps del ramo: la lista
+con la forma de cada ruta, el detalle como mapa con hoja inferior, y un vacío que ofrece la acción en
+vez de sólo explicarla. Spec: escenarios `@slice-4`. **Cierra el roadmap.**
+
+La deuda de i18n de `RoutesScreen` que este slice tenía anotada ya la cerró el slice 4 del sistema de
+diseño, así que aquí no quedaba nada de eso.
+
+### La lista tenía el mismo agujero que las salidas
+
+`selectAllRoutes` devuelve las filas **sin puntos**, a propósito y por lo mismo que el historial: la
+lista no puede leer el recorrido completo de todas las rutas. Así que no había nada que dibujar. La
+solución es la del slice 2, repetida donde el problema se repite: una columna `previewPoints` con la
+forma muestreada (`9.sqm`, versión 9 → 10), nulable, y sin rellenar lo anterior — esas rutas enseñan
+su hueco hasta que se vuelvan a guardar.
+
+### Decisiones y por qué
+
+1. **El muestreo sube a `core` en vez de copiarse.** `SaveSessionUseCase` lo llevaba escrito dentro;
+   al necesitarlo la segunda cosa, se extrajo a `sampledForPreview` —genérica, porque una salida
+   guarda `UserLocation` y una ruta `WayPoint`— y las dos lo usan. Es la regla lo que se comparte.
+2. **La codificación no se comparte, y es deliberado.** `RoutePreviewFormat` es casi idéntico a
+   `TrackPreviewFormat`, pero el tipo del punto es otro y son distintos a propósito: un punto de ruta
+   puede no traer hora ni altitud. Unificarlos pedía un tipo intermedio que sólo existiría para que
+   los dos archivos se parecieran.
+3. **La proyección deja de estar atada a `UserLocation`.** Dos extensiones de `List<T>` con distinto
+   `T` chocan al compilar en Kotlin, así que la geometría pasa a tomar pares de coordenadas y cada
+   tipo aporta el suyo. Lo que comparten es la geometría, no el punto.
+4. **El botón de importar de arriba se calla cuando la lista está vacía.** El estado vacío ya lo
+   ofrece; dos botones idénticos a dos pulgadas uno de otro no dan una opción más, dan una duda.
+5. **Donde no se pueden abrir archivos, el vacío sigue siendo sólo texto.** Un botón que no lleva a
+   ninguna parte es peor que una frase — la misma regla que ya escondía importar y exportar en esos
+   targets.
+6. **El detalle es mapa con hoja inferior superpuesta**, no una ficha con un mapa dentro. Es el
+   patrón que el proyecto hermano fijó en `034-panel-detalle-tienda-mapa` («se superpone sin empujar
+   el contenido»), y aquí importa más que en ningún otro sitio: lo que se viene a ver es por dónde va
+   la ruta, así que el trazado se queda con la pantalla entera.
+
+### Archivos tocados
+
+- **core:** `model/TrackPreview.kt` (nuevo, `sampledForPreview` y `MAX_PREVIEW_POINTS`),
+  `model/Route.kt` (`previewPoints`), `usecase/SaveSessionUseCase.kt` (usa el muestreo compartido).
+- **Base:** `Route.sq` (columna y consultas), `9.sqm` (nuevo, versión 9 → 10).
+- **Datos:** `RoutePreviewFormat.kt` (nuevo), `SqlDelightRouteRepository.kt` (escribe y lee la
+  silueta).
+- **Presentación:** `TrackSilhouette.kt` (`silhouetteOf` sobre coordenadas).
+- **UI:** `RoutesScreen.kt` (silueta por fila, vacío accionable, botón de arriba condicionado),
+  `RouteDetailScreen.kt` (mapa con hoja).
+- **Tests:** `RoutePreviewMigrationTest` (nuevo, 5).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **134 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **364 pruebas, 0 fallos** (venían 358).
+- `.\gradlew.bat :core:check` y `:app:shared:check` → BUILD SUCCESSFUL, incluido
+  `verifyCommonMainHazloSanoDatabaseMigration`.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL los tres.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **La hoja del detalle no la mira ningún test.** Que se superponga sin empujar el mapa, y que no
+  tape el trazado en una pantalla corta, se ve abriendo una ruta. Es lo primero que hay que
+  comprobar de este slice.
+- **Las siluetas de las rutas tampoco**, por lo mismo que las de las salidas: un `Canvas` no expone
+  nodos que un test de Compose pueda mirar. La geometría sí está probada.
+- **`RoutesScreen` sigue sin test de pantalla**, deuda que el pilar arrastra desde el slice 13 y que
+  este slice no cierra: las etiquetas están puestas (`RoutesTags`), pero nadie compone la pantalla.
+
+### Seguimientos
+
+- **Test de pantalla de `RoutesScreen`**, ahora con las etiquetas ya puestas.
+- **C3**, seguir una ruta con aviso de desvío: es lo único grande que le queda al pilar.
+- El botón «atrás» del sistema y la pantalla de licencias, los dos anotados antes.
+
+**Recap.** «Mis rutas» enseña la forma de cada ruta junto a sus cifras, y su estado vacío ofrece
+importar en vez de sólo contarlo. El detalle pasa a mapa con hoja inferior, el patrón que el proyecto
+hermano ya había fijado para lo mismo. Por debajo, la lista tenía el mismo agujero que el historial
+—filas sin puntos— y se resuelve igual: una columna con la forma muestreada, con el muestreo subido a
+`core` para que las salidas y las rutas compartan la regla en vez de una copia. **Con esto cierra el
+roadmap de las puertas de Movimiento.**
+
+**Próximos pasos (opciones).** (1) Mirar en el teléfono los cuatro slices, que es donde está lo que
+ningún test cubre — las siluetas, la hoja del detalle y la ruta dibujada bajo el recorrido; (2) C3;
+(3) volver al backlog del pilar, que sigue con D (offline), E (satélite) y G (sobrevivir a que el
+sistema mate el proceso).
