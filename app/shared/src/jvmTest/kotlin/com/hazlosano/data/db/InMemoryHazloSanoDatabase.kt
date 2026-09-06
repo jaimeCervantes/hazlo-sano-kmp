@@ -1,6 +1,7 @@
 package com.hazlosano.data.db
 
 import app.cash.sqldelight.Query
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.JdbcDriver
 import java.sql.Connection
@@ -45,3 +46,39 @@ internal fun SqlDriver.migrateFromVersionOne() {
 internal fun SqlDriver.exec(sql: String) {
     execute(identifier = null, sql = sql, parameters = 0)
 }
+
+/**
+ * The columns a table actually has, for asserting what a migration left behind.
+ *
+ * It lived as a private copy in both `CatalogCacheMigrationTest` and `MovementSessionMigrationTest`.
+ * A third migration test needed it, so it moved here instead — the two copies are gone, not
+ * duplicated a third time.
+ */
+internal fun SqlDriver.columnsOf(table: String): Set<String> =
+    executeQuery(
+        identifier = null,
+        sql = "SELECT name FROM pragma_table_info('$table')",
+        parameters = 0,
+        mapper = { cursor ->
+            val names = mutableSetOf<String>()
+            while (cursor.next().value) {
+                cursor.getString(0)?.let(names::add)
+            }
+            QueryResult.Value(names.toSet())
+        },
+    ).value
+
+/** The tables the schema currently holds. */
+internal fun SqlDriver.tableNames(): Set<String> =
+    executeQuery(
+        identifier = null,
+        sql = "SELECT name FROM sqlite_master WHERE type = 'table'",
+        parameters = 0,
+        mapper = { cursor ->
+            val names = mutableSetOf<String>()
+            while (cursor.next().value) {
+                cursor.getString(0)?.let(names::add)
+            }
+            QueryResult.Value(names.toSet())
+        },
+    ).value

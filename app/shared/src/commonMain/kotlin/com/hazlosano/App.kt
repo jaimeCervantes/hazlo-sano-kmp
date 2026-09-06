@@ -1,5 +1,6 @@
 package com.hazlosano
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -17,6 +18,8 @@ import com.hazlosano.data.sleep.SleepSessionRepositoryImpl
 import com.hazlosano.data.sleep.createSleepDataSource
 import com.hazlosano.domain.usecase.GetSleepAnalysisUseCase
 import com.hazlosano.domain.repository.SleepSessionRepository
+import com.hazlosano.domain.settings.resolvesToDark
+import com.hazlosano.feature.settings.presentation.rememberSettingsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,7 +57,11 @@ fun App() {
         scope.launch { sleepViewModel.refresh() }
     }
 
-    HazloSanoTheme {
+    // El tema elegido se lee aquí arriba, que es donde el app entero puede repintarse cuando cambia.
+    val settingsViewModel = rememberSettingsViewModel()
+    val themePreference by settingsViewModel.themePreference.collectAsState()
+
+    HazloSanoTheme(darkTheme = themePreference.resolvesToDark(isSystemInDarkTheme())) {
         HazloImageLoader {
             MainScreen(
                 homeViewModel = viewModel,

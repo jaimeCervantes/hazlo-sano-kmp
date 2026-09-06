@@ -49,6 +49,7 @@ import com.hazlosano.feature.movement.presentation.MovementNavState
 import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import com.hazlosano.feature.pillar.ui.PillarInfoScreen
+import com.hazlosano.feature.settings.ui.SettingsScreen
 import com.hazlosano.feature.movement.routes.ui.RouteDetailScreen
 import com.hazlosano.feature.movement.routes.ui.RoutesScreen
 import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
@@ -125,6 +126,7 @@ fun MainScreen(
 ) {
     var selectedTab by remember { mutableStateOf(BottomTab.Inicio) }
     var showSleepHistory by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     // Qué pilar se está leyendo, o ninguno. Se guarda el pilar y no un booleano porque la pantalla
     // es la misma para los cuatro: lo único que cambia es de cuál habla.
     var pillarInfo by remember { mutableStateOf<PillarType?>(null) }
@@ -186,6 +188,14 @@ fun MainScreen(
         MovementDestination.Closed -> Unit
     }
 
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
+
     pillarInfo?.let { pillar ->
         PillarInfoScreen(
             pillar = pillar,
@@ -200,6 +210,8 @@ fun MainScreen(
             title = if (showSleepHistory) stringResource(Res.string.history_title) else "Hazlo Sano",
             showBackButton = showSleepHistory,
             onBackClick = { showSleepHistory = false },
+            // El icono de menú llevaba desde siempre sin hacer nada; ahora es la puerta a ajustes.
+            onMenuClick = { showSettings = true },
             backContentDescription = stringResource(Res.string.top_app_bar_back),
             profileContentDescription = stringResource(Res.string.top_app_bar_profile),
             notificationsContentDescription = stringResource(Res.string.top_app_bar_notifications),

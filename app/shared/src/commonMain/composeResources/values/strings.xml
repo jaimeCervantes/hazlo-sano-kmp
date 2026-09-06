@@ -132,6 +132,15 @@
     <!-- Acciones compartidas -->
     <string name="action_retry">Reintentar</string>
 
+    <!-- Ajustes -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_appearance_title">Apariencia</string>
+    <string name="settings_theme_label">Tema</string>
+    <string name="settings_theme_system">Seguir al sistema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_theme_system_description">El que tenga puesto tu teléfono</string>
+
     <!-- Secciones compartidas del tablero. Las usan el tablero de pilar, Sueño e Inicio, así que la
          redacción vive aquí y no dentro de ningún Composable. -->
     <string name="section_weekly_champions">Campeones Semanales</string>

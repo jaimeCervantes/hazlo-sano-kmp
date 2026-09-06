@@ -1,0 +1,16 @@
+-- Version 7 -> 8.
+--
+-- Entra la tabla de ajustes, para que el tema que la persona elige sobreviva a cerrar el app.
+--
+-- No hay nada que migrar: la tabla no existía y ninguna fila anterior cambia de forma. Es una
+-- creación limpia, y por eso esta migración es tan corta comparada con la 5.sqm o la 6.sqm.
+--
+-- `IF NOT EXISTS` no es decorativo. `AppSetting.sq` declara la tabla con la misma cláusula, así que
+-- una instalación nueva —que crea el esquema entero desde el .sq, sin pasar por las migraciones— y
+-- una instalación vieja —que llega hasta aquí aplicándolas— acaban en el mismo sitio sin que la
+-- segunda choque contra lo que la primera ya había creado.
+
+CREATE TABLE IF NOT EXISTS AppSettingEntity (
+    key TEXT NOT NULL PRIMARY KEY,
+    settingValue TEXT NOT NULL
+);

@@ -209,17 +209,3 @@ private fun SqlDriver.seedAProductTheOldWay() {
         """.trimIndent(),
     )
 }
-
-private fun SqlDriver.columnsOf(table: String): Set<String> =
-    executeQuery(
-        identifier = null,
-        sql = "SELECT name FROM pragma_table_info('$table')",
-        parameters = 0,
-        mapper = { cursor ->
-            val names = mutableSetOf<String>()
-            while (cursor.next().value) {
-                cursor.getString(0)?.let(names::add)
-            }
-            app.cash.sqldelight.db.QueryResult.Value(names.toSet())
-        },
-    ).value

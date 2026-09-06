@@ -265,3 +265,115 @@ así que corrieron **dos Gradle a la vez** sobre el mismo proyecto pisándose lo
 y una pasada informó 147 fallos que no significaban nada. Además se contaban líneas con la palabra
 `FAILED`, que incluye la de la tarea y la del build: "3 fallos" podía ser un solo test. Las cuentas
 salen de los XML de `build/test-results`, y las pasadas van en serie.
+
+---
+
+## Slice 3 — El tema se elige (2026-09-06)
+
+**Objetivo.** Que el tema deje de decidirlo el teléfono. Hasta aquí `HazloSanoTheme` leía
+`isSystemInDarkTheme()` y no había forma de contradecirlo; el sitio hermano ya tiene su conmutador.
+Spec: escenarios `@slice-3`.
+
+### Decisiones y por qué
+
+1. **La tabla de ajustes es clave/valor, no una columna por ajuste.** Los ajustes se añaden de uno
+   en uno y por slices distintos —el tema ahora, el idioma en el slice 5—, y una columna por ajuste
+   convierte cada uno en una migración. Con clave/valor, sumar un ajuste es una constante en Kotlin
+   y ninguna migración. El precio —el valor viaja como `TEXT` y alguien tiene que interpretarlo— se
+   paga en un solo sitio: `ThemePreference.fromStoredValue`.
+2. **`SYSTEM` es un valor, no la ausencia de valor.** Seguir al teléfono es una elección con
+   contenido y se puede volver a ella después de haber fijado claro u oscuro; modelarla como `null`
+   habría hecho imposible distinguir «nunca eligió» de «eligió seguir al sistema», que es justo lo
+   que hay que poder deshacer.
+3. **La única decisión de verdad vive en `core`:** `ThemePreference.resolvesToDark(systemIsDark)`.
+   El resto es fontanería. Separarla la hace comprobable sin levantar una composición, y es donde
+   está el caso que justifica la pantalla entera: elegir claro con el teléfono en oscuro.
+4. **Un valor guardado que no se reconoce vuelve a seguir al sistema en vez de estallar.** Puede
+   llegar de una versión futura que añadió una opción, o de una base editada a mano. Un ajuste no
+   puede tumbar el arranque.
+5. **El respaldo de la web es en memoria, no un no-op.** `DatabaseProvider.initialize` se llama en
+   Android, escritorio e iOS, y **en ningún sitio de `jsMain`**. Con el patrón no-op del pilar de
+   movimiento, el selector habría quedado pintado y muerto en la web: se toca oscuro y no pasa nada.
+   En memoria, el ajuste funciona durante la sesión y sólo se pierde al recargar — una limitación
+   honesta en vez de un control roto.
+6. **Un flujo por ajuste, no un objeto de preferencias.** Es lo que evita que cambiar el idioma
+   recomponga a quien observa el tema cuando el slice 5 sume el segundo.
+7. **Se toca la fila entera, no sólo el círculo.** Un objetivo de 24 dp es incómodo en un teléfono y
+   no hay nada más en la fila que pueda querer el toque. Va con `selectableGroup`, así que un lector
+   de pantalla anuncia «1 de 3» en vez de tres interruptores sueltos que resultan excluirse.
+
+### Tres tropiezos del camino, por si vuelven
+
+- **El dialecto de SQLite de este proyecto es 3.18 y el `UPSERT` llegó en la 3.24.** `ON CONFLICT DO
+  UPDATE` no compila. Se usa `INSERT OR REPLACE`, que aquí hace lo mismo —la fila se identifica sólo
+  por su clave y no cuelga nada de ella— en vez de mover el dialecto de todo el proyecto por un
+  ajuste.
+- **La columna se llama `settingValue` y no `value`**: `value` choca con la palabra reservada de
+  Kotlin y SQLDelight genera un parámetro `value_`. Una fuga del generador en la firma que lee todo
+  el mundo no vale el ahorro de cinco letras.
+- **Kotlin/Native no admite comas en los nombres de test con acentos graves.** Falló sólo en
+  `compileTestKotlinIosSimulatorArm64`, o sea después de que la JVM pasara en verde: los nombres de
+  `commonTest` se compilan para todos los targets.
+
+### Deuda que este slice paga de paso
+
+`columnsOf` vivía como copia privada en `CatalogCacheMigrationTest` y en
+`MovementSessionMigrationTest`. Al necesitarlo un tercer test de migración se **movió** a
+`InMemoryHazloSanoDatabase.kt`, el helper compartido, y las dos copias se borraron — no se hizo una
+tercera. Entró con él `tableNames()`.
+
+### Archivos tocados
+
+- **core:** `domain/settings/ThemePreference.kt` (nuevo, con `resolvesToDark`),
+  `domain/settings/AppSettingsRepository.kt` (nuevo).
+- **Base:** `sqldelight/.../AppSetting.sq` (nuevo), `7.sqm` (nuevo, versión 7 → 8).
+- **Datos:** `data/settings/SqlDelightAppSettingsRepository.kt`,
+  `data/settings/AppSettingsRepositoryProvider.kt` (ambos nuevos).
+- **Presentación:** `feature/settings/presentation/SettingsViewModel.kt` y su factoría (nuevos).
+- **UI:** `feature/settings/ui/SettingsScreen.kt` (nuevo), `MainScreen.kt` (el icono de menú, que
+  llevaba desde siempre sin hacer nada, abre ajustes), `App.kt` (el tema elegido llega a la raíz).
+- **Recursos:** siete cadenas de ajustes en `values/strings.xml`.
+- **Tests:** `core/commonTest/.../ThemePreferenceTest.kt` (5),
+  `jvmTest/data/db/AppSettingsMigrationTest.kt` (6),
+  `commonTest/.../SettingsViewModelTest.kt` (4), `jvmTest/.../SettingsScreenTest.kt` (4).
+- **Helpers de test:** `InMemoryHazloSanoDatabase.kt` (+`columnsOf`, +`tableNames`),
+  `CatalogCacheMigrationTest.kt` y `MovementSessionMigrationTest.kt` (pierden su copia privada).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **129 pruebas, 0 fallos** (venían 124).
+- `.\gradlew.bat :app:shared:jvmTest` → **313 pruebas, 0 fallos** (venían 299).
+- `.\gradlew.bat :core:check` y `:app:shared:check` → BUILD SUCCESSFUL, incluido
+  `verifyCommonMainHazloSanoDatabaseMigration`, que es lo que comprueba que la migración deja el
+  esquema donde el `.sq` dice.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL los tres.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **Que el app se repinte al elegir no lo comprueba ningún test.** Se comprueba que el ViewModel
+  publica el cambio y que `resolvesToDark` decide bien; que `App.kt` esté leyendo ese flujo y no otro
+  se ve al abrir la app. Comprobación manual: poner el teléfono en oscuro, elegir claro en ajustes y
+  ver que el app queda en claro; cerrarlo y abrirlo, y que siga.
+- **El respaldo en memoria de la web no está probado en un navegador**, sólo razonado desde dónde se
+  llama a `DatabaseProvider.initialize`.
+- **La migración se prueba con SQLite en memoria por JDBC**, no contra una base real de un teléfono
+  que venía de una versión anterior.
+
+### Seguimientos
+
+- **La pantalla de licencias sigue pendiente.** El slice 2 dejó los dos OFL en el repo y anotó que
+  el app no los enseña; ahora ya hay dónde ponerlos, pero meterlo aquí habría sido ensanchar el
+  slice. Es el candidato natural para lo siguiente que toque ajustes.
+- El slice 5 sumará el idioma a esta misma pantalla, y con él la sección Apariencia deja de ser la
+  única.
+
+**Recap.** El tema deja de decidirlo el teléfono: hay una pantalla de ajustes —alcanzable por el
+icono de menú, que llevaba desde el principio sin hacer nada— con claro, oscuro y seguir al sistema,
+guardada en la base y aplicada sin reiniciar. La única decisión de verdad vive en `core` y está
+probada aparte; lo demás es fontanería con su migración verificada. En la web, donde no hay base, el
+ajuste funciona durante la sesión en vez de quedar muerto.
+
+**Próximos pasos (opciones).** (1) El slice 4, que saca los 46 textos en duro al catálogo y completa
+el inglés de 54 a 121 — es lo que hace falta antes de poder ofrecer el selector de idioma;
+(2) la pantalla de licencias, que ahora es barata; (3) saltar a las puertas de Movimiento.

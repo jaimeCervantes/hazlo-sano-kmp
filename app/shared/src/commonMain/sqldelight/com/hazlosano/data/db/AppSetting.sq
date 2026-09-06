@@ -1,0 +1,31 @@
+-- Los ajustes que la persona elige, en la misma base multi-pilar que todo lo demás.
+--
+-- Es una tabla clave/valor y no una fila de columnas con nombre. La razón es el ritmo al que crece:
+-- los ajustes se añaden de uno en uno y por slices distintos —el tema ahora, el idioma después—, y
+-- una columna por ajuste convierte cada uno de ellos en una migración. Con clave/valor, sumar un
+-- ajuste es una constante en Kotlin y ninguna migración.
+--
+-- El precio es que el valor viaja como TEXT y quien lo lee tiene que interpretarlo. Se paga en un
+-- solo sitio: ThemePreference.fromStoredValue, que además decide qué hacer con un valor que no
+-- reconoce en vez de dejarlo estallar.
+
+-- La columna se llama `settingValue` y no `value` porque `value` choca con la palabra reservada de
+-- Kotlin: SQLDelight generaría un parámetro `value_`, y una fuga del generador en la firma que lee
+-- todo el mundo no vale el ahorro de cinco letras aquí.
+CREATE TABLE IF NOT EXISTS AppSettingEntity (
+    key TEXT NOT NULL PRIMARY KEY,
+    settingValue TEXT NOT NULL
+);
+
+selectSetting:
+SELECT settingValue
+FROM AppSettingEntity
+WHERE key = ?;
+
+-- `INSERT OR REPLACE` y no el `UPSERT` con `ON CONFLICT`, que sería lo idiomático hoy: el dialecto
+-- configurado en este proyecto es SQLite 3.18 y el UPSERT llegó en la 3.24. Aquí hacen lo mismo —la
+-- fila se identifica sólo por su clave y no cuelga nada de ella—, así que no hay razón para mover el
+-- dialecto de todo el proyecto por un ajuste.
+upsertSetting:
+INSERT OR REPLACE INTO AppSettingEntity(key, settingValue)
+VALUES (?, ?);
