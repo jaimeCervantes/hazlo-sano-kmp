@@ -2,6 +2,7 @@ package com.hazlosano.domain.feature.movement.usecase
 
 import com.hazlosano.domain.feature.movement.model.MovementSession
 import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.domain.feature.movement.model.RouteProblem
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.parser.GpxFormat
 import com.hazlosano.domain.feature.movement.repository.MovementSessionRepository
@@ -51,7 +52,11 @@ class SaveRouteFromSessionUseCaseTest {
 
         val result = useCase(sessionId = 1, name = "   ")
 
-        assertTrue(result is SaveRouteFromSessionUseCase.Result.Error)
+        // Se afirma el caso, no la frase: `core` ya no redacta ninguna.
+        assertEquals(
+            SaveRouteFromSessionUseCase.Result.Failed(RouteProblem.NAME_REQUIRED),
+            result,
+        )
         assertTrue(routes.saved.isEmpty(), "an unnamed route was stored anyway")
     }
 
@@ -63,7 +68,10 @@ class SaveRouteFromSessionUseCaseTest {
 
         val result = useCase(sessionId = 1, name = "Un punto")
 
-        assertTrue(result is SaveRouteFromSessionUseCase.Result.Error)
+        assertEquals(
+            SaveRouteFromSessionUseCase.Result.Failed(RouteProblem.NOT_ENOUGH_POINTS),
+            result,
+        )
         assertTrue(routes.saved.isEmpty())
     }
 

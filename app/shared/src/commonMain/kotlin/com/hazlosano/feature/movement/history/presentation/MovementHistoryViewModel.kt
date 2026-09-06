@@ -25,7 +25,11 @@ sealed interface MovementHistoryUiState {
     data object Loading : MovementHistoryUiState
     data object Empty : MovementHistoryUiState
     data class Sessions(val items: List<SessionListItem>) : MovementHistoryUiState
-    data class Error(val message: String) : MovementHistoryUiState
+    /**
+     * No se pudo leer el historial. Sin mensaje: el de la excepción viene de la base, está en
+     * inglés y no le dice nada a nadie. La UI pone la frase, que es donde hay catálogo.
+     */
+    data object Error : MovementHistoryUiState
 }
 
 /**
@@ -48,11 +52,7 @@ class MovementHistoryViewModel(
     private fun observeSessions() {
         viewModelScope.launch {
             getSessions()
-                .catch { failure ->
-                    _state.value = MovementHistoryUiState.Error(
-                        failure.message ?: "No se pudo leer el historial",
-                    )
-                }
+                .catch { _ -> _state.value = MovementHistoryUiState.Error }
                 .collect { sessions -> _state.value = sessions.toUiState() }
         }
     }

@@ -51,6 +51,7 @@ import com.hazlosano.domain.model.SleepHistory
 import com.hazlosano.feature.sleep.presentation.SleepHistoryUiState
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.sleep_history_failed
 import hazlosano.app.shared.generated.resources.encouragement_bad_improving
 import hazlosano.app.shared.generated.resources.encouragement_bad_today
 import hazlosano.app.shared.generated.resources.encouragement_debt
@@ -78,10 +79,15 @@ fun SleepHistoryScreen(viewModel: SleepHistoryViewModel) {
             contentAlignment = Alignment.Center,
         ) { CircularProgressIndicator(color = PillarType.SLEEP.palette().ink) }
 
-        is SleepHistoryUiState.Error -> Box(
+        SleepHistoryUiState.Error -> Box(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center,
-        ) { Text(s.message, color = MaterialTheme.colorScheme.error) }
+        ) {
+            Text(
+                stringResource(Res.string.sleep_history_failed),
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
 
         is SleepHistoryUiState.Success -> HistoryContent(s.history)
     }

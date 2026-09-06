@@ -76,11 +76,15 @@ class SessionDetailViewModelTest {
         val viewModel = buildViewModel(sessions = listOf(session()), path = climbingPath())
 
         val state = assertIs<SessionDetailUiState.Detail>(viewModel.state.value)
-        val labels = state.session.metrics.map { it.label }
+        // Se afirma qué cifras salen y en qué orden, no cómo se llaman: la redacción vive en el
+        // catálogo desde que el ViewModel dejó de escribirla.
+        val labels = state.session.metrics.map { it.metric }
         assertEquals(
             listOf(
-                "Distancia", "Tiempo", "En movimiento", "Ritmo",
-                "Desnivel +", "Desnivel −", "Altitud máx.", "Altitud mín.",
+                SessionMetric.DISTANCE, SessionMetric.DURATION,
+                SessionMetric.MOVING_TIME, SessionMetric.PACE,
+                SessionMetric.ASCENT, SessionMetric.DESCENT,
+                SessionMetric.MAX_ALTITUDE, SessionMetric.MIN_ALTITUDE,
             ),
             labels,
         )
@@ -115,7 +119,8 @@ class SessionDetailViewModelTest {
         val state = assertIs<SessionDetailUiState.Detail>(viewModel.state.value)
         assertFalse(state.session.hasPath)
         assertTrue(
-            state.session.metrics.filter { it.label != "Tiempo" }.all { it.value == NO_VALUE },
+            state.session.metrics.filter { it.metric != SessionMetric.DURATION }
+                .all { it.value == NO_VALUE },
             "a session with no route reported ${state.session.metrics}",
         )
     }
@@ -173,8 +178,9 @@ class SessionDetailViewModelTest {
             timeZone = TimeZone.UTC,
         )
 
-        val state = assertIs<SessionDetailUiState.Error>(viewModel.state.value)
-        assertEquals("base de datos no disponible", state.message)
+        // Basta con que informe del fallo: el mensaje de la excepción viene de la base, está en
+        // inglés y no es lo que se le enseña a nadie.
+        assertEquals(SessionDetailUiState.Error, viewModel.state.value)
     }
 
     @Test
@@ -201,14 +207,16 @@ class SessionDetailViewModelTest {
 
         val state = assertIs<SessionDetailUiState.Detail>(viewModel.state.value)
         val rows = assertNotNull(state.session.diagnosis).rows
-        assertEquals("4", rows.value("Lecturas recibidas"))
-        assertEquals("2 · 50 %", rows.value("Aceptadas"))
-        assertEquals("2 · 50 %", rows.value("Descartadas"))
-        assertEquals("1", rows.value("· Bajo el ruido"))
-        assertEquals("1", rows.value("· Precisión insuficiente"))
-        assertEquals("2.0 s", rows.value("Intervalo real"))
+        assertEquals("4", rows.value(DiagnosisLabel.Readings))
+        assertEquals("2 · 50 %", rows.value(DiagnosisLabel.Accepted))
+        assertEquals("2 · 50 %", rows.value(DiagnosisLabel.Discarded))
+        assertEquals("1", rows.value(DiagnosisLabel.DiscardedBy(DiscardReason.WITHIN_NOISE)))
+        assertEquals("1", rows.value(DiagnosisLabel.DiscardedBy(DiscardReason.POOR_ACCURACY)))
+        assertEquals("2.0 s", rows.value(DiagnosisLabel.SamplingInterval))
         assertTrue(
-            rows.none { it.label == "· Salto imposible" },
+            rows.none {
+                it.label == DiagnosisLabel.DiscardedBy(DiscardReason.IMPLAUSIBLE_SPEED)
+            },
             "a reason that never fired was listed as zero",
         )
     }
@@ -226,7 +234,7 @@ class SessionDetailViewModelTest {
         assertNull(state.session.diagnosis)
     }
 
-    private fun List<DiagnosisRow>.value(label: String): String? =
+    private fun List<DiagnosisRow>.value(label: DiagnosisLabel): String? =
         firstOrNull { it.label == label }?.value
 
     private fun reading(timestamp: Long, accuracy: Float): UserLocation =

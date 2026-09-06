@@ -1,5 +1,6 @@
 package com.hazlosano.domain.feature.movement.usecase
 
+import com.hazlosano.domain.feature.movement.model.RouteProblem
 import com.hazlosano.domain.feature.movement.parser.GpxFormat
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
 import kotlinx.coroutines.flow.first
@@ -13,13 +14,15 @@ class ExportRouteAsGpxUseCase(
 ) {
     sealed interface Result {
         data class Success(val fileName: String, val gpx: String) : Result
-        data class Error(val message: String) : Result
+
+        /** Qué salió mal, sin decidir con qué palabras se cuenta: eso es trabajo de la UI. */
+        data class Failed(val problem: RouteProblem) : Result
     }
 
     suspend operator fun invoke(routeId: Long): Result {
         val route = routes.getRouteWithPoints(routeId).first()
-            ?: return Result.Error("La ruta ya no existe.")
-        if (route.points.isEmpty()) return Result.Error("La ruta no tiene puntos que exportar.")
+            ?: return Result.Failed(RouteProblem.ROUTE_NOT_FOUND)
+        if (route.points.isEmpty()) return Result.Failed(RouteProblem.ROUTE_HAS_NO_POINTS)
         return Result.Success(fileName = fileNameFor(route.name), gpx = GpxFormat.write(route))
     }
 

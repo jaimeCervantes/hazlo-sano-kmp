@@ -18,8 +18,25 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 
+/**
+ * De qué cifra de la sesión habla una fila del resumen.
+ *
+ * Cerrado y no un `String` porque el rótulo es copia: escrito aquí no lo alcanza ningún catálogo,
+ * y además obligaba a las pruebas a buscar la fila por su redacción en español.
+ */
+enum class SessionMetric {
+    DISTANCE,
+    DURATION,
+    MOVING_TIME,
+    PACE,
+    ASCENT,
+    DESCENT,
+    MAX_ALTITUDE,
+    MIN_ALTITUDE,
+}
+
 /** One figure of a finished session, already formatted. "—" where nothing was measured. */
-data class SessionMetricUi(val label: String, val value: String)
+data class SessionMetricUi(val metric: SessionMetric, val value: String)
 
 /** A recorded session as the detail renders it: display labels plus the path to draw. */
 data class SessionDetailUi(
@@ -43,14 +60,14 @@ data class SessionDetailUi(
     /** In the order the summary reads them, so the screen only has to lay them out. */
     val metrics: List<SessionMetricUi>
         get() = listOf(
-            SessionMetricUi("Distancia", distanceLabel),
-            SessionMetricUi("Tiempo", durationLabel),
-            SessionMetricUi("En movimiento", movingTimeLabel),
-            SessionMetricUi("Ritmo", paceLabel),
-            SessionMetricUi("Desnivel +", ascentLabel),
-            SessionMetricUi("Desnivel −", descentLabel),
-            SessionMetricUi("Altitud máx.", maxAltitudeLabel),
-            SessionMetricUi("Altitud mín.", minAltitudeLabel),
+            SessionMetricUi(SessionMetric.DISTANCE, distanceLabel),
+            SessionMetricUi(SessionMetric.DURATION, durationLabel),
+            SessionMetricUi(SessionMetric.MOVING_TIME, movingTimeLabel),
+            SessionMetricUi(SessionMetric.PACE, paceLabel),
+            SessionMetricUi(SessionMetric.ASCENT, ascentLabel),
+            SessionMetricUi(SessionMetric.DESCENT, descentLabel),
+            SessionMetricUi(SessionMetric.MAX_ALTITUDE, maxAltitudeLabel),
+            SessionMetricUi(SessionMetric.MIN_ALTITUDE, minAltitudeLabel),
         )
 }
 
@@ -58,7 +75,11 @@ sealed interface SessionDetailUiState {
     data object Loading : SessionDetailUiState
     data object Missing : SessionDetailUiState
     data class Detail(val session: SessionDetailUi) : SessionDetailUiState
-    data class Error(val message: String) : SessionDetailUiState
+    /**
+     * No se pudo leer. Sin mensaje: el que traen las excepciones viene de la base o del parser,
+     * está en inglés y habla de detalles que no ayudan a nadie. La UI dice lo suyo.
+     */
+    data object Error : SessionDetailUiState
 }
 
 /**
@@ -84,8 +105,8 @@ class SessionDetailViewModel(
     val state: StateFlow<SessionDetailUiState> = _state.asStateFlow()
 
     /** What saving this outing as a route had to say, once. Null when nothing has been said. */
-    private val _saveRouteMessage = MutableStateFlow<String?>(null)
-    val saveRouteMessage: StateFlow<String?> = _saveRouteMessage.asStateFlow()
+    private val _saveRouteMessage = MutableStateFlow<SaveRouteMessage?>(null)
+    val saveRouteMessage: StateFlow<SaveRouteMessage?> = _saveRouteMessage.asStateFlow()
 
     /** Hidden where routes cannot be stored at all, rather than failing when pressed. */
     val canSaveAsRoute: Boolean = saveRouteFromSession != null
@@ -104,8 +125,9 @@ class SessionDetailViewModel(
         viewModelScope.launch {
             _saveRouteMessage.value = when (val result = useCase(sessionId, name)) {
                 is SaveRouteFromSessionUseCase.Result.Success ->
-                    "Ruta guardada: ${result.route.name}"
-                is SaveRouteFromSessionUseCase.Result.Error -> result.message
+                    SaveRouteMessage.Saved(result.route.name)
+                is SaveRouteFromSessionUseCase.Result.Failed ->
+                    SaveRouteMessage.Failed(result.problem)
             }
         }
     }
@@ -117,11 +139,7 @@ class SessionDetailViewModel(
     private fun observeSessionDetail() {
         viewModelScope.launch {
             getSessionDetail(sessionId)
-                .catch { failure ->
-                    _state.value = SessionDetailUiState.Error(
-                        failure.message ?: "No se pudo leer la sesión",
-                    )
-                }
+                .catch { _ -> _state.value = SessionDetailUiState.Error }
                 .collect { detail ->
                     _state.value = detail?.toUiState() ?: SessionDetailUiState.Missing
                     if (detail != null) refreshSessionSummary(detail)

@@ -2,6 +2,7 @@ package com.hazlosano.feature.movement.detail.presentation
 
 import com.hazlosano.domain.feature.movement.model.MovementSession
 import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.domain.feature.movement.model.RouteProblem
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.repository.MovementSessionRepository
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
@@ -42,7 +43,10 @@ class SaveSessionAsRouteTest {
 
         assertEquals("Subida al cerro", routes.saved.single().name)
         assertEquals(3, routes.saved.single().points.size)
-        assertTrue(viewModel.saveRouteMessage.value.orEmpty().contains("Subida al cerro"))
+        assertEquals(
+            SaveRouteMessage.Saved("Subida al cerro"),
+            viewModel.saveRouteMessage.value,
+        )
     }
 
     @Test
@@ -53,7 +57,11 @@ class SaveSessionAsRouteTest {
         viewModel.saveAsRoute("  ")
 
         assertTrue(routes.saved.isEmpty())
-        assertEquals("La ruta necesita un nombre.", viewModel.saveRouteMessage.value)
+        // El caso, no la frase: quien decide las palabras es la UI.
+        assertEquals(
+            SaveRouteMessage.Failed(RouteProblem.NAME_REQUIRED),
+            viewModel.saveRouteMessage.value,
+        )
     }
 
     @Test

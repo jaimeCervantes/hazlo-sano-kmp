@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * sounds, and the screen has to ask before replacing a route the person may still want.
  */
 data class RoutesUiState(
-    val message: String? = null,
+    val message: RoutesMessage? = null,
     val pendingImport: PendingImport? = null,
     val exported: ExportedGpx? = null,
 )
@@ -69,8 +69,8 @@ class RoutesViewModel(
         val fallback = fileName.substringBeforeLast('.')
         viewModelScope.launch {
             when (val result = importRoute(data, fallbackName = fallback)) {
-                is ImportRouteUseCase.Result.Success -> show("Ruta importada: ${result.route.name}")
-                is ImportRouteUseCase.Result.Error -> show(result.message)
+                is ImportRouteUseCase.Result.Success -> show(RoutesMessage.Imported(result.route.name))
+                is ImportRouteUseCase.Result.Failed -> show(RoutesMessage.Failed(result.problem))
                 is ImportRouteUseCase.Result.AlreadyExists -> _uiState.value = _uiState.value.copy(
                     pendingImport = PendingImport(
                         existingName = result.existingRoute.name,
@@ -92,10 +92,10 @@ class RoutesViewModel(
                 fallbackName = pending.incomingName,
             )
             when (result) {
-                is ImportRouteUseCase.Result.Success -> show("Ruta reemplazada: ${result.route.name}")
-                is ImportRouteUseCase.Result.Error -> show(result.message)
+                is ImportRouteUseCase.Result.Success -> show(RoutesMessage.Replaced(result.route.name))
+                is ImportRouteUseCase.Result.Failed -> show(RoutesMessage.Failed(result.problem))
                 // Overwriting cannot report the route as already existing: that is the point of it.
-                is ImportRouteUseCase.Result.AlreadyExists -> show("No se pudo reemplazar la ruta.")
+                is ImportRouteUseCase.Result.AlreadyExists -> show(RoutesMessage.ReplaceFailed)
             }
         }
     }
@@ -107,19 +107,19 @@ class RoutesViewModel(
     fun rename(routeId: Long, name: String) {
         val chosen = name.trim()
         if (chosen.isEmpty()) {
-            show("La ruta necesita un nombre.")
+            show(RoutesMessage.NameRequired)
             return
         }
         viewModelScope.launch {
             routes.renameRoute(routeId, chosen)
-            show("Ruta renombrada.")
+            show(RoutesMessage.Renamed)
         }
     }
 
     fun delete(routeId: Long) {
         viewModelScope.launch {
             routes.deleteRoute(routeId)
-            show("Ruta eliminada.")
+            show(RoutesMessage.Deleted)
         }
     }
 
@@ -129,7 +129,7 @@ class RoutesViewModel(
                 is ExportRouteAsGpxUseCase.Result.Success -> _uiState.value = _uiState.value.copy(
                     exported = ExportedGpx(result.fileName, result.gpx),
                 )
-                is ExportRouteAsGpxUseCase.Result.Error -> show(result.message)
+                is ExportRouteAsGpxUseCase.Result.Failed -> show(RoutesMessage.Failed(result.problem))
             }
         }
     }
@@ -143,7 +143,7 @@ class RoutesViewModel(
         _uiState.value = _uiState.value.copy(message = null)
     }
 
-    private fun show(message: String) {
+    private fun show(message: RoutesMessage) {
         _uiState.value = _uiState.value.copy(message = message)
     }
 }

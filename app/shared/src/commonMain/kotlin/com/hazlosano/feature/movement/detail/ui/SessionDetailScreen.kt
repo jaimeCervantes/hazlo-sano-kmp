@@ -36,6 +36,18 @@ import com.hazlosano.feature.movement.detail.presentation.SessionDiagnosisUi
 import com.hazlosano.feature.movement.detail.presentation.createSessionDetailViewModel
 import com.hazlosano.feature.movement.ui.MovementMap
 import hazlosano.app.shared.generated.resources.Res
+import com.hazlosano.feature.movement.ui.label
+import com.hazlosano.feature.movement.ui.text
+import hazlosano.app.shared.generated.resources.action_cancel
+import hazlosano.app.shared.generated.resources.action_save
+import hazlosano.app.shared.generated.resources.session_detail_diagnosis_collapsed
+import hazlosano.app.shared.generated.resources.session_detail_diagnosis_expanded
+import hazlosano.app.shared.generated.resources.session_detail_failed
+import hazlosano.app.shared.generated.resources.session_detail_fallback_title
+import hazlosano.app.shared.generated.resources.session_detail_missing
+import hazlosano.app.shared.generated.resources.session_detail_no_path
+import hazlosano.app.shared.generated.resources.session_detail_route_name_label
+import hazlosano.app.shared.generated.resources.session_detail_save_as_route
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
@@ -50,7 +62,8 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
     var namingRoute by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        val title = (state as? SessionDetailUiState.Detail)?.session?.name ?: "Sesión"
+        val title = (state as? SessionDetailUiState.Detail)?.session?.name
+            ?: stringResource(Res.string.session_detail_fallback_title)
         HazloTopAppBar(
             title = title,
             showBackButton = true,
@@ -63,13 +76,13 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
                 onClick = { namingRoute = true },
                 modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
             ) {
-                Text("Guardar como ruta")
+                Text(stringResource(Res.string.session_detail_save_as_route))
             }
         }
 
         saveRouteMessage?.let { message ->
             Text(
-                text = message,
+                text = message.text(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -85,11 +98,14 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
                 }
 
                 is SessionDetailUiState.Missing -> CenteredBox {
-                    Message("Esta sesión ya no está disponible.")
+                    Message(stringResource(Res.string.session_detail_missing))
                 }
 
-                is SessionDetailUiState.Error -> CenteredBox {
-                    Message(current.message, color = MaterialTheme.colorScheme.error)
+                SessionDetailUiState.Error -> CenteredBox {
+                    Message(
+                        stringResource(Res.string.session_detail_failed),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
 
                 is SessionDetailUiState.Detail -> SessionDetailContent(current.session)
@@ -124,17 +140,23 @@ private fun NameRouteDialog(
     var name by remember(suggestedName) { mutableStateOf(suggestedName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Guardar como ruta") },
+        title = { Text(stringResource(Res.string.session_detail_save_as_route)) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                label = { Text("Nombre de la ruta") },
+                label = { Text(stringResource(Res.string.session_detail_route_name_label)) },
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("Guardar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }) {
+                Text(stringResource(Res.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) }
+        },
     )
 }
 
@@ -164,7 +186,7 @@ private fun SessionDetailContent(session: SessionDetailUi) {
                 )
             } else {
                 CenteredBox {
-                    Message("Esta sesión no guardó el recorrido, así que no hay ruta que mostrar.")
+                    Message(stringResource(Res.string.session_detail_no_path))
                 }
             }
         }
@@ -187,7 +209,7 @@ private fun SessionSummary(session: SessionDetailUi) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 row.forEach { metric ->
                     Box(modifier = Modifier.weight(1f)) {
-                        SummaryMetric(label = metric.label, value = metric.value)
+                        SummaryMetric(label = metric.metric.label(), value = metric.value)
                     }
                 }
                 // Keeps a short last row aligned with the one above instead of spreading out.
@@ -209,7 +231,13 @@ private fun Diagnosis(diagnosis: SessionDiagnosisUi) {
 
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter)) {
         Text(
-            text = if (expanded) "Diagnóstico ▾" else "Diagnóstico ▸",
+            text = stringResource(
+                if (expanded) {
+                    Res.string.session_detail_diagnosis_expanded
+                } else {
+                    Res.string.session_detail_diagnosis_collapsed
+                },
+            ),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
@@ -225,7 +253,7 @@ private fun Diagnosis(diagnosis: SessionDiagnosisUi) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = row.label,
+                        text = row.label.text(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

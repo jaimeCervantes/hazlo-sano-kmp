@@ -97,8 +97,9 @@ class MovementHistoryViewModelTest {
     fun showsAMessageWhenTheHistoryCannotBeRead() = runTest {
         val viewModel = buildViewModel(flow { throw IllegalStateException("base de datos no disponible") })
 
-        val state = assertIs<MovementHistoryUiState.Error>(viewModel.state.value)
-        assertEquals("base de datos no disponible", state.message)
+        // Basta con que informe del fallo: el mensaje de la excepción viene de la base y no es lo
+        // que se le enseña a nadie.
+        assertEquals(MovementHistoryUiState.Error, viewModel.state.value)
     }
 
     private fun buildViewModel(sessions: Flow<List<MovementSession>>): MovementHistoryViewModel =

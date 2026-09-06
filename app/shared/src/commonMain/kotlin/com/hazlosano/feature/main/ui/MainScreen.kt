@@ -56,6 +56,7 @@ import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.app_name
 import hazlosano.app.shared.generated.resources.bottom_tab_home
 import hazlosano.app.shared.generated.resources.history_back
 import hazlosano.app.shared.generated.resources.history_title
@@ -207,7 +208,9 @@ fun MainScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar(
-            title = if (showSleepHistory) stringResource(Res.string.history_title) else "Hazlo Sano",
+            title = stringResource(
+                if (showSleepHistory) Res.string.history_title else Res.string.app_name,
+            ),
             showBackButton = showSleepHistory,
             onBackClick = { showSleepHistory = false },
             // El icono de menú llevaba desde siempre sin hacer nada; ahora es la puerta a ajustes.

@@ -1,6 +1,7 @@
 package com.hazlosano.domain.feature.movement.usecase
 
 import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.domain.feature.movement.model.RouteProblem
 import com.hazlosano.domain.feature.movement.model.WayPoint
 import com.hazlosano.domain.feature.movement.model.calculateFingerprint
 import com.hazlosano.domain.feature.movement.model.calculateStats
@@ -21,17 +22,19 @@ class SaveRouteFromSessionUseCase(
 ) {
     sealed interface Result {
         data class Success(val route: Route) : Result
-        data class Error(val message: String) : Result
+
+        /** Qué salió mal, sin decidir con qué palabras se cuenta: eso es trabajo de la UI. */
+        data class Failed(val problem: RouteProblem) : Result
     }
 
     suspend operator fun invoke(sessionId: Long, name: String): Result {
         val chosen = name.trim()
-        if (chosen.isEmpty()) return Result.Error("La ruta necesita un nombre.")
+        if (chosen.isEmpty()) return Result.Failed(RouteProblem.NAME_REQUIRED)
 
         val points = sessions.getSessionPoints(sessionId).first()
         // Two points is the minimum that describes going anywhere; one is a place, not a route.
         if (points.size < 2) {
-            return Result.Error("La sesión no tiene suficientes puntos para guardar una ruta.")
+            return Result.Failed(RouteProblem.NOT_ENOUGH_POINTS)
         }
 
         val wayPoints = points.map {

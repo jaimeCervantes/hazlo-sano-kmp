@@ -1,6 +1,7 @@
 package com.hazlosano.domain.feature.movement.usecase
 
 import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.domain.feature.movement.model.RouteProblem
 import com.hazlosano.domain.feature.movement.model.calculateFingerprint
 import com.hazlosano.domain.feature.movement.model.calculateStats
 import com.hazlosano.domain.feature.movement.parser.GpxFormat
@@ -34,7 +35,9 @@ class ImportRouteUseCase(
     sealed interface Result {
         data class Success(val route: Route) : Result
         data class AlreadyExists(val existingRoute: Route, val newRoute: Route) : Result
-        data class Error(val message: String) : Result
+
+        /** Qué salió mal, sin decidir con qué palabras se cuenta: eso es trabajo de la UI. */
+        data class Failed(val problem: RouteProblem) : Result
     }
 
     /**
@@ -78,7 +81,9 @@ class ImportRouteUseCase(
             else -> Result.Success(store(route))
         }
     } catch (e: Exception) {
-        Result.Error(e.message ?: "No se pudo leer el archivo GPX.")
+        // El mensaje de la excepción se queda fuera a propósito: viene del parser, está en inglés y
+        // habla de XML. Lo que la persona necesita saber es que el archivo no se pudo leer.
+        Result.Failed(RouteProblem.UNREADABLE_GPX)
     }
 
     private suspend fun store(route: Route): Route = route.copy(id = repository.saveRoute(route))

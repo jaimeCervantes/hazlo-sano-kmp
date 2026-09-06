@@ -141,6 +141,94 @@
     <string name="settings_theme_dark">Oscuro</string>
     <string name="settings_theme_system_description">El que tenga puesto tu teléfono</string>
 
+    <!-- La marca. No se traduce: es un nombre propio. Vive en el catálogo igualmente para que
+         ninguna pantalla lleve texto visible escrito dentro. -->
+    <string name="app_name">Hazlo Sano</string>
+
+    <!-- Sueño: historial -->
+    <string name="sleep_history_failed">No se pudo leer tu historial de sueño.</string>
+
+    <!-- Acciones compartidas -->
+    <string name="action_save">Guardar</string>
+    <string name="action_cancel">Cancelar</string>
+
+    <!-- Movimiento: tracker -->
+    <string name="tracker_title">Movimiento</string>
+    <string name="tracker_start">Iniciar</string>
+    <string name="tracker_stop">Detener</string>
+    <string name="tracker_open_history">Mis salidas</string>
+    <string name="tracker_session_saved">Sesión guardada · %1$s · %2$s</string>
+    <string name="tracker_trace_toggle_title">Guardar traza de diagnóstico</string>
+    <string name="tracker_trace_toggle_description">Guarda cada lectura del GPS para ajustar el filtro.</string>
+
+    <!-- Movimiento: métricas, compartidas por el tracker, el historial y el detalle -->
+    <string name="movement_metric_distance">Distancia</string>
+    <string name="movement_metric_duration">Tiempo</string>
+    <string name="movement_metric_moving_time">En movimiento</string>
+    <string name="movement_metric_pace">Ritmo</string>
+    <string name="movement_metric_ascent">Desnivel +</string>
+    <string name="movement_metric_descent">Desnivel −</string>
+    <string name="movement_metric_max_altitude">Altitud máx.</string>
+    <string name="movement_metric_min_altitude">Altitud mín.</string>
+    <string name="movement_metric_elevation">Desnivel</string>
+
+    <!-- Movimiento: mis salidas -->
+    <string name="outings_title">Mis salidas</string>
+    <string name="outings_open_routes">Mis rutas</string>
+    <string name="outings_empty">Aún no has grabado salidas. Pulsa «Iniciar» en el mapa para grabar la primera.</string>
+    <string name="outings_failed">No se pudo leer tu historial de salidas.</string>
+
+    <!-- Movimiento: detalle de una salida -->
+    <string name="session_detail_fallback_title">Sesión</string>
+    <string name="session_detail_missing">Esta sesión ya no está disponible.</string>
+    <string name="session_detail_failed">No se pudo leer esta sesión.</string>
+    <string name="session_detail_no_path">Esta sesión no guardó el recorrido, así que no hay ruta que mostrar.</string>
+    <string name="session_detail_save_as_route">Guardar como ruta</string>
+    <string name="session_detail_route_name_label">Nombre de la ruta</string>
+    <string name="session_detail_diagnosis_expanded">Diagnóstico ▾</string>
+    <string name="session_detail_diagnosis_collapsed">Diagnóstico ▸</string>
+
+    <!-- Movimiento: diagnóstico de la traza -->
+    <string name="diagnosis_readings">Lecturas recibidas</string>
+    <string name="diagnosis_accepted">Aceptadas</string>
+    <string name="diagnosis_discarded">Descartadas</string>
+    <string name="diagnosis_average_accuracy">Precisión media</string>
+    <string name="diagnosis_sampling_interval">Intervalo real</string>
+    <string name="diagnosis_reason_poor_accuracy">· Precisión insuficiente</string>
+    <string name="diagnosis_reason_implausible_speed">· Salto imposible</string>
+    <string name="diagnosis_reason_within_noise">· Bajo el ruido</string>
+    <string name="diagnosis_reason_unconfirmed_movement">· Movimiento sin confirmar</string>
+
+    <!-- Movimiento: mis rutas -->
+    <string name="routes_title">Mis rutas</string>
+    <string name="routes_import_gpx">Importar GPX</string>
+    <string name="routes_rename">Renombrar ruta</string>
+    <string name="routes_export">Exportar a GPX</string>
+    <string name="routes_delete">Eliminar ruta</string>
+    <string name="routes_name_dialog_title">Nombre de la ruta</string>
+    <string name="routes_name_label">Nombre</string>
+    <string name="routes_duplicate_title">Esta ruta ya existe</string>
+    <string name="routes_duplicate_body">Ya tienes guardada «%1$s», que recorre el mismo trazado que «%2$s». ¿Quieres reemplazarla?</string>
+    <string name="routes_duplicate_replace">Reemplazar</string>
+    <string name="routes_duplicate_keep">Conservar</string>
+    <string name="routes_empty_with_files">Todavía no tienes rutas. Importa un archivo GPX, o abre una salida y guárdala como ruta.</string>
+    <string name="routes_empty_without_files">Todavía no tienes rutas. Abre una salida y guárdala como ruta.</string>
+
+    <!-- Movimiento: lo que pasó con una ruta -->
+    <string name="routes_message_imported">Ruta importada: %1$s</string>
+    <string name="routes_message_replaced">Ruta reemplazada: %1$s</string>
+    <string name="routes_message_renamed">Ruta renombrada.</string>
+    <string name="routes_message_deleted">Ruta eliminada.</string>
+    <string name="routes_message_replace_failed">No se pudo reemplazar la ruta.</string>
+    <string name="routes_message_saved">Ruta guardada: %1$s</string>
+
+    <!-- Movimiento: qué salió mal con una ruta -->
+    <string name="route_problem_unreadable_gpx">No se pudo leer el archivo GPX.</string>
+    <string name="route_problem_not_found">La ruta ya no existe.</string>
+    <string name="route_problem_no_points">La ruta no tiene puntos que exportar.</string>
+    <string name="route_problem_name_required">La ruta necesita un nombre.</string>
+    <string name="route_problem_not_enough_points">La salida no tiene suficientes puntos para guardar una ruta.</string>
+
     <!-- Secciones compartidas del tablero. Las usan el tablero de pilar, Sueño e Inicio, así que la
          redacción vive aquí y no dentro de ningún Composable. -->
     <string name="section_weekly_champions">Campeones Semanales</string>

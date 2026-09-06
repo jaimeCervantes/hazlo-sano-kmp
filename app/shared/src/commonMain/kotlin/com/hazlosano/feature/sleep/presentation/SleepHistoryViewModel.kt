@@ -37,7 +37,7 @@ class SleepHistoryViewModel(
             val history = getSleepHistoryUseCase(from, to = now)
             _state.value = SleepHistoryUiState.Success(history)
         } catch (e: Exception) {
-            _state.value = SleepHistoryUiState.Error(e.message ?: "Unknown error")
+            _state.value = SleepHistoryUiState.Error
         }
     }
 }
@@ -45,5 +45,9 @@ class SleepHistoryViewModel(
 sealed interface SleepHistoryUiState {
     data object Loading : SleepHistoryUiState
     data class Success(val history: SleepHistory) : SleepHistoryUiState
-    data class Error(val message: String) : SleepHistoryUiState
+    /**
+     * No se pudo leer. Sin mensaje: el de la excepción viene de la base y estaba cayendo en un
+     * "Unknown error" en inglés que se le enseñaba a una persona que usa el app en español.
+     */
+    data object Error : SleepHistoryUiState
 }

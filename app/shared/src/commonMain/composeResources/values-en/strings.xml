@@ -69,4 +69,186 @@
     <string name="permission_denied_message">Without the Physical Activity permission, the app cannot automatically measure your sleep. You can enable it manually in Settings > Apps > Hazlo Sano > Permissions.</string>
     <string name="permission_go_settings">Go to Settings</string>
     <string name="permission_cancel">Cancel</string>
+
+    <!-- Top app bar -->
+    <string name="top_app_bar_back">Back</string>
+    <string name="top_app_bar_profile">Profile</string>
+    <string name="top_app_bar_notifications">Notifications</string>
+    <string name="top_app_bar_menu">Menu</string>
+
+    <!-- Bottom bar -->
+    <string name="bottom_tab_home">Home</string>
+
+    <!-- Home -->
+    <string name="home_feed_title">Tribe feed</string>
+    <string name="home_failed_message">We couldn\'t load your home. Try again in a moment.</string>
+    <string name="sleep_failed_message">We couldn\'t read last night\'s rest.</string>
+
+    <!-- The four pillars -->
+    <string name="pillar_sleep">Sleep</string>
+    <string name="pillar_nutrition">Nutrition</string>
+    <string name="pillar_movement">Movement</string>
+    <string name="pillar_mind">Mind and Spirit</string>
+    <string name="pillar_mind_short">Mind</string>
+    <string name="pillar_info_open">What this pillar is</string>
+    <string name="pillar_info_practice_label">The practice</string>
+    <string name="pillar_info_sleep_title">Sleep and Rest</string>
+    <string name="pillar_info_sleep_tagline">Sleeping to the rhythm of daylight again, not of screens.</string>
+    <string name="pillar_info_sleep_body">Rest is the physiological basis of attention, memory, emotional stability, metabolism, immunity and heart health. Sleeping well is the first step towards a body and a mind that can repair themselves.</string>
+    <string name="pillar_info_sleep_practice">From dusk to dawn</string>
+    <string name="pillar_info_nutrition_title">Natural, nourishing, local food</string>
+    <string name="pillar_info_nutrition_tagline">Reconnecting with where food comes from, its season, and who grows it.</string>
+    <string name="pillar_info_nutrition_body">Real food: barely processed, varied, in season and from nearby. This pillar brings the people who grow it closer to the people who eat it, so that eating well becomes the easiest option.</string>
+    <string name="pillar_info_nutrition_practice">A real, local supper at dusk</string>
+    <string name="pillar_info_movement_title">Natural, local, shared movement</string>
+    <string name="pillar_info_movement_tagline">Getting your body back on the street, the trail and the local court.</string>
+    <string name="pillar_info_movement_body">Moving is not only the gym: it is walking, cycling, playing, planting or training at a studio around the corner. The idea is to give physical activity back to everyday life and to the place you live in.</string>
+    <string name="pillar_info_movement_practice">Living, local, functional movement</string>
+    <string name="pillar_info_mind_title">Mind, spirit and the people nearby</string>
+    <string name="pillar_info_mind_tagline">Getting back silence, presence, and the people who live close by.</string>
+    <string name="pillar_info_mind_body">Emotional care, mental clarity and the bond with the people who live nearby, held together by a purpose. Healthy relationships and a sense of belonging strengthen the other three pillars.</string>
+    <string name="pillar_info_mind_practice">Presence, peace and local connection</string>
+
+    <!-- Catalogue -->
+    <string name="catalog_search_placeholder">Search in %1$s…</string>
+    <string name="catalog_empty">Nothing has been published in this pillar yet</string>
+    <string name="catalog_unavailable_title">No catalogue yet</string>
+    <string name="catalog_unavailable_message">You need a connection the first time, to download what this pillar has published.</string>
+    <string name="catalog_failed_title">We couldn\'t load it</string>
+    <string name="catalog_failed_message">Try again in a moment.</string>
+    <string name="catalog_stale_notice">Offline · showing the last thing downloaded</string>
+    <string name="catalog_metric_publications">Publications</string>
+    <string name="catalog_metric_events">Events</string>
+    <string name="catalog_metric_services">Services</string>
+    <string name="catalog_section_upcoming_events">Upcoming events</string>
+    <string name="catalog_section_services">Services</string>
+    <string name="catalog_section_nearby">Near you</string>
+    <string name="catalog_refresh">Refresh</string>
+
+    <!-- Shared actions -->
+    <string name="action_retry">Try again</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_theme_label">Theme</string>
+    <string name="settings_theme_system">Follow the system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system_description">Whatever your phone is set to</string>
+
+    <!-- The brand. Not translated: it is a proper name. -->
+    <string name="app_name">Hazlo Sano</string>
+
+    <!-- Sleep: history -->
+    <string name="sleep_history_failed">We couldn\'t read your sleep history.</string>
+
+    <!-- Movement: tracker -->
+    <string name="tracker_title">Movement</string>
+    <string name="tracker_start">Start</string>
+    <string name="tracker_stop">Stop</string>
+    <string name="tracker_open_history">My outings</string>
+    <string name="tracker_session_saved">Session saved · %1$s · %2$s</string>
+    <string name="tracker_trace_toggle_title">Save a diagnostic trace</string>
+    <string name="tracker_trace_toggle_description">Keeps every GPS reading, to tune the filter.</string>
+
+    <!-- Movement: figures, shared by the tracker, the outings list and the detail -->
+    <string name="movement_metric_distance">Distance</string>
+    <string name="movement_metric_duration">Time</string>
+    <string name="movement_metric_moving_time">Moving</string>
+    <string name="movement_metric_pace">Pace</string>
+    <string name="movement_metric_ascent">Climb +</string>
+    <string name="movement_metric_descent">Climb −</string>
+    <string name="movement_metric_max_altitude">Max. altitude</string>
+    <string name="movement_metric_min_altitude">Min. altitude</string>
+    <string name="movement_metric_elevation">Climb</string>
+
+    <!-- Movement: my outings -->
+    <string name="outings_title">My outings</string>
+    <string name="outings_open_routes">My routes</string>
+    <string name="outings_empty">You haven\'t recorded any outings yet. Press “Start” on the map to record your first.</string>
+    <string name="outings_failed">We couldn\'t read your outings.</string>
+
+    <!-- Movement: one outing in detail -->
+    <string name="session_detail_fallback_title">Session</string>
+    <string name="session_detail_missing">This session is no longer available.</string>
+    <string name="session_detail_failed">We couldn\'t read this session.</string>
+    <string name="session_detail_no_path">This session stored no track, so there is no route to show.</string>
+    <string name="session_detail_save_as_route">Save as a route</string>
+    <string name="session_detail_route_name_label">Route name</string>
+    <string name="session_detail_diagnosis_expanded">Diagnosis ▾</string>
+    <string name="session_detail_diagnosis_collapsed">Diagnosis ▸</string>
+
+    <!-- Movement: what the filter did -->
+    <string name="diagnosis_readings">Readings received</string>
+    <string name="diagnosis_accepted">Accepted</string>
+    <string name="diagnosis_discarded">Discarded</string>
+    <string name="diagnosis_average_accuracy">Average accuracy</string>
+    <string name="diagnosis_sampling_interval">Actual interval</string>
+    <string name="diagnosis_reason_poor_accuracy">· Not accurate enough</string>
+    <string name="diagnosis_reason_implausible_speed">· Impossible jump</string>
+    <string name="diagnosis_reason_within_noise">· Below the noise</string>
+    <string name="diagnosis_reason_unconfirmed_movement">· Movement not confirmed</string>
+
+    <!-- Movement: my routes -->
+    <string name="routes_title">My routes</string>
+    <string name="routes_import_gpx">Import a GPX</string>
+    <string name="routes_rename">Rename route</string>
+    <string name="routes_export">Export to GPX</string>
+    <string name="routes_delete">Delete route</string>
+    <string name="routes_name_dialog_title">Route name</string>
+    <string name="routes_name_label">Name</string>
+    <string name="routes_duplicate_title">You already have this route</string>
+    <string name="routes_duplicate_body">You already have “%1$s” saved, which follows the same track as “%2$s”. Replace it?</string>
+    <string name="routes_duplicate_replace">Replace</string>
+    <string name="routes_duplicate_keep">Keep</string>
+    <string name="routes_empty_with_files">No routes yet. Import a GPX file, or open an outing and save it as a route.</string>
+    <string name="routes_empty_without_files">No routes yet. Open an outing and save it as a route.</string>
+
+    <!-- Movement: what happened to a route -->
+    <string name="routes_message_imported">Route imported: %1$s</string>
+    <string name="routes_message_replaced">Route replaced: %1$s</string>
+    <string name="routes_message_renamed">Route renamed.</string>
+    <string name="routes_message_deleted">Route deleted.</string>
+    <string name="routes_message_replace_failed">We couldn\'t replace the route.</string>
+    <string name="routes_message_saved">Route saved: %1$s</string>
+
+    <!-- Movement: what went wrong with a route -->
+    <string name="route_problem_unreadable_gpx">We couldn\'t read that GPX file.</string>
+    <string name="route_problem_not_found">That route is gone.</string>
+    <string name="route_problem_no_points">That route has no points to export.</string>
+    <string name="route_problem_name_required">A route needs a name.</string>
+    <string name="route_problem_not_enough_points">That outing doesn\'t have enough points to become a route.</string>
+
+    <!-- Movement: one route in detail -->
+    <string name="route_detail_back">Back</string>
+    <string name="route_detail_distance">Distance</string>
+    <string name="route_detail_elevation">Climb</string>
+    <string name="route_detail_points">Points</string>
+    <string name="route_detail_missing">That route is gone.</string>
+    <string name="route_detail_no_path">This route was saved with no points, so there is no track to show.</string>
+
+    <!-- Movement: what the tracker is waiting for -->
+    <string name="tracker_distance_waiting_for_fix">Looking for a signal</string>
+    <string name="tracker_distance_confirming">Confirming…</string>
+    <string name="tracker_gone_nowhere">You haven\'t moved in %1$d min. Still recording?</string>
+
+    <!-- Board sections -->
+    <string name="section_weekly_champions">Champions of the week</string>
+    <string name="section_active_challenges">Active challenges</string>
+    <string name="section_view_all">See all →</string>
+    <string name="section_products_title">Search products and services</string>
+    <string name="section_products_placeholder">Search for things nearby…</string>
+    <string name="section_products_empty">No products found.</string>
+    <string name="champion_achievement_label">Achievement</string>
+    <string name="challenge_new_badge">New</string>
+    <string name="challenge_progress_label">Progress</string>
+
+    <!-- Publications -->
+    <string name="publication_kind_event">Event</string>
+    <string name="publication_kind_service">Service</string>
+    <string name="publication_duration_minutes">%1$d min</string>
+    <string name="publication_price_free">Free</string>
 </resources>

@@ -44,6 +44,24 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.routes.presentation.RoutesViewModel
 import hazlosano.app.shared.generated.resources.Res
+import com.hazlosano.feature.movement.ui.text
+import hazlosano.app.shared.generated.resources.action_cancel
+import hazlosano.app.shared.generated.resources.action_save
+import hazlosano.app.shared.generated.resources.movement_metric_distance
+import hazlosano.app.shared.generated.resources.movement_metric_elevation
+import hazlosano.app.shared.generated.resources.routes_delete
+import hazlosano.app.shared.generated.resources.routes_duplicate_body
+import hazlosano.app.shared.generated.resources.routes_duplicate_keep
+import hazlosano.app.shared.generated.resources.routes_duplicate_replace
+import hazlosano.app.shared.generated.resources.routes_duplicate_title
+import hazlosano.app.shared.generated.resources.routes_empty_with_files
+import hazlosano.app.shared.generated.resources.routes_empty_without_files
+import hazlosano.app.shared.generated.resources.routes_export
+import hazlosano.app.shared.generated.resources.routes_import_gpx
+import hazlosano.app.shared.generated.resources.routes_name_dialog_title
+import hazlosano.app.shared.generated.resources.routes_name_label
+import hazlosano.app.shared.generated.resources.routes_rename
+import hazlosano.app.shared.generated.resources.routes_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
@@ -79,7 +97,7 @@ fun RoutesScreen(
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar(
-            title = "Mis rutas",
+            title = stringResource(Res.string.routes_title),
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
@@ -87,7 +105,7 @@ fun RoutesScreen(
 
         state.message?.let { message ->
             Text(
-                text = message,
+                text = message.text(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
@@ -104,7 +122,10 @@ fun RoutesScreen(
                     .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm),
             ) {
                 Icon(Icons.Default.FileUpload, contentDescription = null)
-                Text(text = "Importar GPX", modifier = Modifier.padding(start = HazloSpaces.sm))
+                Text(
+                    text = stringResource(Res.string.routes_import_gpx),
+                    modifier = Modifier.padding(start = HazloSpaces.sm),
+                )
             }
         }
 
@@ -137,18 +158,25 @@ fun RoutesScreen(
     state.pendingImport?.let { pending ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissPendingImport() },
-            title = { Text("Esta ruta ya existe") },
+            title = { Text(stringResource(Res.string.routes_duplicate_title)) },
             text = {
                 Text(
-                    "Ya tienes guardada \"${pending.existingName}\", que recorre el mismo trazado " +
-                        "que \"${pending.incomingName}\". ¿Quieres reemplazarla?",
+                    stringResource(
+                        Res.string.routes_duplicate_body,
+                        pending.existingName,
+                        pending.incomingName,
+                    ),
                 )
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.confirmReplace() }) { Text("Reemplazar") }
+                TextButton(onClick = { viewModel.confirmReplace() }) {
+                    Text(stringResource(Res.string.routes_duplicate_replace))
+                }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.dismissPendingImport() }) { Text("Conservar") }
+                TextButton(onClick = { viewModel.dismissPendingImport() }) {
+                    Text(stringResource(Res.string.routes_duplicate_keep))
+                }
             },
         )
     }
@@ -206,24 +234,36 @@ private fun RouteRow(
                 modifier = Modifier.fillMaxWidth().padding(top = HazloSpaces.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RouteMetric(label = "Distancia", value = MovementFormat.distance(route.distance))
+                RouteMetric(
+                    label = stringResource(Res.string.movement_metric_distance),
+                    value = MovementFormat.distance(route.distance),
+                )
                 Box(modifier = Modifier.padding(start = HazloSpaces.lg)) {
                     RouteMetric(
-                        label = "Desnivel",
+                        label = stringResource(Res.string.movement_metric_elevation),
                         value = MovementFormat.elevation(route.elevationGain),
                     )
                 }
                 Box(modifier = Modifier.weight(1f))
                 IconButton(onClick = onRename) {
-                    Icon(Icons.Default.Edit, contentDescription = "Renombrar ruta")
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = stringResource(Res.string.routes_rename),
+                    )
                 }
                 if (gpxFileAccessAvailable) {
                     IconButton(onClick = onExport) {
-                        Icon(Icons.Default.FileDownload, contentDescription = "Exportar a GPX")
+                        Icon(
+                            Icons.Default.FileDownload,
+                            contentDescription = stringResource(Res.string.routes_export),
+                        )
                     }
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Eliminar ruta")
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = stringResource(Res.string.routes_delete),
+                    )
                 }
             }
         }
@@ -256,17 +296,23 @@ private fun RenameRouteDialog(
     var name by remember(currentName) { mutableStateOf(currentName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nombre de la ruta") },
+        title = { Text(stringResource(Res.string.routes_name_dialog_title)) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                label = { Text("Nombre") },
+                label = { Text(stringResource(Res.string.routes_name_label)) },
             )
         },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text("Guardar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }) {
+                Text(stringResource(Res.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.action_cancel)) }
+        },
     )
 }
 
@@ -277,12 +323,13 @@ private fun EmptyRoutes() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (gpxFileAccessAvailable) {
-                "Todavía no tienes rutas. Importa un archivo GPX, o abre una salida del historial " +
-                    "y guárdala como ruta."
-            } else {
-                "Todavía no tienes rutas. Abre una salida del historial y guárdala como ruta."
-            },
+            text = stringResource(
+                if (gpxFileAccessAvailable) {
+                    Res.string.routes_empty_with_files
+                } else {
+                    Res.string.routes_empty_without_files
+                },
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

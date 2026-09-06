@@ -35,6 +35,15 @@ import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewMode
 import com.hazlosano.feature.movement.tracker.presentation.trackerDistance
 import com.hazlosano.feature.movement.ui.MovementMap
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.movement_metric_distance
+import hazlosano.app.shared.generated.resources.movement_metric_duration
+import hazlosano.app.shared.generated.resources.tracker_open_history
+import hazlosano.app.shared.generated.resources.tracker_session_saved
+import hazlosano.app.shared.generated.resources.tracker_start
+import hazlosano.app.shared.generated.resources.tracker_stop
+import hazlosano.app.shared.generated.resources.tracker_title
+import hazlosano.app.shared.generated.resources.tracker_trace_toggle_description
+import hazlosano.app.shared.generated.resources.tracker_trace_toggle_title
 import hazlosano.app.shared.generated.resources.tracker_distance_confirming
 import hazlosano.app.shared.generated.resources.tracker_distance_waiting_for_fix
 import hazlosano.app.shared.generated.resources.tracker_gone_nowhere
@@ -75,7 +84,7 @@ fun TrackerScreen(
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar(
-            title = "Movimiento",
+            title = stringResource(Res.string.tracker_title),
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
@@ -102,8 +111,11 @@ fun TrackerScreen(
 
         savedSession?.let { saved ->
             Text(
-                text = "Sesión guardada · ${MovementFormat.distance(saved.distanceMeters)} · " +
+                text = stringResource(
+                    Res.string.tracker_session_saved,
+                    MovementFormat.distance(saved.distanceMeters),
                     MovementFormat.duration(saved.elapsedSeconds),
+                ),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
@@ -135,12 +147,12 @@ private fun TraceCaptureToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Guardar traza de diagnóstico",
+                text = stringResource(Res.string.tracker_trace_toggle_title),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Guarda cada lectura del GPS para ajustar el filtro.",
+                text = stringResource(Res.string.tracker_trace_toggle_description),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -188,8 +200,14 @@ private fun SessionMetrics(
             modifier = Modifier.padding(horizontal = HazloSpaces.md, vertical = HazloSpaces.sm),
             horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
         ) {
-            Metric(label = "Distancia", value = distance.shown())
-            Metric(label = "Tiempo", value = MovementFormat.duration(elapsedSeconds))
+            Metric(
+                label = stringResource(Res.string.movement_metric_distance),
+                value = distance.shown(),
+            )
+            Metric(
+                label = stringResource(Res.string.movement_metric_duration),
+                value = MovementFormat.duration(elapsedSeconds),
+            )
         }
     }
 }
@@ -245,10 +263,14 @@ private fun SessionControls(
                 },
             ),
         ) {
-            Text(if (isRecording) "Detener" else "Iniciar")
+            Text(
+                stringResource(
+                    if (isRecording) Res.string.tracker_stop else Res.string.tracker_start,
+                ),
+            )
         }
         OutlinedButton(onClick = onOpenHistory) {
-            Text("Historial")
+            Text(stringResource(Res.string.tracker_open_history))
         }
     }
 }

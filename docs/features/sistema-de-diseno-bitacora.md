@@ -377,3 +377,126 @@ ajuste funciona durante la sesión en vez de quedar muerto.
 **Próximos pasos (opciones).** (1) El slice 4, que saca los 46 textos en duro al catálogo y completa
 el inglés de 54 a 121 — es lo que hace falta antes de poder ofrecer el selector de idioma;
 (2) la pantalla de licencias, que ahora es barata; (3) saltar a las puertas de Movimiento.
+
+---
+
+## Slice 4 — Ningún texto vive fuera del catálogo (2026-09-06)
+
+**Objetivo.** Que ninguna cadena visible esté escrita en el código, y que el catálogo en inglés
+cubra lo mismo que el español. Es lo que hace falta antes de poder ofrecer un selector de idioma:
+un selector que lleva a media app sin traducir es peor que no tenerlo. Spec: escenarios `@slice-4`.
+
+### El problema resultó estar más abajo de donde el roadmap lo situaba
+
+El plan hablaba de «46 textos en duro» dentro de Composables. Al tirar del hilo, la copia empezaba
+tres capas más abajo:
+
+1. **`core` redactaba en español.** `ImportRouteUseCase`, `ExportRouteAsGpxUseCase` y
+   `SaveRouteFromSessionUseCase` devolvían `Result.Error(message: String)` con la frase ya escrita
+   —"La ruta ya no existe.", "La ruta necesita un nombre."—. Desde un módulo target-neutral esa
+   frase no la alcanza ningún catálogo: el día que el app hable inglés seguiría saliendo en español.
+2. **Los ViewModels redactaban.** `RoutesViewModel` exponía `message: String`;
+   `SessionDetailViewModel` devolvía `"Ruta guardada: …"` —el ejemplo que `AGENTS.md` cita por su
+   nombre— y además producía los rótulos de las ocho cifras del resumen y las líneas del
+   diagnóstico.
+3. **Cuatro estados de error llevaban el mensaje de la excepción.** `SleepHistoryViewModel` era el
+   peor: caía en `"Unknown error"`, **en inglés**, y se lo enseñaba a alguien usando el app en
+   español.
+
+Arreglar sólo los Composables habría dejado las tres capas de abajo intactas y el problema entero
+sin resolver, así que el slice bajó hasta `core`.
+
+### Decisiones y por qué
+
+1. **`RouteProblem` en `core`: un caso cerrado en vez de una frase.** Los tres casos de uso
+   devuelven ahora `Result.Failed(problem)`. La decisión de **cómo se dice** sube a la UI, que es la
+   única capa que puede leer recursos, y las pruebas pasan a afirmar sobre el caso — antes corregir
+   una coma rompía un test.
+2. **Un tipo de mensaje por ViewModel** (`RoutesMessage`, `SaveRouteMessage`), con el nombre de la
+   ruta viajando dentro. El nombre no es copia: lo escribió la persona.
+3. **Los estados de error pierden su `message`.** El texto de una excepción viene de la base o del
+   parser, está en inglés y habla de detalles que no ayudan. La UI pone la frase. Cuatro estados:
+   `SessionDetailUiState.Error`, `MovementHistoryUiState.Error`, `SleepHistoryUiState.Error`.
+4. **`SessionMetric` y `DiagnosisLabel` cerrados**, en vez de rótulos en `String`. De paso, los
+   tests dejan de buscar una fila del diagnóstico por su redacción en español.
+5. **Un solo sitio traduce: `feature/movement/ui/MovementCopy.kt`.** El mismo `RouteProblem` lo
+   enseñan la pantalla de rutas y la de detalle; sin esto cada una tendría su propia redacción del
+   mismo fallo.
+6. **`HazloHeader.kt` se borra.** Era el duplicado sin usar de `HazloTopAppBar` que `AGENTS.md`
+   nombra como deuda «a limpiar cuando se toque la zona»; llevaba además tres textos en duro. Esta
+   era esa vez.
+
+### Lo que se deja fuera, y por qué
+
+**`MockHomeRepository` y `SamplePillarHighlights` conservan su texto en español.** Son ~20 cadenas y
+no se traducen a propósito: no son copia de la interfaz sino **contenido de muestra**, que existe
+para ser sustituido por el backend —así lo decidió el roadmap del tablero: «el día que el backend
+los publique se cambia la implementación»—. Traducirlas sería trabajo que se tira, y además
+mentiría: el contenido real llegará del API en español. La regla de `AGENTS.md` que aquí aplica
+habla de Composables, y ninguno de los dos lo es.
+
+También se quedan, y no son deuda:
+
+- `HazloSkeleton` con `label = "skeleton"`: son etiquetas de animación para las herramientas de
+  Compose, no texto visible.
+- El `": "` y el `"%"` de `SleepSummaryCard`: la copia sale de un recurso, eso es formato.
+- Los nombres de mes de `MovementFormat`, que `AGENTS.md` ya declaró formato y no copia.
+
+### La prueba que impide la recaída
+
+`StringCatalogTest` es la única prueba del proyecto que lee el árbol de fuentes, y tiene motivo: el
+inglés llevaba meses en **54 cadenas contra 121** sin que nada fallara. Una clave que falta no rompe
+la compilación — Compose Resources cae al idioma por defecto y la pantalla sale en español a medias,
+que sólo se ve mirando la app en inglés. Comprueba cuatro cosas: que no falte ninguna clave, que no
+sobre ninguna, que los marcadores de formato (`%1$s`) coincidan entre idiomas —descuadrarlos revienta
+en ejecución, y sólo en el idioma que nadie prueba— y que ningún catálogo declare una clave dos veces.
+
+### Archivos tocados
+
+- **core:** `model/RouteProblem.kt` (nuevo); `ImportRouteUseCase`, `ExportRouteAsGpxUseCase`,
+  `SaveRouteFromSessionUseCase` (su `Result.Error` pasa a `Result.Failed`).
+- **Presentación:** `RoutesMessage.kt` y `SaveRouteMessage.kt` (nuevos); `RoutesViewModel`,
+  `SessionDetailViewModel` (+`SessionMetric`), `SessionDiagnosis.kt` (+`DiagnosisLabel`),
+  `MovementHistoryViewModel`, `SleepHistoryViewModel`.
+- **UI:** `feature/movement/ui/MovementCopy.kt` (nuevo, el único sitio que traduce); `TrackerScreen`,
+  `MovementHistoryScreen`, `RoutesScreen`, `SessionDetailScreen`, `SleepHistoryScreen`, `MainScreen`.
+- **Borrado:** `core/ui/components/atomic/HazloHeader.kt`.
+- **Recursos:** 73 cadenas nuevas en español; el catálogo en inglés pasa de **54 a 194**.
+- **Tests:** `StringCatalogTest.kt` (nuevo, 4); actualizados para afirmar el caso y no la redacción:
+  `SaveRouteFromSessionUseCaseTest`, `SaveSessionAsRouteTest`, `SessionDetailViewModelTest`,
+  `MovementHistoryViewModelTest`, `RoutesViewModelTest`.
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **129 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **317 pruebas, 0 fallos** (venían 313).
+- `.\gradlew.bat :core:check` y `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL los tres.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **Nadie ha visto el app en inglés.** El test compara catálogos, no pantallas: que las 194 cadenas
+  existan no dice que quepan. Frases como «You haven't recorded any outings yet…» son más largas que
+  su original y ninguna prueba mide si desbordan — que es exactamente el fallo que la barra inferior
+  acaba de tener. El slice 5, al hacer el idioma elegible, es lo que permitirá mirarlo.
+- **Las traducciones no las ha revisado un hablante nativo.**
+
+### Seguimientos
+
+- **Revisar el inglés en pantalla** en cuanto el slice 5 permita cambiar de idioma, buscando texto
+  que desborde.
+- **`MockHomeRepository` y `SamplePillarHighlights`** siguen siendo la ficción que le queda al app.
+  No es deuda de i18n; es que el backend todavía no publica campeones ni retos.
+- La pantalla de licencias sigue pendiente desde el slice 2.
+
+**Recap.** La copia sale del código y entra en el catálogo, y no sólo en las pantallas: `core` deja
+de redactar en español —devuelve un `RouteProblem` cerrado—, los ViewModels dejan de escribir frases
+—devuelven un mensaje que la UI traduce— y cuatro estados de error dejan de enseñar el texto de una
+excepción, uno de ellos un «Unknown error» en inglés. El catálogo en inglés pasa de 54 cadenas a 194,
+y una prueba nueva compara los dos idiomas clave por clave para que no vuelvan a separarse en
+silencio.
+
+**Próximos pasos (opciones).** (1) El slice 5, el selector de idioma, que ya no tiene nada que le
+falte y además es lo que permite mirar el inglés en pantalla; (2) la pantalla de licencias;
+(3) saltar a las puertas de Movimiento.

@@ -42,7 +42,7 @@ class RoutesViewModelTest {
 
         assertEquals(1, repository.stored.size)
         assertEquals("Subida al cerro", repository.stored.single().name)
-        assertTrue(viewModel.uiState.value.message.orEmpty().contains("Subida al cerro"))
+        assertEquals(RoutesMessage.Imported("Subida al cerro"), viewModel.uiState.value.message)
     }
 
     @Test
@@ -127,7 +127,8 @@ class RoutesViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertEquals("Subida al cerro", repository.stored.single().name)
-        assertEquals("La ruta necesita un nombre.", viewModel.uiState.value.message)
+        // El caso, no la frase: la redacción vive en el catálogo desde este slice.
+        assertEquals(RoutesMessage.NameRequired, viewModel.uiState.value.message)
     }
 
     @Test

@@ -33,6 +33,12 @@ import com.hazlosano.feature.movement.history.presentation.MovementHistoryUiStat
 import com.hazlosano.feature.movement.history.presentation.SessionListItem
 import com.hazlosano.feature.movement.history.presentation.createMovementHistoryViewModel
 import hazlosano.app.shared.generated.resources.Res
+import hazlosano.app.shared.generated.resources.movement_metric_distance
+import hazlosano.app.shared.generated.resources.movement_metric_duration
+import hazlosano.app.shared.generated.resources.outings_empty
+import hazlosano.app.shared.generated.resources.outings_failed
+import hazlosano.app.shared.generated.resources.outings_open_routes
+import hazlosano.app.shared.generated.resources.outings_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
@@ -49,7 +55,7 @@ fun MovementHistoryScreen(
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HazloTopAppBar(
-            title = "Historial",
+            title = stringResource(Res.string.outings_title),
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
@@ -59,7 +65,7 @@ fun MovementHistoryScreen(
             onClick = onOpenRoutes,
             modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
         ) {
-            Text("Mis rutas")
+            Text(stringResource(Res.string.outings_open_routes))
         }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -69,11 +75,14 @@ fun MovementHistoryScreen(
                 }
 
                 is MovementHistoryUiState.Empty -> CenteredBox {
-                    Message("Aún no has grabado sesiones. Pulsa \"Iniciar\" en el mapa para grabar la primera.")
+                    Message(stringResource(Res.string.outings_empty))
                 }
 
-                is MovementHistoryUiState.Error -> CenteredBox {
-                    Message(current.message, color = MaterialTheme.colorScheme.error)
+                MovementHistoryUiState.Error -> CenteredBox {
+                    Message(
+                        stringResource(Res.string.outings_failed),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
 
                 is MovementHistoryUiState.Sessions -> SessionList(current.items, onOpenSession)
@@ -119,8 +128,14 @@ private fun SessionRow(item: SessionListItem, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(top = HazloSpaces.sm),
                 horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
             ) {
-                SessionMetric(label = "Distancia", value = item.distanceLabel)
-                SessionMetric(label = "Tiempo", value = item.durationLabel)
+                SessionMetric(
+                    label = stringResource(Res.string.movement_metric_distance),
+                    value = item.distanceLabel,
+                )
+                SessionMetric(
+                    label = stringResource(Res.string.movement_metric_duration),
+                    value = item.durationLabel,
+                )
             }
         }
     }
