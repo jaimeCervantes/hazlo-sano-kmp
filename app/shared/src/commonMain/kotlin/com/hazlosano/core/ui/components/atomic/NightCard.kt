@@ -28,7 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarSleep
+import com.hazlosano.core.ui.theme.DarkHazloPalette
 import com.hazlosano.core.ui.util.formatClockTime
 import com.hazlosano.core.ui.util.formatWakeDate
 import com.hazlosano.domain.model.SleepNight
@@ -67,7 +67,10 @@ fun NightCard(night: SleepNight) {
                     Text(
                         qualityLabel(night.efficiency, night.sessions.size),
                         style = MaterialTheme.typography.labelSmall,
-                        color = PillarSleep,
+                        // La tarjeta va sobre un velo negro, así que la tinta es la del tema oscuro
+                        // aunque el app esté en claro. Se pide al tema y no al pilar porque este
+                        // componente es atómico y no puede saber qué es un pilar.
+                        color = DarkHazloPalette.sleep.ink,
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(

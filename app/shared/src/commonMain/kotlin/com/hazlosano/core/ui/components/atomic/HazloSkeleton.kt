@@ -30,7 +30,7 @@ import com.hazlosano.core.ui.theme.HazloShapes
 @Composable
 fun HazloSkeleton(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(HazloShapes.md),
+    shape: Shape = RoundedCornerShape(HazloShapes.control),
 ) {
     val transition = rememberInfiniteTransition(label = "skeleton")
     val alpha by transition.animateFloat(

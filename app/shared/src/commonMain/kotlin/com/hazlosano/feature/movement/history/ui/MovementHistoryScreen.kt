@@ -26,8 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarMovement
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.history.presentation.MovementHistoryUiState
 import com.hazlosano.feature.movement.history.presentation.SessionListItem
 import com.hazlosano.feature.movement.history.presentation.createMovementHistoryViewModel
@@ -64,7 +65,7 @@ fun MovementHistoryScreen(
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {
                 is MovementHistoryUiState.Loading -> CenteredBox {
-                    CircularProgressIndicator(color = PillarMovement)
+                    CircularProgressIndicator(color = PillarType.MOVEMENT.palette().ink)
                 }
 
                 is MovementHistoryUiState.Empty -> CenteredBox {
@@ -132,7 +133,7 @@ private fun SessionMetric(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = PillarMovement,
+            color = PillarType.MOVEMENT.palette().ink,
         )
         Text(
             text = label,

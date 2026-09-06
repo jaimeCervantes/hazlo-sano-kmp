@@ -34,7 +34,7 @@ fun HazloChampionCard(
     stat: String,
     imageUrl: String,
     modifier: Modifier = Modifier,
-    accentColor: Color = Color(0xFFF0380E),
+    accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     LeafCard(
         modifier = modifier.width(200.dp).height(120.dp),

@@ -34,9 +34,10 @@ import com.hazlosano.core.ui.components.cards.HazloProductCardImagePlaceholder
 import com.hazlosano.core.ui.components.sections.HazloExploreProductsSection
 import com.hazlosano.core.ui.components.sections.pillarCatalogSkeleton
 import com.hazlosano.core.ui.components.sections.pillarSummarySkeleton
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
+import com.hazlosano.core.ui.model.pillarInkOnImage
 import com.hazlosano.core.ui.model.pillarLabel
-import com.hazlosano.core.ui.model.toColor
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.core.ui.util.formatClockTime
 import com.hazlosano.core.ui.util.formatDate
@@ -133,7 +134,7 @@ fun PillarCatalogContent(
     onOpenInfo: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val accent = pillar.toColor()
+    val accent = pillar.palette().ink
 
     LazyColumn(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -158,7 +159,7 @@ fun PillarCatalogContent(
         pillarCatalogPlaceholder(state = state, onRetry = onRetry, onOpenInfo = onOpenInfo)
 
         if (state is PillarCatalogUiState.Ready) {
-            pillarCatalogSections(pillar = pillar, sections = state.sections)
+            pillarCatalogSections(pillar = pillar, sections = state.sections, accent = accent)
         }
     }
 }
@@ -182,7 +183,7 @@ private fun LazyListScope.pillarSummary(
             PillarSummaryCard(
                 title = pillarLabel(pillar),
                 icon = pillarIcon(pillar),
-                accentColor = pillar.toColor(),
+                accentColor = pillarInkOnImage(pillar),
                 metrics = listOf(
                     PillarMetric(
                         value = state.sections.total.toString(),
@@ -224,8 +225,13 @@ private fun LazyListScope.pillarSummary(
 fun LazyListScope.pillarCatalogSections(
     pillar: PillarType,
     sections: CatalogSections,
+    /**
+     * La tinta del pilar. Llega como parámetro y no se resuelve aquí porque esto es una extensión de
+     * `LazyListScope`, no un `@Composable`: dentro no hay composición donde leer el tema, así que
+     * resolverla aquí significaría fijarla al claro y dejar el modo oscuro con la tinta equivocada.
+     */
+    accent: androidx.compose.ui.graphics.Color,
 ) {
-    val accent = pillar.toColor()
 
     // Cada carrusel se dibuja solo si tiene algo. Un encabezado sobre una fila vacía es peor
     // que la ausencia de la sección: promete contenido que no llega.

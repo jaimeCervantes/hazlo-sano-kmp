@@ -8,10 +8,10 @@ import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.hazlosano.core.ui.theme.PillarMind
-import com.hazlosano.core.ui.theme.PillarMovement
-import com.hazlosano.core.ui.theme.PillarNutrition
-import com.hazlosano.core.ui.theme.PillarSleep
+import com.hazlosano.core.ui.theme.DarkHazloPalette
+import com.hazlosano.core.ui.theme.HazloPalette
+import com.hazlosano.core.ui.theme.LocalHazloPalette
+import com.hazlosano.core.ui.theme.PillarPalette
 import com.hazlosano.domain.model.PillarType
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.pillar_mind
@@ -46,19 +46,39 @@ fun pillarLabel(pillar: PillarType): String = stringResource(
     },
 )
 
-/** El color de marca del pilar. Los cuatro ya estaban definidos en el tema. */
-fun PillarType.toColor(): Color = when (this) {
-    PillarType.SLEEP -> PillarSleep
-    PillarType.MOVEMENT -> PillarMovement
-    PillarType.NUTRITION -> PillarNutrition
-    PillarType.MIND -> PillarMind
+/**
+ * Los tres papeles del pilar: relleno, papel tenue y tinta.
+ *
+ * Sustituye al antiguo `toColor()`, que devolvía **un** color para los dos trabajos. Con un solo
+ * tono la elección correcta no existía: nueve pantallas escribían cifras con el color de relleno del
+ * pilar, y tres de los cuatro rellenos no llegaban a AA como tinta. Devolver la paleta obliga a
+ * decir para qué se quiere el color, que es lo que hace visible el error.
+ */
+@Composable
+fun PillarType.palette(): PillarPalette = LocalHazloPalette.current.of(this)
+
+/** La misma resolución, fuera de una composición — para tests y para previews. */
+fun HazloPalette.of(pillar: PillarType): PillarPalette = when (pillar) {
+    PillarType.SLEEP -> sleep
+    PillarType.MOVEMENT -> movement
+    PillarType.NUTRITION -> nutrition
+    PillarType.MIND -> mind
 }
 
 /**
- * El icono del pilar — los mismos cuatro que ya usa la barra inferior.
+ * La tinta de un pilar cuando va **encima de una foto o de un velo negro**.
  *
- * `BottomTab` sigue llevando los suyos en duro porque también tiene una pestaña que no es un pilar;
- * queda anotado como lo único que falta por unificar de esta familia.
+ * No depende del tema, y eso es deliberado: la tarjeta de un pilar en Inicio, la de una noche y el
+ * resumen de sueño pintan sobre una imagen oscurecida, así que su fondo es oscuro también cuando el
+ * app está en claro. Con la tinta del tema activo, en modo claro el texto quedaría en el verde
+ * oscuro (#3C7B0F) sobre negro — ilegible. Sobre foto, el suelo siempre es oscuro, así que la tinta
+ * siempre es la del tema oscuro.
+ */
+fun pillarInkOnImage(pillar: PillarType): Color = DarkHazloPalette.of(pillar).ink
+
+/**
+ * El icono del pilar — los mismos cuatro que usa la barra inferior, que los lee de aquí desde que
+ * dejó de llevar su propia copia.
  */
 fun pillarIcon(pillar: PillarType): ImageVector = when (pillar) {
     PillarType.SLEEP -> Icons.Filled.Bedtime

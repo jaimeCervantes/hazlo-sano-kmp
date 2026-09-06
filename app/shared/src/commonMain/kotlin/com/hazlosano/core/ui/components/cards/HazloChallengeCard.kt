@@ -48,7 +48,7 @@ fun HazloChallengeCard(
     progress: Float,
     imageUrl: String,
     modifier: Modifier = Modifier,
-    accentColor: Color = Color(0xFFF0380E),
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     onClick: () -> Unit = {},
 ) {
     Card(

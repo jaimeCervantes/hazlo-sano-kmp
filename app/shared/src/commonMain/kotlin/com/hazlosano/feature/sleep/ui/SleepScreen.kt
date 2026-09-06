@@ -27,7 +27,8 @@ import com.hazlosano.core.ui.components.atomic.HazloSkeleton
 import com.hazlosano.core.ui.components.atomic.SleepSummaryCard
 import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarSleep
+import com.hazlosano.core.ui.model.palette
+import com.hazlosano.core.ui.model.pillarInkOnImage
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.catalog.presentation.PillarCatalogUiState
 import com.hazlosano.feature.catalog.ui.CatalogStaleNotice
@@ -103,6 +104,9 @@ internal fun SleepDashboardContent(
     onOpenInfo: () -> Unit = {},
     onRetry: () -> Unit = {},
 ) {
+    // Se resuelve fuera del `LazyColumn` porque dentro ya no hay composición donde leer el tema.
+    val sleepInk = PillarType.SLEEP.palette().ink
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
@@ -118,7 +122,7 @@ internal fun SleepDashboardContent(
         // Campeones y retos salen ahora de la misma fuente que los de los otros tres pilares.
         // Antes vivían escritos dentro de `MockSleepRepository`, que era la única copia de un
         // contenido que los cuatro pilares necesitaban igual.
-        pillarHighlights(state = highlights, accent = PillarSleep)
+        pillarHighlights(state = highlights, accent = sleepInk)
 
         // El catálogo del pilar, leído del sitio. Hasta la migración esta sección enseñaba una lista
         // escrita en el código —un antifaz a 18.0 que no existía en ninguna parte—, que era la misma
@@ -131,7 +135,11 @@ internal fun SleepDashboardContent(
         pillarCatalogPlaceholder(state = catalogState, onRetry = onRetryCatalog, onOpenInfo = onOpenInfo)
 
         if (catalogState is PillarCatalogUiState.Ready) {
-            pillarCatalogSections(pillar = PillarType.SLEEP, sections = catalogState.sections)
+            pillarCatalogSections(
+                pillar = PillarType.SLEEP,
+                sections = catalogState.sections,
+                accent = sleepInk,
+            )
         }
     }
 }
@@ -158,7 +166,7 @@ private fun LazyListScope.sleepSummary(
                         .fillMaxWidth()
                         .height(SUMMARY_HEIGHT)
                         .testTag(SleepTags.SUMMARY_GAP),
-                    shape = RoundedCornerShape(HazloShapes.xl),
+                    shape = RoundedCornerShape(HazloShapes.card),
                 )
             }
             item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
@@ -186,7 +194,7 @@ private fun LazyListScope.sleepSummary(
             item {
                 SleepSummaryCard(
                     analysis = analysis,
-                    accentColor = PillarSleep,
+                    accentColor = pillarInkOnImage(PillarType.SLEEP),
                     modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
                     onRefresh = onRefresh,
                     onClick = onCardClick,

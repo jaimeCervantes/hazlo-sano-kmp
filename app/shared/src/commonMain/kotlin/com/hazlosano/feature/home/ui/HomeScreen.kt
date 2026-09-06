@@ -47,12 +47,13 @@ import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.atomic.SleepSummaryCard
 import com.hazlosano.core.ui.components.sections.HazloChampionsSection
 import com.hazlosano.core.ui.components.sections.pillarHighlightsSkeleton
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
-import com.hazlosano.core.ui.model.toColor
+import com.hazlosano.core.ui.model.pillarInkOnImage
 import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarSleep
 import com.hazlosano.domain.model.FeedPost
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.HomeContent
 import com.hazlosano.domain.model.PillarAction
 import com.hazlosano.domain.model.PillarOverview
@@ -117,7 +118,7 @@ internal fun HomeBoard(
             item {
                 SleepSummaryCard(
                     analysis = sleepAnalysis,
-                    accentColor = PillarSleep,
+                    accentColor = pillarInkOnImage(PillarType.SLEEP),
                     modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
                     onRefresh = onRefreshSleep,
                     onClick = onSleepCardClick,
@@ -218,7 +219,10 @@ private fun PillarsOverviewSection(
 
 @Composable
 private fun LargePillarCard(pillar: PillarOverview, onNavigateToTracker: () -> Unit) {
-    val pillarColor = pillar.pillarType.toColor()
+    // La tarjeta pinta sobre una foto oscurecida, así que su tinta es la del tema oscuro pase lo que
+    // pase; el botón de acción sí se rellena, y ahí va el tono saturado que sostiene el icono blanco.
+    val pillarInk = pillarInkOnImage(pillar.pillarType)
+    val pillarSolid = pillar.pillarType.palette().solid
     val onClick: (() -> Unit)? = when (pillar.action) {
         PillarAction.TRACKER -> onNavigateToTracker
         null -> null
@@ -236,20 +240,20 @@ private fun LargePillarCard(pillar: PillarOverview, onNavigateToTracker: () -> U
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(pillar.title, style = MaterialTheme.typography.titleMedium, color = pillarColor, fontWeight = FontWeight.Bold)
+                    Text(pillar.title, style = MaterialTheme.typography.titleMedium, color = pillarInk, fontWeight = FontWeight.Bold)
                     Text(pillar.stat, style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
                     Text(pillar.subtitle, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
                 }
                 if (pillar.action != null) {
                     Box(
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(HazloShapes.lg)).background(pillarColor),
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(HazloShapes.control)).background(pillarSolid),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = null, tint = Color.White)
                     }
                 } else {
                     val icon = pillarIcon(pillar.pillarType)
-                    Icon(imageVector = icon, contentDescription = null, tint = pillarColor, modifier = Modifier.size(48.dp))
+                    Icon(imageVector = icon, contentDescription = null, tint = pillarInk, modifier = Modifier.size(48.dp))
                 }
             }
         }
@@ -258,7 +262,7 @@ private fun LargePillarCard(pillar: PillarOverview, onNavigateToTracker: () -> U
 
 @Composable
 private fun SmallPillarCard(pillar: PillarOverview, modifier: Modifier = Modifier) {
-    val pillarColor = pillar.pillarType.toColor()
+    val pillarColor = pillarInkOnImage(pillar.pillarType)
 
     LeafCard(modifier = modifier.aspectRatio(1f), tonalElevation = 2.dp) {
         AsyncImageBackground(imageUrl = pillar.imageUrl, contentDescription = pillar.title) {
@@ -283,7 +287,7 @@ private fun SmallPillarCard(pillar: PillarOverview, modifier: Modifier = Modifie
 
 @Composable
 private fun FeedPostCard(post: FeedPost) {
-    val pillarColor = post.pillarType.toColor()
+    val pillarPalette = post.pillarType.palette()
 
     LeafCard(
         modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.unit),
@@ -300,7 +304,7 @@ private fun FeedPostCard(post: FeedPost) {
                         model = "https://api.dicebear.com/7.x/notionists/png?seed=${post.avatarSeed}&backgroundColor=transparent",
                         contentDescription = null,
                         modifier = Modifier.size(48.dp)
-                            .clip(RoundedCornerShape(HazloShapes.xl))
+                            .clip(RoundedCornerShape(HazloShapes.pill))
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                     )
                     Spacer(modifier = Modifier.width(HazloSpaces.sm))
@@ -309,7 +313,7 @@ private fun FeedPostCard(post: FeedPost) {
                         Text(post.timeAgo, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                PillarBadge(label = post.pillarType.label, color = pillarColor)
+                PillarBadge(label = post.pillarType.label, palette = pillarPalette)
             }
             Spacer(modifier = Modifier.height(HazloSpaces.md))
             Text(text = post.content, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
@@ -318,7 +322,7 @@ private fun FeedPostCard(post: FeedPost) {
                 HazloAsyncImage(
                     model = post.imageUrl,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(HazloShapes.lg)),
+                    modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(HazloShapes.card)),
                     contentScale = ContentScale.Crop,
                 )
             }

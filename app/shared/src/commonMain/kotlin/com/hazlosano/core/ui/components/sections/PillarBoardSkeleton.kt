@@ -43,7 +43,7 @@ fun LazyListScope.pillarSummarySkeleton() {
                 .fillMaxWidth()
                 .height(SUMMARY_HEIGHT)
                 .testTag(PillarBoardSkeletonTags.SUMMARY),
-            shape = RoundedCornerShape(HazloShapes.xl),
+            shape = RoundedCornerShape(HazloShapes.card),
         )
     }
 }
@@ -88,7 +88,7 @@ fun LazyListScope.pillarCatalogSkeleton() {
             Spacer(modifier = Modifier.height(HazloSpaces.unit))
             HazloSkeleton(
                 modifier = Modifier.fillMaxWidth().height(SEARCH_FIELD_HEIGHT),
-                shape = RoundedCornerShape(HazloShapes.full),
+                shape = RoundedCornerShape(HazloShapes.pill),
             )
             Spacer(modifier = Modifier.height(GRID_SPACING))
 
@@ -121,7 +121,7 @@ fun LazyListScope.pillarCatalogSkeleton() {
 fun HazloSectionTitleSkeleton(modifier: Modifier = Modifier) {
     HazloSkeleton(
         modifier = modifier.width(SECTION_TITLE_WIDTH).height(SECTION_TITLE_HEIGHT),
-        shape = RoundedCornerShape(HazloShapes.sm),
+        shape = RoundedCornerShape(HazloShapes.chip),
     )
 }
 

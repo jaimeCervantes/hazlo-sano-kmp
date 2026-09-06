@@ -37,9 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarMovement
 import com.hazlosano.domain.feature.movement.model.Route
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.routes.presentation.RoutesViewModel
 import hazlosano.app.shared.generated.resources.Res
@@ -236,7 +237,7 @@ private fun RouteMetric(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = PillarMovement,
+            color = PillarType.MOVEMENT.palette().ink,
         )
         Text(
             text = label,

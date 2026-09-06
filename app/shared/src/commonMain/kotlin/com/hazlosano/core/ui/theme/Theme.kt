@@ -5,49 +5,94 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.staticCompositionLocalOf
 
-private val DarkColorScheme = darkColorScheme(
-    primary = HazloSanoGreen,
-    onPrimary = Color.White,
-    primaryContainer = Green40,
-    onPrimaryContainer = Green80,
-    secondary = HazloSanoOrange,
-    onSecondary = Color.White,
-    tertiary = Green40,
-    onTertiary = Color.White,
-    background = DarkBackground,
-    onBackground = DarkOnBackground,
-    surface = DarkSurface,
-    onSurface = DarkOnSurface,
-    surfaceVariant = DarkSurfaceVariant,
-    onSurfaceVariant = DarkOnSurfaceVariant,
-)
+/**
+ * La paleta activa, para lo que Material 3 no modela: las rampas de los cuatro pilares y los papeles
+ * de marca. Lo que sí modela Material —fondo, superficie, primario, error— se lee de
+ * `MaterialTheme.colorScheme`, que se deriva de esta misma paleta unas líneas más abajo. Una sola
+ * fuente, dos ventanas.
+ */
+val LocalHazloPalette: ProvidableCompositionLocal<HazloPalette> =
+    staticCompositionLocalOf { LightHazloPalette }
 
-private val LightColorScheme = lightColorScheme(
-    primary = HazloSanoGreen,
-    onPrimary = Color.White,
-    primaryContainer = GreenGrey80,
-    onPrimaryContainer = Green40,
-    secondary = HazloSanoOrange,
-    onSecondary = Color.White,
-    tertiary = GreenGrey40,
-    background = LightBackground,
-    onBackground = LightOnBackground,
-    surface = LightSurface,
-    onSurface = LightOnSurface,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = LightOnSurfaceVariant,
-)
+/**
+ * Traduce la paleta a los papeles de Material 3.
+ *
+ * Es una traducción, no una copia: `surface` es la elevación 1 del sitio y `background` es su papel,
+ * que son cosas distintas —antes los dos valían `#FFFBFF` y por eso una tarjeta no se despegaba del
+ * fondo—. `onPrimary` sale de `buttonPrimaryText` y no de un blanco fijo, porque en oscuro el
+ * relleno se aclara y el texto tiene que oscurecerse con él.
+ */
+private fun HazloPalette.toColorScheme(dark: Boolean) = if (dark) {
+    darkColorScheme(
+        primary = brandGreen,
+        onPrimary = buttonPrimaryText,
+        primaryContainer = brandGreenSoft,
+        onPrimaryContainer = brandGreenInk,
+        secondary = brandOrange,
+        onSecondary = buttonPrimaryText,
+        secondaryContainer = brandOrangeSoft,
+        onSecondaryContainer = feedbackErrorInk,
+        tertiary = brandGray,
+        onTertiary = textBase,
+        tertiaryContainer = surfaceElevation2,
+        onTertiaryContainer = textBase,
+        background = surfaceBackground,
+        onBackground = textBase,
+        surface = surfaceElevation1,
+        onSurface = textBase,
+        surfaceVariant = surfaceElevation2,
+        onSurfaceVariant = textSupport,
+        outline = borderField,
+        outlineVariant = border,
+        error = feedbackError,
+        onError = buttonPrimaryText,
+        errorContainer = feedbackErrorSoft,
+        onErrorContainer = feedbackErrorInk,
+    )
+} else {
+    lightColorScheme(
+        primary = brandGreen,
+        onPrimary = buttonPrimaryText,
+        primaryContainer = brandGreenSoft,
+        onPrimaryContainer = brandGreenInk,
+        secondary = brandOrange,
+        onSecondary = brandWhite,
+        secondaryContainer = brandOrangeSoft,
+        onSecondaryContainer = feedbackErrorInk,
+        tertiary = brandGray,
+        onTertiary = brandWhite,
+        tertiaryContainer = surfaceElevation2,
+        onTertiaryContainer = textBase,
+        background = surfaceBackground,
+        onBackground = textBase,
+        surface = surfaceElevation1,
+        onSurface = textBase,
+        surfaceVariant = surfaceElevation2,
+        onSurfaceVariant = textSupport,
+        outline = borderField,
+        outlineVariant = border,
+        error = feedbackError,
+        onError = brandWhite,
+        errorContainer = feedbackErrorSoft,
+        onErrorContainer = feedbackErrorInk,
+    )
+}
 
 @Composable
 fun HazloSanoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
-        typography = Typography,
-        content = content,
-    )
+    val palette = if (darkTheme) DarkHazloPalette else LightHazloPalette
+    CompositionLocalProvider(LocalHazloPalette provides palette) {
+        MaterialTheme(
+            colorScheme = palette.toColorScheme(darkTheme),
+            typography = Typography,
+            content = content,
+        )
+    }
 }

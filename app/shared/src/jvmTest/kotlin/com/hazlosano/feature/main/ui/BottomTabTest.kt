@@ -1,12 +1,12 @@
 package com.hazlosano.feature.main.ui
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
 import com.hazlosano.core.ui.model.pillarLabel
-import com.hazlosano.core.ui.model.toColor
+import com.hazlosano.core.ui.theme.PillarPalette
 import com.hazlosano.domain.model.PillarType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,19 +19,21 @@ import kotlin.test.assertEquals
 @OptIn(ExperimentalTestApi::class)
 class BottomTabTest {
 
-    private class Captured(val label: String, val icon: ImageVector, val color: Color)
+    private class Captured(val label: String, val icon: ImageVector, val palette: PillarPalette)
 
     private fun assertMatchesPillar(tab: BottomTab, pillar: PillarType) = runComposeUiTest {
         lateinit var actual: Captured
         lateinit var expected: Captured
         setContent {
-            actual = Captured(tab.label(), tab.icon(), tab.color())
-            expected = Captured(pillarLabel(pillar), pillarIcon(pillar), pillar.toColor())
+            actual = Captured(tab.label(), tab.icon(), tab.palette())
+            expected = Captured(pillarLabel(pillar), pillarIcon(pillar), pillar.palette())
         }
 
         assertEquals(expected.label, actual.label)
         assertEquals(expected.icon, actual.icon)
-        assertEquals(expected.color, actual.color)
+        // Los tres papeles, no sólo uno: la pestaña rellena su indicador con `solid` y escribe su
+        // etiqueta con `ink`, así que comparar un color suelto ya no diría si coinciden.
+        assertEquals(expected.palette, actual.palette)
     }
 
     @Test

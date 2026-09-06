@@ -79,7 +79,7 @@ fun LazyListScope.homeFeedSkeleton() {
     }
 }
 
-private val CARD_SHAPE = RoundedCornerShape(HazloShapes.lg)
+private val CARD_SHAPE = RoundedCornerShape(HazloShapes.card)
 private val LARGE_PILLAR_HEIGHT: Dp = 140.dp
 private val FEED_POST_HEIGHT: Dp = 320.dp
 private const val SMALL_PILLARS = 2

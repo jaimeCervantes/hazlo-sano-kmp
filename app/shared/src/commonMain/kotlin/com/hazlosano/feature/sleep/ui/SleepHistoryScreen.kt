@@ -44,7 +44,9 @@ import coil3.compose.AsyncImage
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.components.atomic.NightCard
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarSleep
+import com.hazlosano.core.ui.model.palette
+import com.hazlosano.core.ui.model.pillarInkOnImage
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepHistory
 import com.hazlosano.feature.sleep.presentation.SleepHistoryUiState
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
@@ -74,7 +76,7 @@ fun SleepHistoryScreen(viewModel: SleepHistoryViewModel) {
         is SleepHistoryUiState.Loading -> Box(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center,
-        ) { CircularProgressIndicator(color = PillarSleep) }
+        ) { CircularProgressIndicator(color = PillarType.SLEEP.palette().ink) }
 
         is SleepHistoryUiState.Error -> Box(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -126,7 +128,7 @@ private fun MetricsCard(history: SleepHistory) {
         Column(modifier = Modifier.padding(HazloSpaces.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(36.dp).clip(CircleShape).background(PillarSleep),
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(PillarType.SLEEP.palette().solid),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Filled.Bedtime, null, tint = Color.White, modifier = Modifier.size(22.dp))
@@ -179,7 +181,7 @@ private fun Metric(icon: ImageVector, label: String, value: String) {
 private fun TrendMetric(label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.AutoMirrored.Filled.TrendingUp, null, tint = Color.White, modifier = Modifier.size(22.dp))
-        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = PillarSleep)
+        Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = pillarInkOnImage(PillarType.SLEEP))
         Text(stringResource(Res.string.history_trend_label), style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = 0.6f))
     }

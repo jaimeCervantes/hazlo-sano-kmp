@@ -24,10 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
 import com.hazlosano.core.ui.model.pillarLabel
-import com.hazlosano.core.ui.model.toColor
-import com.hazlosano.core.ui.theme.HazloSanoGreen
+import com.hazlosano.core.ui.theme.LocalHazloPalette
+import com.hazlosano.core.ui.theme.PillarPalette
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.repository.SleepSessionRepository
@@ -80,7 +81,22 @@ internal fun BottomTab.label(): String =
 
 internal fun BottomTab.icon(): ImageVector = pillar?.let { pillarIcon(it) } ?: Icons.Filled.Home
 
-internal fun BottomTab.color(): Color = pillar?.toColor() ?: HazloSanoGreen
+/**
+ * Los papeles de la pestaña. Son dos y no uno: el indicador se **rellena** y la etiqueta se
+ * **escribe**, así que antes el mismo tono hacía de fondo saturado y de tinta sobre el papel — y en
+ * tres de los cuatro pilares no servía para lo segundo.
+ *
+ * Inicio no es un pilar, así que toma el verde de marca en los dos papeles.
+ */
+@Composable
+internal fun BottomTab.palette(): PillarPalette {
+    val brand = LocalHazloPalette.current
+    return pillar?.palette() ?: PillarPalette(
+        solid = brand.brandGreen,
+        soft = brand.brandGreenSoft,
+        ink = brand.brandGreen,
+    )
+}
 
 @Composable
 fun MainScreen(
@@ -188,7 +204,7 @@ fun MainScreen(
                     BottomTab.entries.forEach { tab ->
                         val selected = selectedTab == tab
                         val label = tab.label()
-                        val color = tab.color()
+                        val palette = tab.palette()
                         NavigationBarItem(
                             icon = {
                                 Icon(
@@ -201,8 +217,8 @@ fun MainScreen(
                             onClick = { selectedTab = tab },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Color.White,
-                                selectedTextColor = color,
-                                indicatorColor = color,
+                                selectedTextColor = palette.ink,
+                                indicatorColor = palette.solid,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             ),

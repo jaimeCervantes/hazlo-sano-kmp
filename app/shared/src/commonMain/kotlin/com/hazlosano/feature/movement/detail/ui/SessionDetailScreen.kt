@@ -27,8 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
-import com.hazlosano.core.ui.theme.PillarMovement
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.detail.presentation.SessionDetailUi
 import com.hazlosano.feature.movement.detail.presentation.SessionDetailUiState
 import com.hazlosano.feature.movement.detail.presentation.SessionDiagnosisUi
@@ -80,7 +81,7 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {
                 is SessionDetailUiState.Loading -> CenteredBox {
-                    CircularProgressIndicator(color = PillarMovement)
+                    CircularProgressIndicator(color = PillarType.MOVEMENT.palette().ink)
                 }
 
                 is SessionDetailUiState.Missing -> CenteredBox {
@@ -246,7 +247,7 @@ private fun SummaryMetric(label: String, value: String) {
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = PillarMovement,
+            color = PillarType.MOVEMENT.palette().ink,
         )
         Text(
             text = label,

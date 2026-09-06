@@ -38,7 +38,6 @@ import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 object HazloProductCardDefaults {
-    val accentColor: Color = Color(0xFFF0380E)
     val containerShape: RoundedCornerShape = RoundedCornerShape(
         topStart = 24.dp,
         topEnd = 8.dp,
@@ -74,7 +73,7 @@ fun HazloProductCard(
      * esto se sigue pudiendo dibujar sin entorno de recursos.
      */
     overlineLabel: String? = null,
-    accentColor: Color = HazloProductCardDefaults.accentColor,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     favoriteContentDescription: String = HazloProductCardDefaults.favoriteContentDescription,
     distanceContentDescription: String = HazloProductCardDefaults.distanceContentDescription,
     imageContent: @Composable BoxScope.() -> Unit = {
@@ -190,7 +189,7 @@ fun HazloProductCard(
 fun HazloProductCardImagePlaceholder(
     title: String,
     modifier: Modifier = Modifier,
-    accentColor: Color = HazloProductCardDefaults.accentColor,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
 ) {
     val initials = remember(title) { hazloProductInitials(title) }
 

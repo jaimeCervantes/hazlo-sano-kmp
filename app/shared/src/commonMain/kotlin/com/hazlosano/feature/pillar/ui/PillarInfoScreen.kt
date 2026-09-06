@@ -27,7 +27,7 @@ import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.pillarIcon
 import com.hazlosano.core.ui.model.pillarLabel
-import com.hazlosano.core.ui.model.toColor
+import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.model.PillarType
 import hazlosano.app.shared.generated.resources.Res
@@ -73,7 +73,7 @@ fun PillarInfoScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val accent = pillar.toColor()
+    val accent = pillar.palette().ink
     val text = pillarInfoText(pillar)
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -131,7 +131,7 @@ private fun PillarInfoHero(
     title: String,
     tagline: String,
 ) {
-    val accent = pillar.toColor()
+    val accent = pillar.palette()
 
     Column(
         modifier = Modifier
@@ -142,13 +142,16 @@ private fun PillarInfoHero(
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(accent.copy(alpha = BADGE_ALPHA)),
+                // El chip usa la pareja `soft`/`ink` del pilar en vez de fabricar el fondo con un
+                // 25 % del mismo tono: un tinte por alfa no garantiza contraste con la tinta que
+                // lleva encima, y era como el azul de Mente acababa en 2.14:1.
+                .background(accent.soft),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = pillarIcon(pillar),
                 contentDescription = null,
-                tint = accent,
+                tint = accent.ink,
                 modifier = Modifier.size(32.dp),
             )
         }
@@ -167,7 +170,7 @@ private fun PillarInfoHero(
         Text(
             text = tagline,
             style = MaterialTheme.typography.titleMedium,
-            color = accent,
+            color = accent.ink,
         )
     }
 }
@@ -246,4 +249,3 @@ private fun pillarInfoText(pillar: PillarType): PillarInfoText = when (pillar) {
     )
 }
 
-private const val BADGE_ALPHA = 0.25f
