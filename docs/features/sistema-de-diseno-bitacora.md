@@ -130,3 +130,76 @@ la próxima divergencia falla en la consola y no en la pantalla de alguien.
 empaquetadas—, que es lo siguiente del roadmap; (2) cablear `HazloElevation` a los componentes de
 tarjeta, que quedó declarado sin consumidor; (3) saltar al slice 3, el selector de tema, si prefieres
 ver antes algo que se pueda tocar.
+
+---
+
+## Slice 2 — Las dos voces de la marca (2026-09-05)
+
+**Objetivo.** Que el app deje de sonar a panel de administración. El sitio reparte su tipografía en
+dos trabajos —Newsreader para lo que la marca **afirma**, Plus Jakarta Sans para lo que la interfaz
+**opera**— y el app iba con `FontFamily.Default` y **un solo estilo declarado** (`bodyLarge`), con
+los otros catorce en los de Material. Spec: escenarios `@slice-2`.
+
+### Decisiones y por qué
+
+1. **Las fuentes van empaquetadas, no pedidas a un servidor.** El pilar de Movimiento existe para
+   usarse en el monte; una fuente que no carga es una pantalla sin texto. Son 627 KB entre las dos.
+2. **Se empaquetan las variables, y no las estáticas, porque las estáticas ya no se distribuyen.**
+   El endpoint `fonts.google.com/download?family=…` devuelve hoy HTML en vez de un zip, y
+   `google/fonts` sólo publica `Newsreader[opsz,wght].ttf` y `PlusJakartaSans[wght].ttf`. Se
+   comprobó que Compose Multiplatform 1.11 acepta `Font(resource, weight, style, variationSettings)`,
+   así que cada peso se registra fijando el eje `wght`.
+3. **Consecuencia declarada: Android 7 no verá los pesos.** Los ejes variables piden API 26 y el
+   `minSdk` del proyecto es **24**. En 24 y 25 las dos caras salen en su instancia por defecto (400)
+   y el sistema sintetiza la negrita. Es la degradación que costaba menos: la alternativa era
+   empaquetar siete archivos que ya no existen río arriba.
+4. **La frontera entre las dos voces es de trabajo, no de tamaño.** `display` y `headline` hablan con
+   la serif; de `title` hacia abajo manda la sans, aunque `titleLarge` (22) sea mayor que
+   `headlineSmall` (20). Un `titleMedium` es el nombre de una sección, y una sección la opera la
+   interfaz.
+5. **Los quince estilos de Material se declaran, ninguno se deja al azar.** Es lo que el test
+   comprueba: que ninguno se quede en la fuente del sistema, que era exactamente el estado anterior.
+
+### Archivos tocados
+
+- **Fuentes:** `app/shared/src/commonMain/composeResources/font/newsreader.ttf` (451 KB),
+  `plus_jakarta_sans.ttf` (176 KB).
+- **Licencias:** `app/shared/licenses/Newsreader-OFL.txt`, `PlusJakartaSans-OFL.txt`. La OFL pide que
+  la licencia acompañe a la fuente.
+- **Tema:** `core/ui/theme/Type.kt` reescrito (`hazloDisplayFamily`, `hazloUiFamily`,
+  `hazloTypography`), `Theme.kt` (una línea: pasa a `hazloTypography()`).
+- **Tests:** `jvmTest/core/ui/theme/HazloTypographyTest.kt` (nuevo, 3 pruebas).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :app:shared:jvmTest` → **297 pruebas, 0 fallos** (+3 sobre el slice 1).
+- `.\gradlew.bat :app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:desktopApp:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:webApp:check` → BUILD SUCCESSFUL.
+
+### Sin cobertura de host (dicho explícitamente)
+
+- **Que las fuentes se vean no lo comprueba nada.** El test mide tamaños y familias del `Typography`,
+  no el render: nadie afirma que el glifo que aparece sea Newsreader. Comprobación manual al
+  instalar, y en particular en la web, donde la carga de una fuente empaquetada pasa por otro camino.
+- **El eje `opsz` de Newsreader se queda en su valor por defecto.** Es una serif de óptico variable:
+  fijando sólo `wght`, un titular de 56 usa el mismo dibujo que uno de 20. Se ve, aunque poco; queda
+  como afinado posible.
+- **La degradación de Android 24-25 no está probada en dispositivo**, sólo razonada desde el `minSdk`.
+
+### Seguimientos
+
+- **Una pantalla de licencias.** Los dos OFL viven en el repo, que cumple la atribución para quien
+  lea el código, pero el app no los enseña. Candidato natural: la pantalla de ajustes del slice 3.
+- El eje `opsz`, si algún titular grande se ve tosco.
+
+**Recap.** El app tiene ya las dos voces del sitio, empaquetadas y con su licencia: la serif
+editorial para lo que la marca afirma y la sans humanista para lo que la interfaz opera, sobre la
+escala de nueve tamaños del sitio en vez de los quince valores por defecto de Material. Lo único que
+quedaba escrito antes era un `bodyLarge`; ahora los quince estilos están declarados y una prueba
+impide que alguno vuelva a caer en la fuente del sistema.
+
+**Próximos pasos (opciones).** (1) El slice 3, el selector de tema, que es lo siguiente del roadmap y
+además le da casa a la pantalla de licencias; (2) afinar el eje `opsz` de los titulares; (3) saltar a
+las puertas de Movimiento si prefieres ver antes lo que pediste primero.

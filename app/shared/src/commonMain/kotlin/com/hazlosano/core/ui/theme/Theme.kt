@@ -91,7 +91,7 @@ fun HazloSanoTheme(
     CompositionLocalProvider(LocalHazloPalette provides palette) {
         MaterialTheme(
             colorScheme = palette.toColorScheme(darkTheme),
-            typography = Typography,
+            typography = hazloTypography(),
             content = content,
         )
     }
