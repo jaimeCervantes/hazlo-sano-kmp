@@ -203,3 +203,65 @@ impide que alguno vuelva a caer en la fuente del sistema.
 **Próximos pasos (opciones).** (1) El slice 3, el selector de tema, que es lo siguiente del roadmap y
 además le da casa a la pantalla de licencias; (2) afinar el eje `opsz` de los titulares; (3) saltar a
 las puertas de Movimiento si prefieres ver antes lo que pediste primero.
+
+---
+
+## Corrección del slice 2 — La barra inferior partía el nombre de un pilar (2026-09-06)
+
+**Cómo se supo.** Por una captura del usuario, no por una prueba. En el teléfono, "Mente y
+Espíritu" partía en dos renglones y dejaba esa pestaña más alta que las otras cuatro, con su
+indicador desalineado respecto al resto de la barra.
+
+**Causa.** Es una regresión del slice 2. Plus Jakarta Sans es más ancha que la fuente del sistema con
+la que el app venía, así que un rótulo que antes entraba justo dejó de entrar. Los otros cuatro
+—"Inicio", "Sueño", "Alimentación", "Movimiento"— siguen cabiendo; el de Mente es el único cuyo
+nombre son tres palabras.
+
+**Por qué ninguna prueba lo vio.** `BottomTabTest` comparaba el rótulo de la pestaña con
+`pillarLabel(pillar)`, o sea con **el valor que rompía la barra**. Una prueba que afirma que dos
+cosas son iguales no puede detectar que una de las dos no cabe.
+
+**Decisiones y por qué.**
+
+1. **Dos rótulos, no uno.** La pestaña enseña `pillarShortLabel()` —"Mente"— y anuncia
+   `pillarLabel()` —"Mente y Espíritu"— por `contentDescription`. Acortar por falta de sitio es una
+   decisión visual y no hay razón para que le llegue a quien no está mirando la barra.
+2. **Sólo Mente tiene forma corta.** Los demás devuelven su nombre completo, así que quien necesite
+   la versión compacta puede pedirla siempre sin preguntar de qué pilar se trata.
+3. **El rótulo baja a `labelSmall` (10 sp), a un renglón fijo**, con `maxLines = 1` y elipsis. La
+   altura de la barra no puede depender de lo largo que sea el nombre de un pilar — es la regla de
+   dimensiones estables de `AGENTS.md`, que este fallo incumplía.
+4. **La prueba nueva fija una anchura, no una igualdad.** Ningún rótulo puede pasar de 12 caracteres,
+   que es lo que mide "Alimentación", el más largo que sí entra. Es lo que habría cazado esto.
+
+**Archivos tocados.** `MainScreen.kt` (`label()` corto, `accessibleLabel()` entero, estilo del
+rótulo), `core/ui/model/PillarVisuals.kt` (`pillarShortLabel()`), `values/strings.xml`
+(`pillar_mind_short`), `jvmTest/.../BottomTabTest.kt` (+2 pruebas).
+
+---
+
+## Hallazgo aparte — Un test de Movimiento tenía una carrera (2026-09-06)
+
+Salió al revalidar lo anterior, y **no tiene relación con ningún cambio de esta feature**:
+`SessionDetailIntegrationTest.openingASessionBringsTheHistorySummaryInLineWithItsRoute` falló una vez
+esperando "390 m" y leyendo "1.25 km".
+
+**Causa.** `SessionDetailViewModel` emite el detalle **antes** de esperar a
+`refreshSessionSummary(detail)` —enseñar la sesión sin bloquearse en una escritura es lo correcto
+para quien la abre— y ese refresco entra en `Dispatchers.Default`, que `runTest` no controla. El test
+leía el historial justo después: una carrera que se gana casi siempre.
+
+**Decisión.** Se arregla el **test**, no el ViewModel: el comportamiento de producción es el bueno.
+El test pasa a esperar el efecto observable en el flujo de SQLDelight en vez de leer la fila una vez.
+Si el refresco no llegara nunca, `runTest` corta por su propio tiempo límite — un fallo más feo que
+una aserción, pero fallo, y sin intermitencia.
+
+**Verificación.** Tres pasadas seguidas de `:app:shared:jvmTest --rerun-tasks`: **299 pruebas, 0
+fallos, 0 errores** en las tres.
+
+**Error de método que costó una vuelta, anotado para no repetirlo.** La primera verificación de
+intermitencia no valía: se lanzó una segunda tanda de pasadas sin esperar a que terminara la primera,
+así que corrieron **dos Gradle a la vez** sobre el mismo proyecto pisándose los directorios de build,
+y una pasada informó 147 fallos que no significaban nada. Además se contaban líneas con la palabra
+`FAILED`, que incluye la de la tarea y la del build: "3 fallos" podía ser un solo test. Las cuentas
+salen de los XML de `build/test-results`, y las pasadas van en serie.
