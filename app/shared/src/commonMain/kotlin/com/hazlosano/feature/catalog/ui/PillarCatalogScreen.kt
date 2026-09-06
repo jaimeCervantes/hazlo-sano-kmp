@@ -62,8 +62,6 @@ import hazlosano.app.shared.generated.resources.catalog_metric_publications
 import hazlosano.app.shared.generated.resources.catalog_metric_services
 import hazlosano.app.shared.generated.resources.catalog_refresh
 import hazlosano.app.shared.generated.resources.catalog_search_placeholder
-import hazlosano.app.shared.generated.resources.catalog_section_nearby
-import hazlosano.app.shared.generated.resources.catalog_section_services
 import hazlosano.app.shared.generated.resources.catalog_section_upcoming_events
 import hazlosano.app.shared.generated.resources.catalog_stale_notice
 import hazlosano.app.shared.generated.resources.catalog_unavailable_message
@@ -79,8 +77,6 @@ object PillarCatalogTags {
     const val SUMMARY: String = "catalog_summary"
     const val STALE_NOTICE: String = "catalog_stale_notice"
     const val EVENTS: String = "catalog_events"
-    const val SERVICES: String = "catalog_services"
-    const val NEARBY: String = "catalog_nearby"
     const val GRID: String = "catalog_grid"
     const val UNAVAILABLE: String = "catalog_unavailable"
     const val MESSAGE_INFO: String = "catalog_message_info"
@@ -99,6 +95,8 @@ fun PillarCatalogScreen(
     modifier: Modifier = Modifier,
     viewModel: PillarCatalogViewModel = rememberPillarCatalogViewModel(pillar),
     highlightsViewModel: PillarHighlightsViewModel = rememberPillarHighlightsViewModel(pillar),
+    /** Las herramientas del pilar, cuando tiene alguna. Ver [PillarCatalogContent]. */
+    pillarActions: (@Composable () -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
     val highlights by highlightsViewModel.uiState.collectAsState()
@@ -110,6 +108,7 @@ fun PillarCatalogScreen(
         onRetry = viewModel::refresh,
         onOpenInfo = onOpenInfo,
         modifier = modifier,
+        pillarActions = pillarActions,
     )
 }
 
@@ -133,6 +132,17 @@ fun PillarCatalogContent(
     /** Por defecto no lleva a ninguna parte para poder componer el tablero suelto en un test. */
     onOpenInfo: () -> Unit = {},
     modifier: Modifier = Modifier,
+    /**
+     * Las herramientas del pilar, cuando tiene alguna.
+     *
+     * Es un hueco y no una pantalla aparte: de los cuatro pilares sólo Movimiento tiene herramienta
+     * propia, y escribir un segundo tablero casi idéntico para él era el fallo de diseño que
+     * `AGENTS.md` nombra. Los otros tres no lo llenan y no cambian en nada.
+     *
+     * Va **debajo del resumen y encima de los campeones**: el resumen es la identidad del pilar y lo
+     * que se viene a hacer va justo después, antes que lo que hace la comunidad.
+     */
+    pillarActions: (@Composable () -> Unit)? = null,
 ) {
     val accent = pillar.palette().ink
 
@@ -153,6 +163,8 @@ fun PillarCatalogContent(
             onRefresh = onRetry,
             onOpenInfo = onOpenInfo,
         )
+
+        pillarActions?.let { actions -> item { actions() } }
 
         pillarHighlights(state = highlights, accent = accent)
 
@@ -241,18 +253,6 @@ fun LazyListScope.pillarCatalogSections(
         publications = sections.upcomingEvents,
         accent = accent,
     )
-    publicationCarousel(
-        tag = PillarCatalogTags.SERVICES,
-        titleRes = Res.string.catalog_section_services,
-        publications = sections.services,
-        accent = accent,
-    )
-    publicationCarousel(
-        tag = PillarCatalogTags.NEARBY,
-        titleRes = Res.string.catalog_section_nearby,
-        publications = sections.nearby,
-        accent = accent,
-    )
 
     item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
 
@@ -269,6 +269,7 @@ fun LazyListScope.pillarCatalogSections(
             ),
             emptyText = stringResource(Res.string.catalog_empty),
             accentColor = accent,
+            overlineLabel = { it.overlineLabel() },
         )
     }
 }

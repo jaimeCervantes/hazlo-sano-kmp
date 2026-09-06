@@ -121,8 +121,6 @@
     <string name="catalog_metric_events">Events</string>
     <string name="catalog_metric_services">Services</string>
     <string name="catalog_section_upcoming_events">Upcoming events</string>
-    <string name="catalog_section_services">Services</string>
-    <string name="catalog_section_nearby">Near you</string>
     <string name="catalog_refresh">Refresh</string>
 
     <!-- Shared actions -->
@@ -150,6 +148,9 @@
 
     <!-- Sleep: history -->
     <string name="sleep_history_failed">We couldn\'t read your sleep history.</string>
+
+    <!-- Movement: the pillar's own tools, on its tab -->
+    <string name="movement_start_outing">Start an outing</string>
 
     <!-- Movement: tracker -->
     <string name="tracker_title">Movement</string>

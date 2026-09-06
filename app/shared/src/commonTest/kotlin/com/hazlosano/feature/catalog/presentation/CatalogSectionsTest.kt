@@ -107,43 +107,9 @@ class CatalogSectionsTest {
         assertEquals(listOf("dated", "undated"), sections.upcomingEvents.map { it.id })
     }
 
-    @Test
-    fun `nearby is sorted from closest to furthest`() {
-        val sections = catalogSections(
-            listOf(
-                product("far", distance = 5_600.0),
-                product("mid", distance = 1_200.0),
-                product("close", distance = 340.0),
-            ),
-            now,
-        )
 
-        assertEquals(listOf("close", "mid", "far"), sections.nearby.map { it.id })
-    }
 
-    @Test
-    fun `without distances nothing is nearby`() {
-        val sections = catalogSections(listOf(product("p1"), product("p2")), now)
 
-        assertTrue(sections.nearby.isEmpty())
-    }
-
-    @Test
-    fun `only what carries a distance is nearby`() {
-        val sections = catalogSections(
-            listOf(product("measured", distance = 900.0), product("unmeasured")),
-            now,
-        )
-
-        assertEquals(listOf("measured"), sections.nearby.map { it.id })
-    }
-
-    @Test
-    fun `services are collected on their own`() {
-        val sections = catalogSections(listOf(service("s1"), product("p1"), service("s2")), now)
-
-        assertEquals(listOf("s1", "s2"), sections.services.map { it.id })
-    }
 
     @Test
     fun `the grid keeps the order the site sent`() {
@@ -163,7 +129,5 @@ class CatalogSectionsTest {
 
         assertEquals(0, sections.total)
         assertTrue(sections.upcomingEvents.isEmpty())
-        assertTrue(sections.services.isEmpty())
-        assertTrue(sections.nearby.isEmpty())
     }
 }

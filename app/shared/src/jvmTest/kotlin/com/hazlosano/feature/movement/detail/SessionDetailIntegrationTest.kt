@@ -16,9 +16,10 @@ import com.hazlosano.feature.movement.history.presentation.MovementHistoryUiStat
 import com.hazlosano.feature.movement.history.presentation.MovementHistoryViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -112,36 +113,40 @@ class SessionDetailIntegrationTest {
 
         detailOf(repository, historySessionIds(repository).single())
 
-        // Se espera a que la fila cambie, en vez de leerla una vez.
-        //
-        // El ViewModel emite el detalle **antes** de refrescar el resumen —enseñar la sesión sin
-        // esperar a la escritura es lo correcto para quien la abre— y ese refresco entra en
-        // `Dispatchers.Default`, que `runTest` no controla. Leer el historial justo después es una
-        // carrera que se gana casi siempre: el test pasó decenas de veces y falló una, informando
-        // "1.25 km" porque la escritura todavía no había aterrizado.
-        assertEquals("390 m", historyDistanceLabelOnceRefreshed(repository, expected = "390 m"))
+        awaitSummaryRefreshedAwayFrom(repository, staleDistanceMeters = STALE_DISTANCE_METERS)
+
+        assertEquals("390 m", historyDistanceLabels(repository).single())
     }
 
     /**
-     * La distancia que el historial acaba enseñando, esperando a que la fila se actualice.
+     * Espera a que abrir la sesión haya reescrito el resumen del historial.
      *
-     * El flujo de SQLDelight vuelve a emitir cuando la sesión se reescribe, así que basta con
-     * quedarse en él hasta ver el valor esperado. Si nunca llega, `runTest` corta por su propio
-     * tiempo límite — un fallo más feo que una aserción, pero fallo al fin, y sin la intermitencia
-     * de leer una sola vez.
+     * Hacen falta dos cosas que no son evidentes:
+     *
+     * 1. **Se relee la fila, no se escucha el flujo.** El driver en memoria de los tests stubbea
+     *    `addListener`, así que `asFlow()` emite **una sola vez** y nunca vuelve a emitir cuando la
+     *    tabla cambia. Quedarse esperando una segunda emisión cuelga el test hasta el límite de
+     *    `runTest` — que es exactamente como falló el primer intento de arreglar esto.
+     * 2. **Se espera en tiempo real, sobre un dispatcher real.** `SessionDetailViewModel` emite el
+     *    detalle antes de esperar al refresco —enseñar la sesión sin bloquearse en una escritura es
+     *    lo correcto para quien la abre— y ese refresco entra en `Dispatchers.Default`, que el reloj
+     *    virtual de `runTest` no gobierna: un `delay` en el dispatcher de prueba se saltaría sin
+     *    dejar avanzar nada.
+     *
+     * La condición es «dejó de valer lo que valía» y no «vale 390», para que el número esperado viva
+     * en la aserción y no también aquí.
      */
-    private suspend fun historyDistanceLabelOnceRefreshed(
+    private suspend fun awaitSummaryRefreshedAwayFrom(
         repository: MovementSessionRepository,
-        expected: String,
-    ): String {
-        val history = MovementHistoryViewModel(
-            getSessions = GetSessionsUseCase(repository),
-            timeZone = TimeZone.UTC,
-        )
-        return history.state
-            .filterIsInstance<MovementHistoryUiState.Sessions>()
-            .map { it.items.single().distanceLabel }
-            .first { it == expected }
+        staleDistanceMeters: Double,
+    ) = withContext(Dispatchers.Default) {
+        withTimeout(REFRESH_TIMEOUT_MILLIS) {
+            while (
+                repository.getAllSessions().first().single().distanceTraveled == staleDistanceMeters
+            ) {
+                delay(REFRESH_POLL_MILLIS)
+            }
+        }
     }
 
     private suspend fun historyDistanceLabels(
@@ -188,7 +193,7 @@ class SessionDetailIntegrationTest {
             routeId = null,
             points = path,
             elapsedSeconds = 600,
-            distanceMeters = 1_250.0,
+            distanceMeters = STALE_DISTANCE_METERS,
         )
     }
 }
@@ -200,3 +205,9 @@ private val RECORDED_PATH = listOf(
     UserLocation(latitude = 19.4310, longitude = -99.1320, timestamp = 2_000),
     UserLocation(latitude = 19.4320, longitude = -99.1310, timestamp = 3_000),
 )
+
+private const val REFRESH_TIMEOUT_MILLIS = 5_000L
+private const val REFRESH_POLL_MILLIS = 20L
+
+/** Lo que la sesión guardó al grabarse, que no coincide con el recorrido que almacenó. */
+private const val STALE_DISTANCE_METERS = 1_250.0

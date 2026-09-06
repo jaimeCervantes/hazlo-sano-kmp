@@ -30,6 +30,15 @@ fun HazloExploreProductsSection(
     onFavoriteClick: (HazloProduct) -> Unit = {},
     searchQuery: String = "",
     onSearchQueryChange: ((String) -> Unit)? = null,
+    /**
+     * Qué decir encima del título de una publicación: cuánto dura un servicio, cuándo ocurre un
+     * evento, nada en lo demás.
+     *
+     * Llega como parámetro porque decidirlo es conocimiento del catálogo y esta sección sólo sabe
+     * pintar una rejilla. Entró al quitar el carrusel de servicios, que era el único sitio donde esa
+     * línea se veía: sin esto, la duración de un servicio habría desaparecido del app.
+     */
+    overlineLabel: (@Composable (HazloProduct) -> String?)? = null,
 ) {
     // Un evento sin precio es gratis y se dice; un anuncio sin precio simplemente no se vende, y
     // ahí la línea se queda vacía en lugar de anunciar un "Gratis" que no significa nada.
@@ -41,6 +50,7 @@ fun HazloExploreProductsSection(
             description = product.description,
             price = product.price,
             priceFallbackLabel = freeLabel.takeIf { product.kind == PublicationKind.EVENT },
+            overlineLabel = overlineLabel?.invoke(product),
             isFavorite = product.isFavorite,
             distanceMeters = product.distanceMeters,
             onFavoriteClick = { onFavoriteClick(product) },

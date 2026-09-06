@@ -158,6 +158,9 @@
     <string name="action_save">Guardar</string>
     <string name="action_cancel">Cancelar</string>
 
+    <!-- Movimiento: las herramientas del pilar, en su pestaña -->
+    <string name="movement_start_outing">Empezar una salida</string>
+
     <!-- Movimiento: tracker -->
     <string name="tracker_title">Movimiento</string>
     <string name="tracker_start">Iniciar</string>
@@ -258,8 +261,6 @@
     <string name="catalog_metric_events">Eventos</string>
     <string name="catalog_metric_services">Servicios</string>
     <string name="catalog_section_upcoming_events">Próximos eventos</string>
-    <string name="catalog_section_services">Servicios</string>
-    <string name="catalog_section_nearby">Cerca de ti</string>
     <string name="catalog_refresh">Actualizar</string>
 
     <!-- Route detail -->

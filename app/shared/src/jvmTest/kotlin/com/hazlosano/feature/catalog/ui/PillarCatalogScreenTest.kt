@@ -102,32 +102,32 @@ class PillarCatalogScreenTest {
         onNodeWithTag(PillarCatalogTags.EVENTS).assertDoesNotExist()
     }
 
+    /**
+     * «Servicios» y «Cerca de ti» se quitaron: la búsqueda que cierra el tablero ya enseña lo mismo
+     * unas pulgadas más abajo, y «Cerca de ti» además reordenaba por distancia algo que el sitio ya
+     * devuelve ordenado por distancia. Se afirma que **no vuelven**, con un pilar que tiene de las
+     * dos cosas: un servicio y una publicación con distancia.
+     */
     @Test
-    fun `a pillar with no services does not draw the services section`() = runComposeUiTest {
+    fun `the board no longer repeats what the search below already shows`() = runComposeUiTest {
         setContent {
             PillarCatalogContent(
                 pillar = PillarType.NUTRITION,
-                state = ready(listOf(product("p1", "Suero natural"))),
+                state = ready(
+                    listOf(
+                        service("s1", "Consulta de nutrición", minutes = 45),
+                        product("p1", "Suero natural", distance = 340.0),
+                    ),
+                ),
                 highlights = noHighlights,
                 onRetry = {},
             )
         }
 
-        onNodeWithTag(PillarCatalogTags.SERVICES).assertDoesNotExist()
-    }
-
-    @Test
-    fun `without distances there is no nearby section`() = runComposeUiTest {
-        setContent {
-            PillarCatalogContent(
-                pillar = PillarType.NUTRITION,
-                state = ready(listOf(product("p1", "Suero natural", distance = null))),
-                highlights = noHighlights,
-                onRetry = {},
-            )
-        }
-
-        onNodeWithTag(PillarCatalogTags.NEARBY).assertDoesNotExist()
+        onNodeWithTag("catalog_services").assertDoesNotExist()
+        onNodeWithTag("catalog_nearby").assertDoesNotExist()
+        // Lo que sí sigue: la búsqueda, que es lo que las cubre.
+        onNodeWithTag(PillarCatalogTags.GRID).assertExists()
     }
 
     @Test
@@ -200,8 +200,8 @@ class PillarCatalogScreenTest {
             )
         }
 
-        // Solo la tarjeta del carrusel lleva la línea de encima; la de la rejilla no, así que este
-        // texto identifica un único nodo.
+        // Desde que se quitó el carrusel de servicios, la rejilla de búsqueda es el único sitio donde
+        // esta línea se ve — y sigue viéndose, que es lo que este test cuida.
         onNodeWithText("60 min").assertIsDisplayed()
     }
 }

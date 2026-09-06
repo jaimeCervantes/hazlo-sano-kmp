@@ -52,6 +52,7 @@ import com.hazlosano.feature.pillar.ui.PillarInfoScreen
 import com.hazlosano.feature.settings.ui.SettingsScreen
 import com.hazlosano.feature.movement.routes.ui.RouteDetailScreen
 import com.hazlosano.feature.movement.routes.ui.RoutesScreen
+import com.hazlosano.feature.movement.ui.MovementPillarActions
 import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
@@ -141,7 +142,7 @@ fun MainScreen(
     when (val movementDestination = movementNav.destination) {
         MovementDestination.Tracker -> {
             TrackerScreen(
-                onBack = { movementNav.close() },
+                onBack = { movementNav.back() },
                 onOpenHistory = { movementNav.openHistory() },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -150,7 +151,7 @@ fun MainScreen(
 
         MovementDestination.History -> {
             MovementHistoryScreen(
-                onBack = { movementNav.openTracker() },
+                onBack = { movementNav.back() },
                 onOpenSession = { sessionId -> movementNav.openSessionDetail(sessionId) },
                 onOpenRoutes = { movementNav.openRoutes() },
                 modifier = Modifier.fillMaxSize(),
@@ -161,7 +162,7 @@ fun MainScreen(
         MovementDestination.Routes -> {
             RoutesScreen(
                 viewModel = rememberRoutesViewModel(),
-                onBack = { movementNav.openHistory() },
+                onBack = { movementNav.back() },
                 onOpenRoute = { routeId -> movementNav.openRouteDetail(routeId) },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -171,7 +172,7 @@ fun MainScreen(
         is MovementDestination.RouteDetail -> {
             RouteDetailScreen(
                 routeId = movementDestination.routeId,
-                onBack = { movementNav.openRoutes() },
+                onBack = { movementNav.back() },
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -180,7 +181,7 @@ fun MainScreen(
         is MovementDestination.SessionDetail -> {
             SessionDetailScreen(
                 sessionId = movementDestination.sessionId,
-                onBack = { movementNav.openHistory() },
+                onBack = { movementNav.back() },
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -299,9 +300,9 @@ fun MainScreen(
                             onCardClick = navigateToSleepHistory,
                         )
                     }
-                    // Cada pestaña de pilar enseña su propio catálogo. Movimiento y Mente eran dos
-                    // placeholders; el tracker se sigue alcanzando desde Inicio, que es donde
-                    // estaba — esta pestaña es lo publicado del pilar, no la herramienta.
+                    // Cada pestaña de pilar enseña su propio catálogo. La de Movimiento enseña
+                    // además sus herramientas: era el único pilar cuya herramienta no se alcanzaba
+                    // desde su propia pestaña.
                     BottomTab.Nutricion -> PillarCatalogScreen(
                         pillar = PillarType.NUTRITION,
                         onOpenInfo = { pillarInfo = PillarType.NUTRITION },
@@ -310,6 +311,13 @@ fun MainScreen(
                     BottomTab.Movimiento -> PillarCatalogScreen(
                         pillar = PillarType.MOVEMENT,
                         onOpenInfo = { pillarInfo = PillarType.MOVEMENT },
+                        pillarActions = {
+                            MovementPillarActions(
+                                onStartOuting = { movementNav.openTracker() },
+                                onOpenRoutes = { movementNav.openRoutes() },
+                                onOpenOutings = { movementNav.openHistory() },
+                            )
+                        },
                     )
 
                     BottomTab.Mente -> PillarCatalogScreen(

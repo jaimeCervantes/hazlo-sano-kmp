@@ -1,8 +1,6 @@
 package com.hazlosano.feature.movement.presentation
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateListOf
 
 /**
  * Where the movement pillar currently is. A sealed hierarchy (instead of an enum) so a destination
@@ -18,38 +16,69 @@ sealed interface MovementDestination {
 }
 
 /**
- * Navigation inside the movement pillar (tracker, session history and session detail) so the
- * decision lives outside the Composables and can be unit-tested. Backed by Compose snapshot state
- * to drive recomposition.
+ * Por dónde va el pilar de Movimiento, con memoria de por dónde se llegó.
+ *
+ * Antes era un solo destino y cada pantalla decidía a mano a cuál volvía: el *volver* de «Mis
+ * salidas» iba siempre al tracker y el de «Mis rutas» siempre al historial. Mientras la única puerta
+ * al pilar fuera el tracker eso coincidía con la verdad; desde que se llega también desde la pestaña
+ * del pilar, deja de coincidir — se entra desde el pilar y se sale al tracker, que es un sitio en el
+ * que no se había estado.
+ *
+ * Con una pila, «volver» significa lo mismo desde cualquier camino y ninguna pantalla tiene que
+ * saber quién la abrió. Vive fuera de los Composables para poder probarla sin levantar una pantalla.
  */
 class MovementNavState {
-    var destination: MovementDestination by mutableStateOf(MovementDestination.Closed)
-        private set
+
+    private val backStack = mutableStateListOf<MovementDestination>()
+
+    val destination: MovementDestination
+        get() = backStack.lastOrNull() ?: MovementDestination.Closed
 
     val isOpen: Boolean
-        get() = destination != MovementDestination.Closed
+        get() = backStack.isNotEmpty()
 
     fun openTracker() {
-        destination = MovementDestination.Tracker
+        push(MovementDestination.Tracker)
     }
 
     fun openHistory() {
-        destination = MovementDestination.History
+        push(MovementDestination.History)
     }
 
     fun openRoutes() {
-        destination = MovementDestination.Routes
+        push(MovementDestination.Routes)
     }
 
     fun openSessionDetail(sessionId: Long) {
-        destination = MovementDestination.SessionDetail(sessionId)
+        push(MovementDestination.SessionDetail(sessionId))
     }
 
     fun openRouteDetail(routeId: Long) {
-        destination = MovementDestination.RouteDetail(routeId)
+        push(MovementDestination.RouteDetail(routeId))
     }
 
+    /** Vuelve a donde se estaba. Desde la primera pantalla, sale del pilar. */
+    fun back() {
+        backStack.removeLastOrNull()
+    }
+
+    /** Sale del pilar de una vez, sin recorrer la pila hacia atrás. */
     fun close() {
-        destination = MovementDestination.Closed
+        backStack.clear()
+    }
+
+    /**
+     * Volver a un sitio donde ya se estuvo no apila una segunda copia: corta la pila hasta él.
+     *
+     * Sin esto, ir y venir entre «Mis rutas» y el detalle de una ruta dejaría la pila creciendo, y
+     * salir del pilar costaría un *volver* por cada visita.
+     */
+    private fun push(destination: MovementDestination) {
+        val existing = backStack.indexOf(destination)
+        if (existing >= 0) {
+            while (backStack.size > existing + 1) backStack.removeLast()
+            return
+        }
+        backStack.add(destination)
     }
 }
