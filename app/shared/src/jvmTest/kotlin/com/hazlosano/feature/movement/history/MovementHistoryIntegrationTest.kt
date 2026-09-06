@@ -2,7 +2,6 @@ package com.hazlosano.feature.movement.history
 
 import com.hazlosano.data.db.inMemoryHazloSanoDatabase
 import com.hazlosano.data.movement.SqlDelightMovementSessionRepository
-import com.hazlosano.domain.feature.movement.model.NavigationState
 import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.repository.MovementSessionRepository

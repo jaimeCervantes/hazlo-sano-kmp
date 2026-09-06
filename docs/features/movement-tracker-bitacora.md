@@ -1315,3 +1315,124 @@ queda fuera; la deuda del umbral de 3 m del slice 12 también.
 60 s; (2) revisar el umbral de 3 m del slice 12 ahora que las rachas largas ya no lo alcanzan a
 ensuciar; (3) el barómetro (`TYPE_PRESSURE`) si la detección por repetición no basta en uso real; (4)
 C3, seguir una ruta con aviso de desvío, que sigue siendo el punto más grande sin tocar del pilar.
+
+---
+
+## Punto C3 — Salirse de la ruta se nota mientras todavía se puede volver (2026-09-06)
+
+**Objetivo.** Cerrar C3: avisar cuando te alejas del trazado que llevas cargado. Spec:
+[`movement_route_deviation.feature`](../../features/movement_route_deviation.feature).
+
+**Se hace antes de la salida de campo, a propósito** (decisión del usuario): los umbrales que se
+pueden calibrar sin salir se calibran ahora, y la salida sirve para afinar el que no.
+
+### Lo que se midió antes de escribir una sola constante
+
+La pregunta que decide el umbral es la del **falso positivo**: si el receptor puede colocarte a 60 m
+del sitio por el que estás pasando, avisar a los 50 m es avisar de un desvío que no existe.
+
+No hay ninguna traza de alguien siguiendo una ruta —las cuatro capturas son salidas libres—, así que
+se midió de otra forma: **el recorrido que el filtro acepta de una traza es el camino que se
+recorrió**, y contra él se mide la señal cruda de esa misma traza. Eso es exactamente el ruido que un
+umbral tiene que dejar pasar. El arnés es `RouteDeviationCalibration`, y reporta sin afirmar, como
+`TraceReplayHarness`:
+
+| Traza | Qué fue | Mediana | p90 | Máximo | Lecturas > 50 m |
+|---|---|---|---|---|---|
+| T2 | caminata y trote, 7,6 min | 0,3 m | 1,4 m | **15,9 m** | 0 |
+| T3 | bici, 5,2 min | 0,6 m | 6,9 m | **19,4 m** | 0 |
+| T4 | bici 2 min + 31 min parado bajo techo | 2,3 m | 8,6 m | **291,5 m** | 26 |
+
+**Moviéndose de verdad, la señal nunca se aleja más de 19,4 m del camino recorrido.** 50 m deja 2,5
+veces de holgura sobre ese peor caso.
+
+### La regla que no estaba prevista, y que salió de esos números
+
+Los 291 m de T4 son el teléfono quieto bajo techo. **Parado, la distancia al trazado es ruido puro**,
+así que un aviso basado en posición cruda dispararía en falso cada vez que te paras donde hay poco
+cielo. De ahí sale una regla que el plan no contemplaba: **el aviso sólo habla mientras te mueves**.
+
+La señal de «me estoy moviendo» ya existía sin nombre —`secondsWithoutMoving`, que crece sólo
+mientras el receptor sigue diciendo algo, así que perder la señal no cuenta como pararse—. Se le puso
+nombre (`isMoving`) en vez de inventar una segunda.
+
+### Decisiones y por qué
+
+1. **No hay «smart snap».** La referencia mueve tu posición sobre la ruta cuando estás cerca; aquí
+   no. Lo que se graba tiene que ser por dónde fuiste: pegar la posición al trazado haría que la
+   salida guardada siguiera la ruta perfectamente aunque te hubieras desviado — exactamente la clase
+   de mentira que B3 y B4 se pasaron cuatro slices quitando. Se mide y se avisa; no se corrige.
+2. **Se juzga la posición cruda, no la filtrada.** El filtro retiene hasta un minuto antes de
+   confirmar un tramo —es lo que hace que la distancia no mienta— y un aviso de desvío con un minuto
+   de retraso llega cuando la bifurcación ya quedó atrás. El desvío no acumula nada: sólo compara una
+   posición con una línea, así que no necesita esa protección.
+3. **La distancia es al segmento, no a los vértices.** Un GPX dibujado a mano puede traer un punto
+   cada kilómetro; en mitad de un tramo recto, medir contra vértices te pondría a 500 m de una ruta
+   que tienes debajo de los pies.
+4. **Persistencia en tiempo, no en lecturas.** Es la lección que B3 y B4 ya habían aprendido: contar
+   lecturas responde una pregunta distinta según la cadencia del receptor.
+5. **Volver calla el aviso de inmediato**, sin esperar otros 30 s: no hay nada que confirmar en estar
+   donde debes. Y volver a salirse exige aguantar otra vez, sin heredar la racha anterior.
+6. **El aviso dice a cuántos metros estás**, no sólo que te saliste: 60 m es desandar un minuto y
+   800 m es otra decisión. El número es lo que lo hace accionable.
+
+### Deuda que C3 permite saldar
+
+El backlog anotaba cinco archivos copiados de la referencia sin un solo consumidor, y decía que «los
+tres primeros se resuelven con C2/C3». Con C3 hecho —reexpresando el comportamiento en vez de usar la
+copia, como manda `AGENTS.md`— se borran: `TrackNavigationUseCase`, `NavigationController`,
+`NavigationState`, `GetRoutesUseCase` y `GetRouteDetailUseCase`. `NavigationState` sólo sobrevivía por
+un import muerto en un test.
+
+**`OfflineMapRepository` se queda**: es del punto D, que no ha empezado, y no es asunto de este slice.
+
+### Archivos tocados
+
+- **core:** `model/RouteGeometry.kt` (nuevo, distancia punto-segmento), `model/RouteDeviation.kt`
+  (nuevo, el juicio y sus umbrales), `model/RecordingState.kt` (`isMoving`).
+- **Borrados:** los cinco archivos de arriba.
+- **Presentación:** `TrackerViewModel.kt` (`routeStanding`).
+- **UI:** `TrackerScreen.kt` (`OffRouteNotice`).
+- **Recursos:** `tracker_off_route` en los dos idiomas.
+- **Tests:** `RouteGeometryTest` (8), `RouteDeviationTest` (10),
+  `RouteDeviationOnTheTrackerTest` (6), `RouteDeviationCalibration` (el arnés);
+  `TraceFiles.kt` (los ayudantes de traza salen de `TraceReplayHarness` al aparecer el segundo arnés).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **152 pruebas, 0 fallos** (venían 134).
+- `.\gradlew.bat :app:shared:jvmTest` → **370 pruebas, 0 fallos** (venían 364).
+- `.\gradlew.bat :core:check` y `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL los tres.
+- `.\gradlew.bat :app:shared:jvmTest --tests "…RouteDeviationCalibration"` → el arnés de calibración,
+  que reporta la tabla de arriba.
+
+### Lo que la salida de campo tiene que responder
+
+Esto es lo que **no** se puede cerrar sin salir, dicho para que la salida se planifique con ello
+delante:
+
+1. **Los 30 s de persistencia no están calibrados.** Igual que los 60 s de B4: es una elección de
+   producto entre servir en una bifurcación y no disparar con una lectura mala. Hace falta una traza
+   para saber si sobran o faltan.
+2. **Nadie ha medido un desvío real.** Las cuatro trazas dan el ruido que el umbral debe dejar pasar,
+   pero no si un desvío de verdad se detecta **a tiempo**. La captura que hace falta es distinta de
+   las que había pendientes: **caminar una ruta conocida y salirse de ella a propósito**, con la
+   captura de traza encendida.
+3. **`isMoving` usa 60 s** —la ventana de confirmación del filtro— y ese número tampoco se ha
+   contrastado contra una salida con paradas reales: un semáforo largo podría callar el aviso.
+
+También sigue sin cobertura de host lo de siempre en este pilar: el aviso en pantalla no lo mira
+ningún test, sólo el estado que lo produce.
+
+**Recap.** El pilar ya sabe decir que te has salido de la ruta: mide la distancia al trazado —al
+segmento, no a los vértices—, avisa a partir de 50 m sostenidos 30 s, y **se calla mientras estás
+parado**, que es la regla que salió de medir. Los 50 m están calibrados contra las cuatro trazas de
+campo: moviéndose, la señal nunca se aleja más de 19,4 m del camino recorrido. No hay «smart snap»:
+lo que se graba sigue siendo por dónde fuiste. Y C3 permite borrar los cinco archivos que la
+referencia dejó copiados sin consumidor.
+
+**Próximos pasos (opciones).** (1) **La salida de campo**, ahora con tres preguntas concretas que
+responder; (2) mirar en el teléfono lo acumulado de los cuatro slices anteriores; (3) del backlog,
+D (offline), E (satélite) y G (sobrevivir a que el sistema mate el proceso).

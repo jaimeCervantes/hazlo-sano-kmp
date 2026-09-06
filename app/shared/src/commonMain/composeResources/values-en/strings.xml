@@ -160,6 +160,8 @@
     <string name="tracker_pick_route_empty">You have no saved routes yet. Import a GPX from “My routes”, or save an outing as a route.</string>
     <string name="tracker_pick_route_none">No route</string>
 
+    <string name="tracker_off_route">You have left the route · %1$s</string>
+
     <!-- Movement: tracker -->
     <string name="tracker_title">Movement</string>
     <string name="tracker_start">Start</string>

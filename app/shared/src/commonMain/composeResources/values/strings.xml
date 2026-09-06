@@ -169,6 +169,8 @@
     <string name="tracker_pick_route_empty">Todavía no tienes rutas guardadas. Importa un GPX desde «Mis rutas», o guarda una salida como ruta.</string>
     <string name="tracker_pick_route_none">Sin ruta</string>
 
+    <string name="tracker_off_route">Te has salido de la ruta · %1$s</string>
+
     <!-- Movimiento: tracker -->
     <string name="tracker_title">Movimiento</string>
     <string name="tracker_start">Iniciar</string>

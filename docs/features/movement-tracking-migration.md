@@ -36,6 +36,7 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Detalle de una ruta guardada en el mapa | Hecho (punto C2). Primera pantalla del pilar con test de host |
 | Que el ruido del receptor no se convierta en kilómetros | Hecho (slice 14, punto B3). De 2 832 m a ~165 con el teléfono quieto media hora, sin costarle distancia a las salidas reales |
 | El desnivel se calla cuando la altitud se queda pegada | Hecho (B4, slice 1). Una racha rancia de 60 s o más apaga el desnivel de la sesión entera; umbral conservador, sin validar contra una segunda traza |
+| Aviso de desvío al seguir una ruta | Hecho (C3). 50 m sostenidos 30 s, y callado mientras estás parado. Los 50 m calibrados contra las cuatro trazas; los 30 s no |
 
 **Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. El slice 12 se contrastó contra una cuarta traza en la segunda calibración, que respondió su pregunta y destapó B3. Los slices 10, 11, 13 y B4 (slice 1) no se han probado en una salida real.
 
@@ -135,13 +136,13 @@ sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igua
 - **Estado: C1 hecho** en el slice 13 — spec: [`movement_routes_gpx.feature`](../../features/movement_routes_gpx.feature). **C2 y C3 pendientes**, y son las que convierten una ruta en algo que se sigue.
   - **Hecho (C1):** `GpxFormat` en `commonMain` (lee y escribe, sin librería XML, tolera lo que no entiende), tablas `RouteEntity`/`RoutePointEntity` con su migración `4.sqm`, pantalla "Mis rutas" para importar, renombrar, exportar y borrar, y guardar una salida del historial como ruta con nombre. Importar y exportar no piden permiso de almacenamiento: van por el Storage Access Framework. Escritorio, iOS y web esconden ambas acciones porque todavía no tienen acceso a archivos.
   - **Hecho (C2):** ver la ruta en el mapa — spec: [`movement_route_detail.feature`](../../features/movement_route_detail.feature). Se toca una ruta de la lista y se abre con su trazado encuadrado y sus tres cifras. Reutiliza `MovementMap` con `fitPathInView`, que ya dibujaba el recorrido de una sesión terminada. **Destapó una mentira heredada:** `calculateStats` acumula un desnivel de 0.0 cuando ningún punto trae altitud, y ese cero se guarda en la fila indistinguible de un llano real; la pantalla lo recupera mirando los puntos y pinta "—". Primera pantalla del pilar con test de host.
-  - **Pendiente (C3):** navegación siguiendo la ruta con aviso de desvío. Aquí es donde `MovementSessionEntity.routeId` deja por fin de guardar `null` en cada sesión: hoy la tabla a la que apunta ya existe, pero nada ata una grabación a la ruta que iba siguiendo.
+  - **Hecho (C3):** avisar cuando te sales del trazado — spec: [`movement_route_deviation.feature`](../../features/movement_route_deviation.feature). Se mide la distancia al **segmento** más cercano, se avisa a partir de **50 m sostenidos 30 s**, y **no se juzga mientras estás parado**. Los 50 m se calibraron replayando las cuatro trazas contra el camino que de verdad recorrieron (`RouteDeviationCalibration`): moviéndose, la señal nunca se aleja más de **19,4 m**; con el teléfono quieto bajo techo llega a **291 m**, que es de donde sale la regla de callarse parado. **Sin «smart snap»**: la referencia movía la posición sobre la ruta, y eso haría que la salida guardada siguiera el trazado aunque te hubieras desviado. El `routeId` ya se guardaba desde el slice 3 de `puertas-de-movimiento`. **Pendiente de campo:** los 30 s no están calibrados y nadie ha medido un desvío real — ver la bitácora.
 - **Problem:** no se puede seguir una ruta planificada: no hay forma de verla en el mapa ni de saber si te estás saliendo del trazado.
 - **Savings:** evita depender de otra app para seguir rutas y el riesgo de perderse o desviarse sin darse cuenta.
 - **Why:** "recorrer rutas" es la promesa central del pilar en la referencia; la sesión libre es solo la mitad.
 - **Referencia:** `domain/parser/GpxParser.kt`, `domain/usecase/ImportRouteUseCase.kt`, `TrackNavigationUseCase.kt` (166 líneas: *smart snap* al trazado, distancia mínima a la ruta, proyección de punto sobre segmento, detección de desvío), `data/repository/RouteRepositoryImpl.kt`, `ui/RouteImportScreen.kt`, `ui/RouteDetailScreen.kt`, `ui/RouteViewModel.kt` (160 líneas).
-- **Sub-slices:** ~~C1 importar un GPX y listarlo~~ (hecho, y llegó más lejos: exportar, renombrar, borrar y guardar una salida como ruta) · ~~C2 detalle de ruta en el mapa~~ (hecho) · C3 navegación siguiendo la ruta con aviso de desvío.
-- **Módulos:** `core` (`TrackNavigationUseCase` sigue copiado y sin probar), `app/shared` (falta la UI de navegación; la de detalle ya está).
+- **Sub-slices:** ~~C1 importar un GPX y listarlo~~ (hecho, y llegó más lejos: exportar, renombrar, borrar y guardar una salida como ruta) · ~~C2 detalle de ruta en el mapa~~ (hecho) · ~~C3 aviso de desvío~~ (hecho). **El punto C queda cerrado.**
+- **Módulos:** `core` (`RouteGeometry` y `RouteDeviation`, ambos probados; `TrackNavigationUseCase` se borró al reexpresar su comportamiento), `app/shared` (el aviso vive en el tracker).
 - **Riesgos / notas:** las notas de riesgo de C1 quedaron resueltas — la deuda de migraciones se pagó en el slice 11 y `RouteRepository` se segregó al implementarlo. Lo que queda anotado: el `fingerprint` heredado de la referencia (`distancia-desnivel-lat1-lon1-latN-lonN`, distancia truncada a entero) hace colisionar dos rutas distintas con el mismo inicio, fin y total; como el duplicado **se pregunta** en vez de decidirse, una colisión molesta pero no destruye nada.
 - **Cobertura de test:** parser y navegación son lógica pura → `core/commonTest`; repositorio con SQLDelight en memoria como en los slices 4–6.
 
@@ -198,7 +199,7 @@ sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igua
 | Robolectric + `withHostTest` | Los `actual` de Android no se pueden probar en JVM. Ahora también afecta al acceso a archivos por SAF | A, C1, D |
 | `SecurityException` de Google Play Services | Visto en logcat (`GoogleApiManager: Unknown calling package name`); afecta al proveedor de ubicación fusionada | A, B |
 | i18n de la pantalla de rutas | `RoutesScreen` va con el texto en duro y `RoutesViewModel` expone `message: String` ya redactado; ambas cosas contra las reglas que `AGENTS.md` fijó justo después. Sus tests afirman sobre la redacción | C2, C3 (crece con cada pantalla nueva) |
-| Código muerto en `core` | `TrackNavigationUseCase`, `GetRoutesUseCase`, `GetRouteDetailUseCase`, `NavigationController`, `OfflineMapRepository`: copiados de la referencia, sin consumidor | — (confunde el inventario) |
+| ~~Código muerto en `core`~~ | **Casi saldada con C3**: se borraron `TrackNavigationUseCase`, `NavigationController`, `NavigationState`, `GetRoutesUseCase` y `GetRouteDetailUseCase`. Queda `OfflineMapRepository`, que es del punto D | — |
 | ~~`:app:shared:check` en rojo~~ | **Resuelto** subiendo SQLDelight 2.0.2 → 2.3.2. `verifyCommonMainHazloSanoDatabaseMigration` no arrancaba en Windows: Gradle lanza el worker de esa tarea con `processIsolation` **y sin heredar el entorno**, así que sin `TEMP` ni `TMP` el `java.io.tmpdir` del worker caía en `C:\WINDOWS` — no escribible —, sqlite-jdbc no podía extraer ahí su `.dll` y la llamada nativa moría con `UnsatisfiedLinkError: _open_utf8`. Nada que ver con el esquema ni con nuestra versión de sqlite-jdbc. Lo arregla [#5215](https://github.com/sqldelight/sqldelight/pull/5215), incluido en 2.3.2 | — |
 
 ---
@@ -212,7 +213,7 @@ sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igua
 5. ~~**Salir con la captura de traza activada** y mirar qué dice la precisión vertical en las ventanas de altitud congelada.~~ Hecho el 2026-08-29 (segunda calibración de campo). Respondió su pregunta —la precisión vertical no delata la altitud congelada— y destapó B3.
 6. ~~**B3** — que un teléfono parado no invente distancia.~~ Hecho en el slice 14, calibrado contra las cuatro trazas sin salir a la calle. Queda su `@slice-2`: avisar de que la grabación lleva mucho sin ir a ninguna parte.
 7. **B4** — la altitud rancia, por repetición exacta o por barómetro.
-8. **C2 → C3** — la ruta en el mapa, y luego seguirla con aviso de desvío.
+8. ~~**C2 → C3** — la ruta en el mapa, y luego seguirla con aviso de desvío.~~ Hechos.
 9. **D** — offline (además activa el `FileSource` a nivel de app).
 10. **E** — satélite.
 11. **F** — dashboard.
@@ -220,5 +221,19 @@ sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igua
 **G** (sobrevivir a que el sistema mate el proceso) no tiene posición fija: depende de si en uso real Android está matando la app durante las grabaciones. Si ocurre, sube al principio; si no, puede esperar.
 
 También pendiente de campo, arrastrado desde la primera calibración: repetir la prueba de teléfono quieto **a cielo abierto** (las dos que tenemos, T1 y la parte parada de T4, se hicieron bajo techo) y medir una ruta real para cerrar la duda de la distancia caminando. Ninguna de las dos bloquea B3: la traza T4 ya trae el caso que hay que arreglar.
+
+**Lo que la próxima salida tiene que responder, en un solo sitio.** C3 se construyó antes de salir, a
+propósito, calibrando contra las trazas todo lo calibrable. Lo que queda son tres preguntas concretas,
+y las tres se contestan con **una sola captura: caminar una ruta conocida y salirse de ella a
+propósito**, con la traza encendida:
+
+1. **¿Los 30 s de persistencia del aviso de desvío sobran o faltan?** No están calibrados, igual que
+   los 60 s de B4.
+2. **¿Se detecta un desvío real a tiempo?** Las cuatro trazas dan el ruido que el umbral debe dejar
+   pasar, pero ninguna es de alguien siguiendo una ruta.
+3. **¿Los 60 s de `isMoving` callan el aviso en una parada legítima?** Un semáforo largo podría.
+
+Y de paso esa misma salida cierra las dos de arriba —el quieto a cielo abierto y la distancia
+caminando— si se hace en un sitio con cielo despejado y una parada larga en medio.
 
 El orden es una recomendación, no un compromiso: cada slice se aprueba en su momento con su encuadre y su `.feature`.

@@ -82,6 +82,28 @@ fun RecordingState.goneNowhereMinutes(): Long? =
         ?.takeIf { it >= SECONDS_GONE_NOWHERE_WORTH_SAYING }
         ?.let { it / SECONDS_PER_MINUTE }
 
+/**
+ * Si la grabacion esta avanzando ahora mismo.
+ *
+ * Se apoya en [secondsWithoutMoving], que crece solo mientras el receptor sigue diciendo algo: un
+ * telefono que deja de reportar congela la cuenta en vez de envejecerla, asi que perder la senal no
+ * cuenta como pararse.
+ *
+ * Lo pregunta el aviso de desvio de ruta, y por un motivo medido: con el telefono quieto bajo techo
+ * la senal llega a colocarse a 291 m del sitio donde esta, asi que parado la distancia al trazado es
+ * ruido y no se puede juzgar.
+ */
+val RecordingState.isMoving: Boolean
+    get() = isRecording && (secondsWithoutMoving ?: 0L) < SECONDS_STILL_MOVING
+
+/**
+ * Cuanto puede llevar el recorrido sin crecer y seguir contando como movimiento.
+ *
+ * Es la ventana de confirmacion del filtro: hasta que pasa, un tramo real todavia puede estar
+ * retenido esperando confirmarse, y darlo por parado seria callar el aviso justo cuando arranca.
+ */
+const val SECONDS_STILL_MOVING = 60L
+
 const val SECONDS_GONE_NOWHERE_WORTH_SAYING = 300L
 
 /** Refreshes the elapsed time of a recording in progress. */

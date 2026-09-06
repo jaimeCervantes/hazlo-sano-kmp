@@ -9,7 +9,6 @@ import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.usecase.CalculateStatsUseCase
 import com.hazlosano.domain.geo.haversineMeters
-import java.io.File
 import kotlin.test.Test
 
 /**
@@ -107,12 +106,4 @@ class TraceReplayHarness {
     private fun Map<DiscardReason, Int>.pretty(): String =
         if (isEmpty()) "" else entries.joinToString(", ", "(", ")") { "${it.key.name} ${it.value}" }
 
-    private fun traceFiles(): List<File> =
-        tracesDirectory().takeIf { it.isDirectory }
-            ?.listFiles { file -> file.name.endsWith(".csv") }
-            ?.sortedBy { it.name }
-            .orEmpty()
-
-    /** The repository root's `traces/`, reached from the module the test runs in. */
-    private fun tracesDirectory(): File = File("../../traces")
 }

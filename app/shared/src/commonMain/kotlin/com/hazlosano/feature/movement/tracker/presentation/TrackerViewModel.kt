@@ -3,6 +3,9 @@ package com.hazlosano.feature.movement.tracker.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.feature.movement.model.RecordingState
+import com.hazlosano.domain.feature.movement.model.RouteDeviation
+import com.hazlosano.domain.feature.movement.model.RouteStanding
+import com.hazlosano.domain.feature.movement.model.isMoving
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.feature.movement.repository.LocationRepository
@@ -59,6 +62,21 @@ class TrackerViewModel(
      */
     val captureTrace: StateFlow<Boolean> = _captureTrace.asStateFlow()
 
+    private val _routeStanding = MutableStateFlow<RouteStanding>(RouteStanding.Unknown)
+
+    /**
+     * Si vas por la ruta o te has salido de ella.
+     *
+     * Se juzga contra la posicion **cruda** -la misma del punto azul- y no contra la que el filtro
+     * confirma: el filtro retiene hasta un minuto antes de soltar un tramo, y un aviso de desvio con
+     * un minuto de retraso llega cuando la bifurcacion ya quedo atras. El desvio no acumula nada, asi
+     * que no necesita la proteccion que el filtro le da a la distancia.
+     */
+    val routeStanding: StateFlow<RouteStanding> = _routeStanding.asStateFlow()
+
+    /** Se rehace con cada ruta: la persistencia de un desvio no se hereda de la ruta anterior. */
+    private var deviation: RouteDeviation? = null
+
     private var tracking = false
 
     fun startTracking() {
@@ -67,6 +85,9 @@ class TrackerViewModel(
         viewModelScope.launch {
             locationRepository.getLocationUpdates().collect { location ->
                 _userLocation.value = location
+                _routeStanding.value = deviation
+                    ?.standing(location, moving = recording.value.isMoving)
+                    ?: RouteStanding.Unknown
             }
         }
     }
@@ -84,6 +105,8 @@ class TrackerViewModel(
     fun followRoute(routeId: Long) {
         viewModelScope.launch {
             val route = routes.getRouteWithPoints(routeId).first() ?: return@launch
+            deviation = RouteDeviation(route.points)
+            _routeStanding.value = RouteStanding.Unknown
             _followedRoute.value = FollowedRoute(
                 id = route.id,
                 name = route.name,
@@ -104,6 +127,8 @@ class TrackerViewModel(
     /** Salir sin ruta, después de haber elegido una. */
     fun stopFollowingRoute() {
         _followedRoute.value = null
+        deviation = null
+        _routeStanding.value = RouteStanding.Unknown
     }
 
     fun startRecording() {

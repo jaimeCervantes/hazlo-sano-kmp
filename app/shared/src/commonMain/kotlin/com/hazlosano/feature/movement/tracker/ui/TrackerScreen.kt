@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSpaces
+import com.hazlosano.domain.feature.movement.model.RouteStanding
 import com.hazlosano.domain.feature.movement.model.goneNowhereMinutes
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.tracker.presentation.TrackerDistance
@@ -64,6 +65,7 @@ import hazlosano.app.shared.generated.resources.tracker_trace_toggle_title
 import hazlosano.app.shared.generated.resources.tracker_distance_confirming
 import hazlosano.app.shared.generated.resources.tracker_distance_waiting_for_fix
 import hazlosano.app.shared.generated.resources.tracker_gone_nowhere
+import hazlosano.app.shared.generated.resources.tracker_off_route
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
@@ -74,6 +76,7 @@ object TrackerTags {
     const val FOLLOWED_ROUTE: String = "tracker_followed_route"
     const val CLEAR_ROUTE: String = "tracker_clear_route"
     const val ROUTE_CHOICES: String = "tracker_route_choices"
+    const val OFF_ROUTE: String = "tracker_off_route"
 
     fun routeChoice(routeId: Long): String = "tracker_route_choice_$routeId"
 }
@@ -98,6 +101,7 @@ fun TrackerScreen(
     val followedRoute by viewModel.followedRoute.collectAsState()
     val savedRoutes by viewModel.savedRoutes.collectAsState()
     var pickingRoute by remember { mutableStateOf(false) }
+    val routeStanding by viewModel.routeStanding.collectAsState()
     val recording by viewModel.recording.collectAsState()
     val savedSession by viewModel.lastSavedSession.collectAsState()
     val captureTrace by viewModel.captureTrace.collectAsState()
@@ -132,7 +136,15 @@ fun TrackerScreen(
                 elapsedSeconds = recording.elapsedSeconds,
                 modifier = Modifier.align(Alignment.TopStart).padding(HazloSpaces.gutter),
             )
-            recording.goneNowhereMinutes()?.let { minutes ->
+            // Los dos avisos comparten sitio y no pueden salir juntos: el de desvio solo habla
+            // mientras te mueves, y el de "llevas parado" solo cuando no. Se ponen en el mismo
+            // orden que su urgencia, por si alguna vez esa invariante deja de cumplirse.
+            (routeStanding as? RouteStanding.OffRoute)?.let { off ->
+                OffRouteNotice(
+                    metersFromRoute = off.metersFromRoute,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(HazloSpaces.gutter),
+                )
+            } ?: recording.goneNowhereMinutes()?.let { minutes ->
                 GoneNowhereNotice(
                     minutes = minutes,
                     modifier = Modifier.align(Alignment.BottomCenter).padding(HazloSpaces.gutter),
@@ -298,6 +310,35 @@ private fun TraceCaptureToggle(enabled: Boolean, onChange: (Boolean) -> Unit) {
             )
         }
         Switch(checked = enabled, onCheckedChange = onChange)
+    }
+}
+
+/**
+ * Te has salido de la ruta que llevabas.
+ *
+ * Dice **a cuanto** estas del trazado y no solo que te saliste: 60 m es volver sobre tus pasos un
+ * minuto, y 800 m es otra decision. El numero es lo que convierte el aviso en algo accionable.
+ *
+ * Sale en rojo y no en el tono del pilar porque es lo unico de esta pantalla que pide hacer algo.
+ */
+@Composable
+private fun OffRouteNotice(metersFromRoute: Double, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.testTag(TrackerTags.OFF_ROUTE),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
+        tonalElevation = 3.dp,
+    ) {
+        Text(
+            text = stringResource(
+                Res.string.tracker_off_route,
+                MovementFormat.distance(metersFromRoute),
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = HazloSpaces.md, vertical = HazloSpaces.sm),
+        )
     }
 }
 
