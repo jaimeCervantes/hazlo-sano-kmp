@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
  * [pendingImport] is the duplicate question: the same track arrives twice more often than it
  * sounds, and the screen has to ask before replacing a route the person may still want.
  *
- * [isImporting] cubre la espera entera y no sólo el trabajo propio. Se midió: parsear y guardar un
+ * [importing] cubre la espera entera y no sólo el trabajo propio. Se midió: parsear y guardar un
  * GPX de 20.000 puntos son 378 ms, mientras que el selector de archivos de Android puede tardar
  * varios segundos si el archivo está en la nube y hay que bajarlo. Contar sólo lo segundo dejaría
  * sin explicar justo la parte que se sufre.
@@ -28,8 +28,22 @@ data class RoutesUiState(
     val message: RoutesMessage? = null,
     val pendingImport: PendingImport? = null,
     val exported: ExportedGpx? = null,
-    val isImporting: Boolean = false,
-)
+    val importing: ImportingRoute? = null,
+) {
+    val isImporting: Boolean get() = importing != null
+}
+
+/**
+ * La ruta que está entrando, mientras entra.
+ *
+ * Existe para que la lista pueda enseñarla ya, en vez de no enseñar nada hasta que esté guardada: lo
+ * que se acaba de pedir es lo que se quiere ver aparecer.
+ *
+ * [fileName] es `null` mientras el selector del sistema todavía no ha dado el archivo — en ese hueco
+ * hay una importación pero aún no se sabe de qué. El nombre real de la ruta sale del GPX y puede no
+ * parecerse al del archivo, así que esto es lo que se sabe y no una promesa de lo que va a salir.
+ */
+data class ImportingRoute(val fileName: String? = null)
 
 /** A track that is already stored, waiting on the answer to whether it should be replaced. */
 data class PendingImport(
@@ -75,7 +89,7 @@ class RoutesViewModel(
      * quede sin explicar.
      */
     fun importRequested() {
-        _uiState.value = _uiState.value.copy(isImporting = true, message = null)
+        _uiState.value = _uiState.value.copy(importing = ImportingRoute(), message = null)
     }
 
     /**
@@ -84,7 +98,7 @@ class RoutesViewModel(
      * Sin esto, cancelar dejaría la pantalla esperando para siempre por algo que nadie va a mandar.
      */
     fun importAbandoned() {
-        _uiState.value = _uiState.value.copy(isImporting = false)
+        _uiState.value = _uiState.value.copy(importing = null)
     }
 
     /**
@@ -93,7 +107,8 @@ class RoutesViewModel(
      */
     fun import(fileName: String, data: ByteArray) {
         val fallback = fileName.substringBeforeLast('.')
-        _uiState.value = _uiState.value.copy(isImporting = true)
+        // Ya se sabe de qué archivo se trata: la fila que la lista enseña deja de ser anónima.
+        _uiState.value = _uiState.value.copy(importing = ImportingRoute(fallback))
         viewModelScope.launch {
             when (val result = importRoute(data, fallbackName = fallback)) {
                 is ImportRouteUseCase.Result.Success -> show(RoutesMessage.Imported(result.route.name))
@@ -101,7 +116,7 @@ class RoutesViewModel(
                 // La pregunta del duplicado pasa a ser lo que está ocurriendo: la espera termina
                 // aquí, porque ahora se espera a una persona y no a un archivo.
                 is ImportRouteUseCase.Result.AlreadyExists -> _uiState.value = _uiState.value.copy(
-                    isImporting = false,
+                    importing = null,
                     pendingImport = PendingImport(
                         existingName = result.existingRoute.name,
                         incomingName = result.newRoute.name,
@@ -114,7 +129,10 @@ class RoutesViewModel(
 
     fun confirmReplace() {
         val pending = _uiState.value.pendingImport ?: return
-        _uiState.value = _uiState.value.copy(pendingImport = null, isImporting = true)
+        _uiState.value = _uiState.value.copy(
+            pendingImport = null,
+            importing = ImportingRoute(pending.incomingName),
+        )
         viewModelScope.launch {
             val result = importRoute(
                 pending.data,
@@ -181,6 +199,6 @@ class RoutesViewModel(
      * que más se olvida es el del error.
      */
     private fun show(message: RoutesMessage) {
-        _uiState.value = _uiState.value.copy(message = message, isImporting = false)
+        _uiState.value = _uiState.value.copy(message = message, importing = null)
     }
 }

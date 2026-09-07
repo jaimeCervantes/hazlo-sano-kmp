@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +50,7 @@ import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.presentation.silhouetteOf
+import com.hazlosano.feature.movement.routes.presentation.ImportingRoute
 import com.hazlosano.feature.movement.routes.presentation.RoutesViewModel
 import com.hazlosano.feature.movement.ui.TrackSilhouetteGap
 import com.hazlosano.feature.movement.ui.TrackSilhouetteView
@@ -73,6 +74,7 @@ import hazlosano.app.shared.generated.resources.routes_name_label
 import hazlosano.app.shared.generated.resources.routes_rename
 import hazlosano.app.shared.generated.resources.routes_title
 import hazlosano.app.shared.generated.resources.routes_importing
+import hazlosano.app.shared.generated.resources.routes_importing_unnamed
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
@@ -135,10 +137,6 @@ fun RoutesScreen(
             backContentDescription = stringResource(Res.string.top_app_bar_back),
         )
 
-        if (state.isImporting) {
-            ImportingNotice()
-        }
-
         state.message?.let { message ->
             Text(
                 text = message.text(),
@@ -172,11 +170,15 @@ fun RoutesScreen(
         }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            if (routes.isEmpty()) {
+            // La primera importacion se pide desde el estado vacio, asi que ese estado tiene que
+            // saber apartarse en cuanto hay algo entrando: si no, la ruta que llega no tendria
+            // donde aparecer y seguiriamos diciendo que no hay ninguna.
+            if (routes.isEmpty() && state.importing == null) {
                 EmptyRoutes(onImport = askForGpx, enabled = !state.isImporting)
             } else {
                 RouteList(
                     routes = routes,
+                    importing = state.importing,
                     onOpen = { onOpenRoute(it.id) },
                     onRename = { renaming = it },
                     onExport = { viewModel.export(it.id) },
@@ -238,6 +240,7 @@ fun RoutesScreen(
 @Composable
 private fun RouteList(
     routes: List<Route>,
+    importing: ImportingRoute?,
     onOpen: (Route) -> Unit,
     onRename: (Route) -> Unit,
     onExport: (Route) -> Unit,
@@ -253,6 +256,12 @@ private fun RouteList(
         ),
         verticalArrangement = Arrangement.spacedBy(HazloSpaces.sm),
     ) {
+        // Arriba del todo: lo que acaba de pedirse es lo que se quiere ver aparecer, y ademas es
+        // donde caera la ruta ya guardada, que se ordena por fecha de creacion.
+        importing?.let { entering ->
+            item(key = IMPORTING_ROW_KEY) { ImportingRouteRow(entering) }
+        }
+
         items(routes, key = { it.id }) { route ->
             RouteRow(
                 route = route,
@@ -444,26 +453,61 @@ private fun EmptyRoutes(onImport: () -> Unit, enabled: Boolean) {
     }
 }
 
+/** La fila de la ruta que entra no tiene id todavia, asi que lleva la suya propia. */
+private const val IMPORTING_ROW_KEY = "routes_importing_row"
+
 /**
- * Que hay una importacion en marcha.
+ * La ruta que esta entrando, con la forma de las que ya estan.
  *
- * **Indeterminado a proposito, y sin porcentaje.** Se midio antes de decidirlo
- * (`GpxImportBenchmark`): parsear, medir, guardar y releer un GPX de 20.000 puntos son 378 ms. Con
- * eso no hay trabajo largo que repartir, y una barra que va del 0 al 100 en un parpadeo es un adorno
- * que finge medir — la misma clase de cifra inventada que el pilar lleva cuatro slices quitando de
- * sus distancias y sus desniveles.
+ * Es una tarjeta y no un aviso encima de la lista porque lo que se espera al importar es **ver
+ * aparecer la ruta**, no leer que algo esta pasando. Ocupa el sitio donde va a quedarse, asi que
+ * cuando termina no hay salto: la fila deja de girar y se llena.
+ *
+ * **El cargador es indeterminado a proposito.** Se midio antes de decidirlo (`GpxImportBenchmark`):
+ * parsear, medir, guardar y releer un GPX de 20.000 puntos son 378 ms. Con eso no hay trabajo largo
+ * que repartir, y una barra que va del 0 al 100 en un parpadeo es un adorno que finge medir - la
+ * misma clase de cifra inventada que el pilar lleva cuatro slices quitando de sus distancias y sus
+ * desniveles.
+ *
+ * Lo que se enseña es el nombre del **archivo**, no el de la ruta: el nombre de verdad sale de
+ * dentro del GPX y puede no parecerse. Antes de que el selector entregue el archivo no se sabe ni
+ * eso, y entonces la fila lo dice en vez de inventarse un nombre.
  */
 @Composable
-private fun ImportingNotice() {
-    Column(modifier = Modifier.fillMaxWidth().testTag(RoutesTags.IMPORTING)) {
-        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Text(
-            text = stringResource(Res.string.routes_importing),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm),
-        )
+private fun ImportingRouteRow(importing: ImportingRoute) {
+    LeafCard(modifier = Modifier.fillMaxWidth().testTag(RoutesTags.IMPORTING)) {
+        Row(
+            modifier = Modifier.padding(HazloSpaces.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier.size(SILHOUETTE_SIZE),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(HazloSpaces.lg),
+                    strokeWidth = IMPORTING_STROKE,
+                    color = PillarType.MOVEMENT.palette().ink,
+                )
+            }
+            Spacer(modifier = Modifier.width(HazloSpaces.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = importing.fileName
+                        ?: stringResource(Res.string.routes_importing_unnamed),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(Res.string.routes_importing),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = HazloSpaces.xs),
+                )
+            }
+        }
     }
 }
+
+private val IMPORTING_STROKE = 2.dp

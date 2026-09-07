@@ -3,13 +3,14 @@ package com.hazlosano.feature.movement.routes.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
@@ -49,6 +50,7 @@ import hazlosano.app.shared.generated.resources.route_detail_points
 import hazlosano.app.shared.generated.resources.routes_delete
 import hazlosano.app.shared.generated.resources.routes_export
 import hazlosano.app.shared.generated.resources.top_app_bar_back
+import hazlosano.app.shared.generated.resources.top_app_bar_menu
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la estructura se afirma por aquí, no por la redacción. */
@@ -115,17 +117,28 @@ fun RouteDetailContent(
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
+            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            // Las acciones solo existen mientras hay una ruta: sobre un detalle que se esta
+            // cargando o que no encontro nada, borrar y descargar no significan nada. Sin ruta no
+            // hay menu, y los tres puntos vuelven a no ofrecer nada que no puedan cumplir.
+            menuContent = detail?.let {
+                { dismiss: () -> Unit ->
+                    RouteMenuItems(
+                        canExport = gpxFileAccessAvailable,
+                        onExport = {
+                            dismiss()
+                            onExport()
+                        },
+                        onDelete = {
+                            dismiss()
+                            confirmingDelete = true
+                        },
+                    )
+                }
+            },
         )
 
-        // Las acciones solo existen mientras hay una ruta: sobre un detalle que se esta cargando o
-        // que no encontro nada, borrar y descargar no significan nada.
         detail?.let { route ->
-            RouteActions(
-                canExport = gpxFileAccessAvailable,
-                onExport = onExport,
-                onDelete = { confirmingDelete = true },
-            )
-
             if (confirmingDelete) {
                 DeleteRouteDialog(
                     routeName = route.name,
@@ -270,35 +283,46 @@ private fun Message(text: String, modifier: Modifier = Modifier) {
  * Lo que se puede hacer con la ruta que se esta mirando.
  *
  * Descargar y borrar existian solo en las filas de la lista, asi que quien abria una ruta para verla
- * en el mapa —que es donde se decide si sirve— tenia que volver atras para hacer nada con ella.
+ * en el mapa -que es donde se decide si sirve- tenia que volver atras para hacer nada con ella.
+ *
+ * **Van en el menu de la barra y no sueltas sobre el mapa**, que es lo que se probo primero: el
+ * detalle es un mapa a pantalla completa con una hoja de cifras encima, y cualquier cosa que se
+ * ponga entre medias le quita sitio a lo unico que se ha venido a ver. Ademas da por fin trabajo a
+ * los tres puntos, que en esta pantalla se pintaban sin hacer nada.
  *
  * Descargar se esconde donde la plataforma no sabe escribir archivos, igual que en la lista: un
  * boton que no puede funcionar es peor que ninguno.
  */
 @Composable
-private fun RouteActions(
+private fun ColumnScope.RouteMenuItems(
     canExport: Boolean,
     onExport: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (canExport) {
-            IconButton(onClick = onExport, modifier = Modifier.testTag(RouteDetailTags.EXPORT)) {
-                Icon(
-                    Icons.Default.FileDownload,
-                    contentDescription = stringResource(Res.string.routes_export),
-                )
-            }
-        }
-        IconButton(onClick = onDelete, modifier = Modifier.testTag(RouteDetailTags.DELETE)) {
+    if (canExport) {
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.routes_export)) },
+            leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+            onClick = onExport,
+            modifier = Modifier.testTag(RouteDetailTags.EXPORT),
+        )
+    }
+    DropdownMenuItem(
+        text = {
+            Text(
+                text = stringResource(Res.string.routes_delete),
+                // Lo destructivo se ve destructivo, igual que en el dialogo que viene despues.
+                color = MaterialTheme.colorScheme.error,
+            )
+        },
+        leadingIcon = {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = stringResource(Res.string.routes_delete),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
             )
-        }
-    }
+        },
+        onClick = onDelete,
+        modifier = Modifier.testTag(RouteDetailTags.DELETE),
+    )
 }

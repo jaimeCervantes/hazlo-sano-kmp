@@ -216,6 +216,7 @@
     <string name="routes_export">Export to GPX</string>
     <string name="routes_delete">Delete route</string>
     <string name="routes_importing">Importing route…</string>
+    <string name="routes_importing_unnamed">New route</string>
     <string name="routes_delete_title">Delete this route?</string>
     <string name="routes_delete_body">“%1$s” will be deleted and this cannot be undone.</string>
     <string name="routes_delete_confirm">Delete</string>

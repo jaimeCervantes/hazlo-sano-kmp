@@ -145,3 +145,109 @@ de lo que se va.
 **Próximos pasos.** El slice 2: que la barra superior pinte su propio fondo, que es el fallo que el
 usuario reportó primero —el header de la ruta que no respeta el tema— y que hoy puede repetirlo
 cualquier pantalla nueva por olvido.
+
+---
+
+## Slice 1, segunda pasada — lo que el uso real corrigió (2026-09-06)
+
+El usuario probó el APK y devolvió tres cosas. Una era un bug de verdad, y las otras dos mejoran el
+diseño que había entregado.
+
+### El bug: el indicador desaparecía al navegar
+
+**Lo reportado:** «puse a cargar una ruta, luego entré al detalle de otra y el indicador dejó de
+mostrarse». El usuario preguntó si serían demasiados puntos para una ruta de 14 km, o si hacía falta
+una bandeja en segundo plano.
+
+**No era ninguna de las dos.** 14 km a un punto por segundo son entre 2.800 y 10.000 puntos, o sea
+107-328 ms medidos. La causa estaba en la navegación: `MainScreen` llamaba a
+`rememberRoutesViewModel()` **dentro** de la rama del `when` de Rutas. Al abrir el detalle de una
+ruta esa rama deja de componerse, el `remember` se olvida, y al volver nace un ViewModel nuevo con la
+importación a cero.
+
+Lo llamativo es que **la importación sí terminaba**: el trabajo vive en `viewModelScope` y, al
+construirse con `remember` en vez de con `viewModel()`, nadie llama a `onCleared()`, así que la
+corrutina seguía y guardaba la ruta. Lo que se perdía era quien la estaba mirando — el indicador y
+el mensaje de «importada».
+
+**Arreglo:** el ViewModel sube por encima del `when`, a la composición de `MainScreen`. Ahora
+sobrevive a toda la navegación de dentro del app, que es lo que el caso pedía.
+
+**Lo que no se hizo, y por qué:** la bandeja en segundo plano que el usuario proponía. Con 378 ms
+para veinte mil puntos no hay una espera que justifique una superficie propia, y el único hueco
+verdaderamente largo —que Android baje el GPX de Drive— ocurre con el selector del sistema en primer
+plano, donde no se puede navegar por el app de todos modos.
+
+### La ruta entra en la lista, y no en un aviso encima
+
+**Lo pedido:** «debería agregarse a la lista y con un cargador en la card de la nueva ruta».
+
+Tiene razón, y es mejor que lo que había. Lo que se espera al importar es **ver aparecer la ruta**,
+no leer que algo está pasando. El banner se sustituye por una tarjeta con la forma de las demás, en
+la cabecera de la lista, que es justo donde va a quedarse la ruta ya guardada: cuando termina, la
+fila deja de girar y se llena, sin salto.
+
+Eso obligó a que el estado supiera **qué** está entrando y no sólo que algo entra: `isImporting:
+Boolean` pasa a `importing: ImportingRoute?`, con el nombre del archivo. Hay un hueco en el que hay
+importación pero todavía no se sabe de qué —entre pedir el archivo y que el selector lo entregue— y
+ahí la fila lo dice en vez de inventarse un nombre. **Se enseña el nombre del archivo, no el de la
+ruta**: el de verdad sale de dentro del GPX y puede no parecerse, así que la tarjeta muestra lo que
+se sabe y no una promesa de lo que va a salir.
+
+El estado vacío tuvo que aprender a apartarse: la primera importación se pide desde ahí, y si no se
+aparta la ruta que llega no tiene dónde aparecer.
+
+### Las acciones del detalle se van a los tres puntos
+
+**Lo pedido:** en la lista, los botones de editar, eliminar y descargar (ya estaban, y se quedan); en
+el detalle, que las opciones vivan en el header, en el menú desplegable de los tres puntos.
+
+Es mejor que la fila de acciones que había entregado, y por una razón que el usuario vio antes que
+yo: el detalle es un mapa a pantalla completa con una hoja de cifras encima, y cualquier cosa que se
+ponga entre medias le quita sitio a lo único que se ha venido a ver.
+
+Para eso `HazloTopAppBar` gana un hueco opcional, `menuContent`, que convierte los tres puntos en un
+menú de verdad. **La barra no sabe qué hay dentro**: recibe el contenido ya escrito, que es lo que le
+permite seguir siendo atómica —sin dominio y sin recursos— como manda `AGENTS.md`. Quien no pasa el
+hueco se queda con el callback suelto de siempre, así que ninguna pantalla existente cambia.
+
+Cerrar el menú es cosa del menú y no de cada opción: si cada una tuviera que acordarse, la que se
+olvidara lo dejaría abierto sobre la pantalla que acaba de cambiar.
+
+**De paso, esto adelanta media razón de ser del slice 3**: en el detalle de una ruta los tres puntos
+dejan de pintarse sin hacer nada. Sin ruta cargada no hay menú, así que tampoco ofrecen algo que no
+puedan cumplir.
+
+### Archivos tocados
+
+- **Presentación:** `RoutesViewModel.kt` (`ImportingRoute`, `importing` en vez de `isImporting`).
+- **UI:** `MainScreen.kt` (el ViewModel sube por encima del `when`), `RoutesScreen.kt` (la tarjeta
+  que entra sustituye al banner; el estado vacío se aparta), `RouteDetailScreen.kt` (las acciones se
+  van al menú), `HazloTopAppBar.kt` (`menuContent`).
+- **Recursos:** `routes_importing_unnamed`, en los dos idiomas.
+- **Tests:** `RoutesViewModelTest` (+1: la fila que entra toma el nombre del archivo, y no lo tiene
+  antes de que el selector entregue nada).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **384 pruebas, 0 fallos**.
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+El bug del indicador **no lo habría cogido ningún test de los que hay ni de los que se podían
+escribir a ese nivel**: no estaba en el ViewModel, que se comportaba bien, sino en dónde se
+construía. Lo cogió usar el app. Un test de pantalla que navegue a un detalle y vuelva sí lo
+cogería, y es otra razón para saldar la deuda del test de `RoutesScreen`.
+
+Tampoco lo miran los tests: el menú de los tres puntos, la tarjeta que entra, ni el diálogo de
+borrado. Las etiquetas están puestas.
+
+**Recap.** La ruta que se importa ahora aparece en la lista desde el primer momento, con su cargador,
+en el sitio donde se va a quedar. Las acciones del detalle viven en el menú de la barra, que deja de
+estar pintado por gusto. Y el indicador ya no se pierde al navegar: el ViewModel estaba construido
+dentro de una rama del `when` que la navegación desmonta — la importación terminaba, pero se quedaba
+sin nadie mirándola.

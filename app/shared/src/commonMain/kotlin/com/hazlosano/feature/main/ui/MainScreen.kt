@@ -139,6 +139,12 @@ fun MainScreen(
         showSleepHistory = true
     }
 
+    // Vive aquí y no dentro de la rama de Rutas, que es donde estaba: allí el `remember` se olvidaba
+    // al abrir el detalle de una ruta, así que una importación en curso perdía a quien la miraba y
+    // al volver la pantalla decía que no pasaba nada. La importación sí terminaba —el trabajo no
+    // depende de la pantalla— pero el aviso y el resultado se los llevaba la navegación.
+    val routesViewModel = rememberRoutesViewModel()
+
     when (val movementDestination = movementNav.destination) {
         MovementDestination.Tracker -> {
             TrackerScreen(
@@ -161,7 +167,7 @@ fun MainScreen(
 
         MovementDestination.Routes -> {
             RoutesScreen(
-                viewModel = rememberRoutesViewModel(),
+                viewModel = routesViewModel,
                 onBack = { movementNav.back() },
                 onOpenRoute = { routeId -> movementNav.openRouteDetail(routeId) },
                 modifier = Modifier.fillMaxSize(),

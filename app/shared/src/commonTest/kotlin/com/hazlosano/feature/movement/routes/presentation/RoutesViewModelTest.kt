@@ -183,6 +183,25 @@ class RoutesViewModelTest {
         assertTrue(viewModel.uiState.value.isImporting)
     }
 
+    /**
+     * La fila que la lista enseña mientras entra sabe de qué archivo es, en cuanto se sabe.
+     *
+     * Antes de que el selector entregue nada no hay nombre que dar, y entonces la fila lo dice en
+     * vez de inventarse uno. El nombre de verdad sale de dentro del GPX y puede no parecerse al del
+     * archivo, así que esto es lo que se sabe y no una promesa de lo que va a salir.
+     */
+    @Test
+    fun `the row that is coming in takes the name of the file`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+
+        viewModel.importRequested()
+        assertNull(viewModel.uiState.value.importing?.fileName, "todavía no hay archivo")
+
+        viewModel.import("Vuelta al lago.gpx", gpxNamed("Vuelta al lago"))
+
+        assertEquals("Vuelta al lago", viewModel.uiState.value.importing?.fileName)
+    }
+
     @Test
     fun `a stored route ends the wait`() = runTest(dispatcher) {
         val viewModel = viewModel(FakeRoutes())
