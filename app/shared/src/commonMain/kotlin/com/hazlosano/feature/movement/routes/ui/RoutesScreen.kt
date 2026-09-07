@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
@@ -76,6 +77,7 @@ import hazlosano.app.shared.generated.resources.routes_title
 import hazlosano.app.shared.generated.resources.routes_importing
 import hazlosano.app.shared.generated.resources.routes_importing_unnamed
 import hazlosano.app.shared.generated.resources.top_app_bar_back
+import hazlosano.app.shared.generated.resources.top_app_bar_menu
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
@@ -99,6 +101,7 @@ fun RoutesScreen(
     viewModel: RoutesViewModel,
     onBack: () -> Unit,
     onOpenRoute: (Long) -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val routes by viewModel.allRoutes.collectAsState()
@@ -135,6 +138,15 @@ fun RoutesScreen(
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
+            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            menuContent = { dismiss ->
+                AppSettingsMenuItem(
+                    onClick = {
+                        dismiss()
+                        onOpenSettings()
+                    },
+                )
+            },
         )
 
         state.message?.let { message ->

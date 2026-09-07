@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
@@ -47,6 +48,7 @@ import hazlosano.app.shared.generated.resources.outings_failed
 import hazlosano.app.shared.generated.resources.outings_open_routes
 import hazlosano.app.shared.generated.resources.outings_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
+import hazlosano.app.shared.generated.resources.top_app_bar_menu
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la lista se afirma por aquí y no por su redacción. */
@@ -60,6 +62,7 @@ fun MovementHistoryScreen(
     onBack: () -> Unit,
     onOpenSession: (Long) -> Unit,
     onOpenRoutes: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember { createMovementHistoryViewModel() }
@@ -71,6 +74,15 @@ fun MovementHistoryScreen(
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
+            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            menuContent = { dismiss ->
+                AppSettingsMenuItem(
+                    onClick = {
+                        dismiss()
+                        onOpenSettings()
+                    },
+                )
+            },
         )
 
         TextButton(

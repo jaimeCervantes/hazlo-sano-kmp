@@ -2,8 +2,6 @@
 <resources>
     <!-- Top app bar -->
     <string name="top_app_bar_back">Volver</string>
-    <string name="top_app_bar_profile">Perfil</string>
-    <string name="top_app_bar_notifications">Notificaciones</string>
     <string name="top_app_bar_menu">Menú</string>
 
     <!-- Barra inferior -->

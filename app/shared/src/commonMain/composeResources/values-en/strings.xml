@@ -72,8 +72,6 @@
 
     <!-- Top app bar -->
     <string name="top_app_bar_back">Back</string>
-    <string name="top_app_bar_profile">Profile</string>
-    <string name="top_app_bar_notifications">Notifications</string>
     <string name="top_app_bar_menu">Menu</string>
 
     <!-- Bottom bar -->

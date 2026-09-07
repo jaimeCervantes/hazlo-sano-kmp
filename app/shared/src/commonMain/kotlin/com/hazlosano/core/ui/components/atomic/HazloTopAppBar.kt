@@ -37,16 +37,32 @@ import com.hazlosano.core.ui.theme.HazloSpaces
 /** Etiquetas de prueba: la barra se afirma por aqui y no por su redaccion. */
 object HazloTopAppBarTags {
     const val BAR: String = "hazlo_top_app_bar"
+    const val PROFILE: String = "hazlo_top_app_bar_profile"
+    const val NOTIFICATIONS: String = "hazlo_top_app_bar_notifications"
+    const val MENU: String = "hazlo_top_app_bar_menu"
 }
 
+/**
+ * La barra superior del app.
+ *
+ * **Un control se pinta porque alguien le dio algo que hacer.** Las acciones son nulables y su valor
+ * por defecto es `null`, no `{}`: con la lambda vacia por defecto los tres iconos se pintaban
+ * siempre, y en siete de las ocho pantallas ninguno estaba conectado — se pintaban, respondian al
+ * toque con su ondita y no pasaba nada. Un control que miente sobre lo que hace enseña a desconfiar
+ * de la interfaz entera, que es el mismo principio que este pilar aplica a sus cifras: si no lo
+ * sabes, no lo digas.
+ *
+ * Que el tipo sea nulable es lo que hace la regla comprobable en vez de una intencion: no se puede
+ * pintar un boton sin tener a quien llamar.
+ */
 @Composable
 fun HazloTopAppBar(
     title: String = "Hazlo Sano",
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
-    onNotificationsClick: () -> Unit = {},
-    onMenuClick: () -> Unit = {},
+    onProfileClick: (() -> Unit)? = null,
+    onNotificationsClick: (() -> Unit)? = null,
+    onMenuClick: (() -> Unit)? = null,
     leadingIcon: ImageVector? = null,
     backContentDescription: String? = null,
     profileContentDescription: String? = null,
@@ -55,6 +71,9 @@ fun HazloTopAppBar(
     menuContent: (@Composable ColumnScope.(dismiss: () -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    // Los tres puntos valen para las dos formas: un menu desplegable, o una accion suelta. Se pintan
+    // si hay cualquiera de las dos.
+    val hasMenu = menuContent != null || onMenuClick != null
     // Quien pasa [menuContent] convierte los tres puntos en un menu de verdad; quien no, se queda
     // con el callback suelto de siempre. La barra no sabe que hay dentro del menu: recibe el hueco
     // ya escrito, que es lo que le permite seguir sin conocer ni dominio ni recursos.
@@ -88,23 +107,21 @@ fun HazloTopAppBar(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        } else if (leadingIcon != null) {
-            IconButton(onClick = onProfileClick, modifier = Modifier.size(40.dp)) {
+        } else if (onProfileClick != null) {
+            IconButton(
+                onClick = onProfileClick,
+                modifier = Modifier.size(40.dp).testTag(HazloTopAppBarTags.PROFILE),
+            ) {
                 Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = profileContentDescription,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            IconButton(onClick = onProfileClick, modifier = Modifier.size(40.dp)) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
+                    imageVector = leadingIcon ?: Icons.Filled.Person,
                     contentDescription = profileContentDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
+        // Sin vuelta atras y sin perfil no se pinta nada a la izquierda, y el titulo se va al
+        // principio. Es lo que pasa hoy en la pantalla principal: el muñeco del perfil llevaba
+        // desde siempre sin llevar a ningun sitio, y no hay perfil al que llevar todavia.
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -112,36 +129,42 @@ fun HazloTopAppBar(
             color = MaterialTheme.colorScheme.primary,
         )
         Row {
-            IconButton(
-                onClick = onNotificationsClick,
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Notifications,
-                    contentDescription = notificationsContentDescription,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Box {
+            if (onNotificationsClick != null) {
                 IconButton(
-                    onClick = { if (menuContent != null) menuOpen = true else onMenuClick() },
-                    modifier = Modifier.size(40.dp),
+                    onClick = onNotificationsClick,
+                    modifier = Modifier.size(40.dp).testTag(HazloTopAppBarTags.NOTIFICATIONS),
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.MoreVert,
-                        contentDescription = menuContentDescription,
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = notificationsContentDescription,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (menuContent != null) {
-                    DropdownMenu(
-                        expanded = menuOpen,
-                        onDismissRequest = { menuOpen = false },
+            }
+            if (hasMenu) {
+                Box {
+                    IconButton(
+                        onClick = {
+                            if (menuContent != null) menuOpen = true else onMenuClick?.invoke()
+                        },
+                        modifier = Modifier.size(40.dp).testTag(HazloTopAppBarTags.MENU),
                     ) {
-                        // Cerrar es cosa del menu y no de cada opcion: si cada una tuviera que
-                        // acordarse, la que se olvidara dejaria el menu abierto sobre la pantalla
-                        // que acaba de cambiar.
-                        menuContent { menuOpen = false }
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = menuContentDescription,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (menuContent != null) {
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false },
+                        ) {
+                            // Cerrar es cosa del menu y no de cada opcion: si cada una tuviera que
+                            // acordarse, la que se olvidara dejaria el menu abierto sobre la
+                            // pantalla que acaba de cambiar.
+                            menuContent { menuOpen = false }
+                        }
                     }
                 }
             }

@@ -336,3 +336,116 @@ corregirla.
 **Próximos pasos.** El slice 3: que la barra sólo pinte controles que hacen algo. Los tres puntos ya
 hacen algo en el detalle de una ruta desde la segunda pasada del slice 1; queda la campana, el icono
 de perfil, y llevar Ajustes a las pantallas donde hoy no se alcanza.
+
+---
+
+## Slice 3 — La barra sólo pinta controles que hacen algo (2026-09-07)
+
+**Lo que había.** `HazloTopAppBar` pintaba siempre tres iconos —perfil, campana y tres puntos— porque
+sus acciones tenían `{}` como valor por defecto. La pantalla principal conectaba el ⋮ a Ajustes;
+**las otras siete pantallas no conectaban ninguno**. Se pintaban, respondían al toque con su ondita y
+no pasaba nada. Un control que miente sobre lo que hace enseña a desconfiar de la interfaz entera, y
+es el mismo principio que este pilar aplica a sus cifras: si no lo sabes, no lo digas.
+
+### El cambio es de tipo, no de condición
+
+Las acciones pasan de `() -> Unit = {}` a `(() -> Unit)? = null`, y el control se pinta si la suya no
+es nula. **Que sea el tipo el que lo diga es lo que hace la regla comprobable en vez de una
+intención**: con la lambda vacía por defecto no hay forma de distinguir «no me dieron nada» de «me
+dieron algo que no hace nada», así que no se puede afirmar. Nulable, no se puede pintar un botón sin
+tener a quién llamar.
+
+De paso desaparece el `if/else` que repetía el `IconButton` del perfil dos veces —una con
+`leadingIcon` y otra con el muñeco— y queda un `leadingIcon ?: Icons.Filled.Person`.
+
+### Qué desaparece, y qué se gana
+
+- **El icono de perfil**, que no hacía nada en ninguna pantalla. Se retira hasta que haya perfil. En
+  la pantalla principal eso deja el sitio de la izquierda vacío y el título se va al principio, que
+  es como se lee cualquier barra sin navegación hacia atrás.
+- **La campana**, por lo mismo: no hay avisos que dar todavía.
+- **Los tres puntos** siguen en la pantalla principal, y **aparecen ahora en las cinco pantallas de
+  Movimiento**, llevando a Ajustes.
+
+### Ajustes se alcanza sin salir del pilar, y el orden importa
+
+Antes sólo se llegaba por el ⋮ de la pantalla principal: quien estaba grabando una salida y quería
+cambiar el tema o el idioma tenía que abandonar el pilar entero.
+
+El arreglo tiene una parte que no se ve y sin la cual no funciona: **la comprobación de `showSettings`
+sube por encima del `when` de movimiento**. Estaba debajo, así que el `when` devolvía la pantalla de
+movimiento y Ajustes no llegaba a pintarse nunca por mucho que se pusiera el booleano. Con el orden
+corregido, volver pone `showSettings` a false y se vuelve a caer en el `when`, que sigue teniendo su
+destino — así que se vuelve a donde estabas y no a la pantalla principal, que era el otro criterio.
+
+### Dónde vive «Ajustes», y por qué no en la barra
+
+`AppSettingsMenuItem` es nuevo y vive en `core/ui/components/`, **no en `atomic/`**: lee el catálogo,
+y un componente atómico tiene que poder componerse desde cualquier sitio —previews y tests incluidos—
+donde no hay entorno de recursos. Por eso tampoco puede escribirlo la barra, que sí es atómica: la
+barra recibe el hueco del menú ya escrito y no sabe qué hay dentro.
+
+Y se define una vez en lugar de en cada pantalla: cinco copias de la misma opción son cinco sitios
+donde la redacción se puede separar.
+
+En el detalle de una ruta el menú junta las dos clases de opción que puede haber en una barra: **lo
+que se le hace a lo que estás mirando** (descargar, borrar) y **lo del app** (Ajustes), con una raya
+entre medias. Ajustes está también cuando no hay ruta que enseñar, porque no depende de que la ruta
+exista — un detalle que no encontró nada tampoco puede dejarte sin salida.
+
+### Las pruebas, y cuál es la que importa
+
+Los cuatro tests que ya había de la barra **fallaron al hacer el cambio**, y por la razón correcta:
+componían la barra sin darle nada que hacer y afirmaban que los iconos aparecían. Reescritos para
+pasar una acción, más cuatro nuevos para el lado negativo.
+
+**El lado negativo es el que cubre el defecto.** Probar sólo que un control con acción aparece
+dejaría pasar exactamente lo que había. Se afirma con `assertDoesNotExist()` y no con
+`assertIsNotDisplayed()`: no es que el control esté escondido, es que no llega a existir — y la
+segunda aserción falla cuando el nodo no está, así que la primera es además la única que compila
+diciendo la verdad.
+
+### Limpieza que el cambio permite
+
+`top_app_bar_profile` y `top_app_bar_notifications` se quedaron sin un solo uso, así que salen de los
+dos catálogos junto con sus imports muertos. Dejar copia sin dueño en el catálogo cuesta una
+traducción por cada idioma que se añada. Vuelven con el control el día que haya perfil; git las
+tiene.
+
+### Archivos tocados
+
+- **UI:** `HazloTopAppBar.kt` (acciones nulables, etiquetas), `AppBarMenu.kt` (nuevo),
+  `MainScreen.kt` (Ajustes por encima del `when`, la barra pierde perfil y campana, las cinco
+  pantallas reciben la puerta), `TrackerScreen.kt`, `MovementHistoryScreen.kt`, `RoutesScreen.kt`,
+  `SessionDetailScreen.kt`, `RouteDetailScreen.kt` (menú con Ajustes).
+- **Recursos:** fuera `top_app_bar_profile` y `top_app_bar_notifications`, en los dos idiomas.
+- **Tests:** `HazloTopAppBarTest` (4 reescritos, +4), `RouteDetailMenuTest` (nuevo, 4).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **395 pruebas, 0 fallos** (venían 387).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+**Lo de «volver de Ajustes devuelve a donde estabas» no lo mira ningún test**, y es el criterio con
+más riesgo de los tres: depende del orden de dos bloques dentro de `MainScreen`, que es justo la
+clase de cosa que un refactor mueve sin darse cuenta. Un test que componga `MainScreen` entero lo
+cogería, pero `MainScreen` construye ViewModels con repositorios reales y no se puede componer en la
+JVM sin desmontarlo primero. Queda anotado, con nombre: **es la misma deuda que dejó pasar el bug del
+indicador de importación**, que también era de dónde se construye algo y no de qué hace.
+
+Tampoco se prueba que la pantalla principal se vea bien con el título al principio, ahora que no hay
+icono a la izquierda.
+
+**Recap.** Un control de la barra existe porque alguien le dio algo que hacer, y eso es ahora una
+propiedad del tipo y no una intención: las acciones son nulables. El muñeco del perfil y la campana
+—que no llevaban a ningún sitio en ninguna pantalla— se retiran hasta que haya adónde llevar. Y
+Ajustes se alcanza desde las cinco pantallas de Movimiento, lo que exigió subir su comprobación por
+encima del `when` que devolvía antes de llegar a ella.
+
+**Próximos pasos.** El slice 4: el botón «atrás» de Android, que sigue sin existir en todo el
+proyecto. Ajustes ya está en la pila, que era la razón de ponerlo después de éste.

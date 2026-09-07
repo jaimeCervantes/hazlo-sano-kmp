@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.feature.movement.model.RouteStanding
@@ -67,6 +68,7 @@ import hazlosano.app.shared.generated.resources.tracker_distance_waiting_for_fix
 import hazlosano.app.shared.generated.resources.tracker_gone_nowhere
 import hazlosano.app.shared.generated.resources.tracker_off_route
 import hazlosano.app.shared.generated.resources.top_app_bar_back
+import hazlosano.app.shared.generated.resources.top_app_bar_menu
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
@@ -92,6 +94,7 @@ private const val SAVED_CONFIRMATION_MILLIS = 5_000L
 fun TrackerScreen(
     onBack: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember { createTrackerViewModel() }
@@ -122,6 +125,15 @@ fun TrackerScreen(
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
+            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            menuContent = { dismiss ->
+                AppSettingsMenuItem(
+                    onClick = {
+                        dismiss()
+                        onOpenSettings()
+                    },
+                )
+            },
         )
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {

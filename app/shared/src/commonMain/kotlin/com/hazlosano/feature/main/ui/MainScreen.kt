@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
@@ -63,8 +64,6 @@ import hazlosano.app.shared.generated.resources.history_back
 import hazlosano.app.shared.generated.resources.history_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import hazlosano.app.shared.generated.resources.top_app_bar_menu
-import hazlosano.app.shared.generated.resources.top_app_bar_notifications
-import hazlosano.app.shared.generated.resources.top_app_bar_profile
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -145,11 +144,27 @@ fun MainScreen(
     // depende de la pantalla— pero el aviso y el resultado se los llevaba la navegación.
     val routesViewModel = rememberRoutesViewModel()
 
+    // Ajustes se comprueba ANTES del `when` de movimiento, y ese orden es el que hace que se pueda
+    // abrir desde dentro del pilar: comprobado despues, el `when` devolvia la pantalla de movimiento
+    // y Ajustes no llegaba a pintarse nunca. Al volver, `showSettings` vuelve a false y se cae otra
+    // vez en el `when`, que sigue teniendo su destino — asi que se vuelve a donde estabas y no a la
+    // pantalla principal.
+    if (showSettings) {
+        SettingsScreen(
+            onBack = { showSettings = false },
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
+
+    val openSettings = { showSettings = true }
+
     when (val movementDestination = movementNav.destination) {
         MovementDestination.Tracker -> {
             TrackerScreen(
                 onBack = { movementNav.back() },
                 onOpenHistory = { movementNav.openHistory() },
+                onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -160,6 +175,7 @@ fun MainScreen(
                 onBack = { movementNav.back() },
                 onOpenSession = { sessionId -> movementNav.openSessionDetail(sessionId) },
                 onOpenRoutes = { movementNav.openRoutes() },
+                onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -170,6 +186,7 @@ fun MainScreen(
                 viewModel = routesViewModel,
                 onBack = { movementNav.back() },
                 onOpenRoute = { routeId -> movementNav.openRouteDetail(routeId) },
+                onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -179,6 +196,7 @@ fun MainScreen(
             RouteDetailScreen(
                 routeId = movementDestination.routeId,
                 onBack = { movementNav.back() },
+                onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -188,20 +206,13 @@ fun MainScreen(
             SessionDetailScreen(
                 sessionId = movementDestination.sessionId,
                 onBack = { movementNav.back() },
+                onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
             return
         }
 
         MovementDestination.Closed -> Unit
-    }
-
-    if (showSettings) {
-        SettingsScreen(
-            onBack = { showSettings = false },
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
     }
 
     pillarInfo?.let { pillar ->
@@ -220,12 +231,19 @@ fun MainScreen(
             ),
             showBackButton = showSleepHistory,
             onBackClick = { showSleepHistory = false },
-            // El icono de menú llevaba desde siempre sin hacer nada; ahora es la puerta a ajustes.
-            onMenuClick = { showSettings = true },
             backContentDescription = stringResource(Res.string.top_app_bar_back),
-            profileContentDescription = stringResource(Res.string.top_app_bar_profile),
-            notificationsContentDescription = stringResource(Res.string.top_app_bar_notifications),
             menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            // Sin `onProfileClick` ni `onNotificationsClick`: el muñeco y la campana llevaban desde
+            // siempre sin llevar a ningun sitio, y ahora la barra no los pinta. Vuelven el dia que
+            // haya perfil y haya avisos que dar.
+            menuContent = { dismiss ->
+                AppSettingsMenuItem(
+                    onClick = {
+                        dismiss()
+                        showSettings = true
+                    },
+                )
+            },
         )
         if (showSleepHistory && sleepSessionRepository != null) {
             val historyViewModel = remember {

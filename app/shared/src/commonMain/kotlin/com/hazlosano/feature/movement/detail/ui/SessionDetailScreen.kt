@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -49,13 +50,19 @@ import hazlosano.app.shared.generated.resources.session_detail_no_path
 import hazlosano.app.shared.generated.resources.session_detail_route_name_label
 import hazlosano.app.shared.generated.resources.session_detail_save_as_route
 import hazlosano.app.shared.generated.resources.top_app_bar_back
+import hazlosano.app.shared.generated.resources.top_app_bar_menu
 import org.jetbrains.compose.resources.stringResource
 
 private const val METRICS_PER_ROW = 4
 
 /** Detail of one recorded session: its route on the map and the summary of what was recorded. */
 @Composable
-fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SessionDetailScreen(
+    sessionId: Long,
+    onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val viewModel = remember(sessionId) { createSessionDetailViewModel(sessionId) }
     val state by viewModel.state.collectAsState()
     val saveRouteMessage by viewModel.saveRouteMessage.collectAsState()
@@ -69,6 +76,15 @@ fun SessionDetailScreen(sessionId: Long, onBack: () -> Unit, modifier: Modifier 
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
+            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            menuContent = { dismiss ->
+                AppSettingsMenuItem(
+                    onClick = {
+                        dismiss()
+                        onOpenSettings()
+                    },
+                )
+            },
         )
 
         if (viewModel.canSaveAsRoute && state is SessionDetailUiState.Detail) {

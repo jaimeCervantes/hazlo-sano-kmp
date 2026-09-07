@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,6 +70,7 @@ object RouteDetailTags {
 fun RouteDetailScreen(
     routeId: Long,
     onBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel = rememberRouteDetailViewModel(routeId)
@@ -97,6 +99,7 @@ fun RouteDetailScreen(
         onBack = onBack,
         onExport = viewModel::export,
         onDelete = viewModel::delete,
+        onOpenSettings = onOpenSettings,
         modifier = modifier,
     )
 }
@@ -108,6 +111,7 @@ fun RouteDetailContent(
     onBack: () -> Unit,
     onExport: () -> Unit = {},
     onDelete: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -130,8 +134,10 @@ fun RouteDetailContent(
             // Las acciones solo existen mientras hay una ruta: sobre un detalle que se esta
             // cargando o que no encontro nada, borrar y descargar no significan nada. Sin ruta no
             // hay menu, y los tres puntos vuelven a no ofrecer nada que no puedan cumplir.
-            menuContent = detail?.let {
-                { dismiss: () -> Unit ->
+            // Con ruta cargada el menu trae lo de la ruta y ademas Ajustes; sin ella, solo
+            // Ajustes. Lo del app siempre esta, porque no depende de que la ruta exista.
+            menuContent = { dismiss: () -> Unit ->
+                if (detail != null) {
                     RouteMenuItems(
                         canExport = gpxFileAccessAvailable,
                         onExport = {
@@ -144,6 +150,14 @@ fun RouteDetailContent(
                         },
                     )
                 }
+                AppSettingsMenuItem(
+                    onClick = {
+                        dismiss()
+                        onOpenSettings()
+                    },
+                    // Lo de esta ruta y lo del app son dos cosas: la raya lo dice.
+                    afterOtherItems = detail != null,
+                )
             },
         )
 
