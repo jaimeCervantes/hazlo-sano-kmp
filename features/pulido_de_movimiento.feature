@@ -273,17 +273,58 @@ Feature: Las pantallas de Movimiento dejan de estorbar
   Note: la regla heredada de B3 y B4 vale igual en marcha que al terminar: **una cifra que no se midió
   no se enseña**. El tracker no puede enseñar un ascenso que el detalle luego se niega a dar.
 
-  @slice-6 @future
+  Note: **el directo usa el mismo cálculo que el detalle**, no uno propio. Acumular metros y segundos
+  según llegan sería más barato, pero un segundo cálculo es la manera de que el tracker y el detalle
+  acaben diciendo cosas distintas de la misma salida. Recalcular entero son dos pasadas sobre unos
+  cinco mil puntos en una salida de tres horas, una vez cada dos segundos.
+
+  Note: **el desnivel y las altitudes no salen en el directo**, aunque ya se calculan. La salida de
+  campo del 6 de septiembre enseñó por qué: la altitud se congeló 150 s mientras se pedaleaba, así que
+  en un teléfono real esas cifras dicen «—» buena parte del tiempo. Un hueco permanente en una esquina
+  del mapa no informa, ocupa. Siguen enteras en el detalle.
+
+  @slice-6
   Scenario: El ritmo y el tiempo en movimiento se ven mientras voy
+    Given una salida en curso que ya ha recorrido un trecho
+    When miro las cifras sobre el mapa
+    Then veo el ritmo y el tiempo en movimiento
+    And además la distancia y el tiempo, como antes
 
-  @slice-6 @future
-  Scenario: Una cifra sin medida enseña una raya y no un cero
+  @slice-6
+  Scenario: Una salida que acaba de empezar no inventa cifras
+    Given una salida que acaba de arrancar
+    When miro las cifras
+    Then el ritmo y el tiempo en movimiento enseñan una raya
+    And no un cero, que sería decir que no me he movido
 
-  @slice-6 @future
+  @slice-6
+  Scenario Outline: Lo que no se midió se calla, también en marcha
+    Given una salida en curso <caso>
+    When miro las cifras
+    Then el desnivel no se afirma
+
+    Examples:
+      | caso                                  |
+      | cuyas lecturas no traen altitud       |
+      | cuya altitud se quedó pegada          |
+
+  @slice-6
+  Scenario: Y con altitud de verdad, el desnivel sí sale
+    Given una salida en curso cuya altitud cambia de verdad
+    When miro las cifras
+    Then el desnivel está medido
+
+  @slice-6
   Scenario: Las cifras no tapan el trazado ni el aviso de desvío
+    Given una salida en curso
+    Then las cifras van arriba a la izquierda en dos filas de dos
+    And el aviso de desvío abajo al centro, sin competir con ellas
 
-  @slice-6 @future
-  Scenario: La barra de cifras no cambia de altura según lo que valgan los números
+  @slice-6
+  Scenario: El bloque de cifras no baila con los valores
+    Given una salida en curso
+    When una cifra pasa de una raya a un número, o de «0:00» a «10:32»
+    Then el bloque no cambia de ancho ni de alto
 
   # ─────────────────── Lo que esta spec no cubre ───────────────────
 

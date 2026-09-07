@@ -734,3 +734,100 @@ quita, que era un fallo esperando a que alguien volviera al tracker a secas.
 
 **Próximos pasos.** El slice 6: el tracker durante la salida, que enseña dos cifras mientras la sesión
 terminada enseña ocho.
+
+---
+
+## Slice 6 — El tracker durante la salida (2026-09-07)
+
+**Lo que había.** Mientras grababas veías dos cifras —distancia y tiempo—; al terminar, la misma
+salida enseñaba ocho. Las otras seis ya estaban calculadas: sólo no se pedían hasta el final.
+
+### La decisión que evita el fallo obvio
+
+Lo tentador era escribir un cálculo «para el directo»: acumular metros y segundos según llegan, que
+es más barato. **No se hace**, y por una razón que este pilar ya ha pagado antes: un segundo cálculo
+es la manera de que el tracker y el detalle acaben diciendo cosas distintas de la misma salida.
+
+El directo llama a `CalculateStatsUseCase`, el mismo que usa el detalle, sobre los mismos puntos. Con
+eso hereda gratis las cuatro reglas que ese caso de uso documenta —umbral por velocidad y no por
+metros, altitud con histéresis, nada medido es nulo y nunca cero, y **la altitud rancia calla el
+desnivel entero**— en vez de tener que reescribirlas bien una segunda vez.
+
+**El coste de recalcular entero es el que hay que mirar, y es pequeño**: dos pasadas sobre la lista
+de puntos, y una salida de tres horas a una lectura cada dos segundos son unos cinco mil puntos, una
+vez cada dos segundos. Acumular ahorraría eso a cambio de un segundo estado que mantener en pie y de
+que las cifras del directo dejaran de ser recalculables desde lo guardado — que es justamente la
+propiedad por la que `SessionStats` se deriva y no se escribe en la base de datos.
+
+Va en el ViewModel y no en el Composable, como manda `AGENTS.md`.
+
+### Qué se enseña, y qué no
+
+Se añaden **ritmo** y **tiempo en movimiento** a la distancia y el tiempo que ya estaban. Cuatro, en
+dos filas de dos.
+
+**El desnivel y las altitudes se quedan fuera del directo**, aunque ya se calculan. La salida de
+campo del 6 de septiembre es la razón: la altitud se congeló 150 s **mientras se pedaleaba**, así que
+en un teléfono real esas cifras dicen «—» buena parte del tiempo. Un hueco permanente en una esquina
+del mapa no informa; ocupa. Siguen enteras en el detalle, donde hay sitio para explicarse.
+
+### Dos detalles de maquetación que son criterios, no gusto
+
+- **Dos por dos y no cuatro en fila.** Cuatro cifras a lo ancho sobre el mapa de un teléfono se comen
+  la pantalla, y este bloque tapa justamente lo que se ha venido a ver.
+- **Cada cifra tiene ancho mínimo y un solo renglón.** El valor cambia con cada lectura —«0:00» pasa
+  a «10:32», «—» pasa a «7:25 /km»— y sin un ancho de suelo el bloque entero se movía bajo el dedo
+  cada dos segundos. Que no parta en dos renglones es lo mismo por el otro lado: la altura no puede
+  depender de lo que valga un número.
+
+El bloque sigue arriba a la izquierda y el aviso de desvío abajo al centro, así que no compiten.
+
+### La prueba que hacía falta, y la que la hace valer
+
+`LiveStatsTest` afirma que el directo se calla lo que no midió: sin altímetro no hay desnivel, y una
+altitud pegada calla el desnivel de la salida entera **mientras se está grabando**.
+
+Y lleva un **caso de control**, sin el cual las otras dos no valdrían nada: con altitud que de verdad
+cambia, el desnivel **sí** sale. Sin él, un cálculo que devolviera nulo siempre dejaría pasando las
+dos pruebas de arriba por el motivo equivocado — que es exactamente el error que se cometió en el
+slice 2 con el píxel de la esquina, y que allí se cazó quitando el arreglo. Aquí se caza teniendo el
+control escrito al lado.
+
+### Archivos tocados
+
+- **Presentación:** `TrackerViewModel.kt` (`liveStats`).
+- **UI:** `TrackerScreen.kt` (cuatro cifras en dos filas; `Metric` con ancho mínimo y un renglón;
+  `TrackerTags.METRICS`).
+- **Tests:** `LiveStatsTest` (nuevo, 6).
+
+Ningún recurso nuevo: `movement_metric_pace` y `movement_metric_moving_time` ya existían para el
+detalle, y usar las mismas etiquetas es lo que hace que la misma cifra se lea igual en las dos
+pantallas.
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **419 pruebas, 0 fallos** (venían 413).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+- **Que el bloque no baile ni tape el trazado no lo mira ningún test.** El ancho mínimo y el renglón
+  único están puestos, pero que 96 dp basten para «En movimiento» en inglés y en español se ve
+  mirando. Es lo que hay que comprobar en la próxima salida.
+- **El coste de recalcular en un teléfono tampoco está medido**, sólo razonado. Si en una salida
+  larga el mapa empieza a ir a tirones, ahí está la primera sospecha — y la traza de esa salida
+  serviría para medirlo con el arnés que ya existe.
+
+**Recap.** El directo enseña cuatro cifras en vez de dos, y las saca del mismo cálculo que el detalle
+para que la misma salida no se cuente de dos maneras. Con ello hereda la regla que este pilar lleva
+cuatro slices defendiendo: lo que no se midió no se enseña, ni siquiera como cero — incluida la
+altitud rancia, que calla el desnivel también en marcha. **Con esto cierra el roadmap de pulido.**
+
+**Próximos pasos (opciones).** (1) Probar los seis slices en el teléfono, que es donde está todo lo
+que ningún test cubre; (2) la salida de campo que le queda a C3 —seguir una ruta con una parada larga
+en medio—, que ahora se hace con la interfaz nueva; (3) del backlog del pilar, D (offline),
+E (satélite) y G (sobrevivir a que el sistema mate el proceso); (4) la pantalla de Inicio y sus datos
+inventados, que este roadmap dejó fuera a propósito.

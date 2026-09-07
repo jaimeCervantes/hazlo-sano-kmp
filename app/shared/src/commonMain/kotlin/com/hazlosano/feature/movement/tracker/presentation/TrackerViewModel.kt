@@ -5,17 +5,20 @@ import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.feature.movement.model.RecordingState
 import com.hazlosano.domain.feature.movement.model.RouteDeviation
 import com.hazlosano.domain.feature.movement.model.RouteStanding
+import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.isMoving
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.domain.feature.movement.repository.LocationRepository
 import com.hazlosano.domain.feature.movement.repository.RecordingController
 import com.hazlosano.domain.feature.movement.repository.RouteRepository
+import com.hazlosano.domain.feature.movement.usecase.CalculateStatsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,6 +36,8 @@ class TrackerViewModel(
     private val routes: RouteRepository,
 ) : ViewModel() {
 
+    private val stats = CalculateStatsUseCase()
+
     private val _followedRoute = MutableStateFlow<FollowedRoute?>(null)
 
     /**
@@ -48,6 +53,25 @@ class TrackerViewModel(
 
     val recording: StateFlow<RecordingState> = recordingController.state
     val lastSavedSession: StateFlow<RecordingState?> = recordingController.lastSavedSession
+
+    /**
+     * Las cifras de la salida en curso.
+     *
+     * **Las calcula el mismo caso de uso que las de una salida terminada**, sobre los mismos puntos.
+     * Escribir aquí un segundo cálculo «para el directo» habría sido la manera de que el tracker y
+     * el detalle acabaran diciendo cosas distintas de la misma salida, y de que las cuatro reglas
+     * que `CalculateStatsUseCase` documenta —umbral por velocidad y no por metros, altitud con
+     * histéresis, nada medido es nulo y nunca cero, y la altitud rancia calla el desnivel entero—
+     * valieran sólo al terminar.
+     *
+     * Se recalcula entero en cada lectura en vez de acumularse: son dos pasadas sobre la lista, y
+     * una salida de tres horas a una lectura cada dos segundos son unos cinco mil puntos. Acumular
+     * ahorraría eso a cambio de tener un segundo estado que mantener en pie, y de que las cifras del
+     * directo dejaran de ser recalculables desde lo guardado.
+     */
+    val liveStats: StateFlow<SessionStats> = recordingController.state
+        .map { stats(it.traveledPoints, it.elapsedSeconds) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SessionStats())
 
     private val _captureTrace = MutableStateFlow(false)
 

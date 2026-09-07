@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -45,6 +46,7 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
+import com.hazlosano.domain.feature.movement.model.SessionStats
 import com.hazlosano.domain.feature.movement.model.RouteStanding
 import com.hazlosano.domain.feature.movement.model.goneNowhereMinutes
 import com.hazlosano.feature.movement.presentation.MovementFormat
@@ -56,6 +58,8 @@ import com.hazlosano.feature.movement.ui.MovementMap
 import com.hazlosano.feature.movement.ui.MovementPlace
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.movement_metric_distance
+import hazlosano.app.shared.generated.resources.movement_metric_moving_time
+import hazlosano.app.shared.generated.resources.movement_metric_pace
 import hazlosano.app.shared.generated.resources.movement_metric_duration
 import hazlosano.app.shared.generated.resources.tracker_session_saved
 import hazlosano.app.shared.generated.resources.tracker_start
@@ -75,6 +79,7 @@ import org.jetbrains.compose.resources.stringResource
 /** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
 object TrackerTags {
     const val FOLLOWED_ROUTE: String = "tracker_followed_route"
+    const val METRICS: String = "tracker_metrics"
     const val OFF_ROUTE: String = "tracker_off_route"
     const val SESSION_ACTION: String = "tracker_session_action"
 }
@@ -101,6 +106,7 @@ fun TrackerScreen(
 
     val userLocation by viewModel.userLocation.collectAsState()
     val followedRoute by viewModel.followedRoute.collectAsState()
+    val liveStats by viewModel.liveStats.collectAsState()
     // **La ruta que se sigue la dice el destino, y nada mas.** Se elige en «Mis rutas», abriendo
     // una y pulsando Iniciar; aqui ya no hay con que elegirla, asi que esta pantalla se limita a
     // reflejar con que se llego.
@@ -152,6 +158,7 @@ fun TrackerScreen(
             SessionMetrics(
                 distance = recording.trackerDistance(),
                 elapsedSeconds = recording.elapsedSeconds,
+                stats = liveStats,
                 modifier = Modifier.align(Alignment.TopStart).padding(HazloSpaces.gutter),
             )
             // Los dos avisos comparten sitio y no pueden salir juntos: el de desvio solo habla
@@ -317,26 +324,41 @@ private fun GoneNowhereNotice(minutes: Long, modifier: Modifier = Modifier) {
 private fun SessionMetrics(
     distance: TrackerDistance,
     elapsedSeconds: Long,
+    stats: SessionStats,
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.testTag(TrackerTags.METRICS),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
         tonalElevation = 3.dp,
     ) {
-        Row(
+        // Dos por dos y no cuatro en fila: cuatro cifras a lo ancho sobre un mapa de telefono se
+        // comen la pantalla, y este bloque tapa el trazado que se ha venido a ver.
+        Column(
             modifier = Modifier.padding(horizontal = HazloSpaces.md, vertical = HazloSpaces.sm),
-            horizontalArrangement = Arrangement.spacedBy(HazloSpaces.lg),
+            verticalArrangement = Arrangement.spacedBy(HazloSpaces.sm),
         ) {
-            Metric(
-                label = stringResource(Res.string.movement_metric_distance),
-                value = distance.shown(),
-            )
-            Metric(
-                label = stringResource(Res.string.movement_metric_duration),
-                value = MovementFormat.duration(elapsedSeconds),
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(HazloSpaces.md)) {
+                Metric(
+                    label = stringResource(Res.string.movement_metric_distance),
+                    value = distance.shown(),
+                )
+                Metric(
+                    label = stringResource(Res.string.movement_metric_duration),
+                    value = MovementFormat.duration(elapsedSeconds),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(HazloSpaces.md)) {
+                Metric(
+                    label = stringResource(Res.string.movement_metric_pace),
+                    value = MovementFormat.pace(stats.avgPace),
+                )
+                Metric(
+                    label = stringResource(Res.string.movement_metric_moving_time),
+                    value = MovementFormat.duration(stats.movingTime),
+                )
+            }
         }
     }
 }
@@ -353,22 +375,37 @@ private fun TrackerDistance.shown(): String = when (this) {
     is TrackerDistance.Travelled -> MovementFormat.distance(meters)
 }
 
+/**
+ * Una cifra del directo.
+ *
+ * **Ancho minimo y un solo renglon**, las dos cosas a proposito: el valor cambia con cada lectura
+ * -«0:00» pasa a «10:32», «— » pasa a «7:25 /km»- y sin un ancho de suelo el bloque entero se movia
+ * bajo el dedo cada dos segundos. Que no parta en dos renglones es lo mismo por el otro lado: la
+ * altura del bloque no puede depender de lo que valga un numero.
+ */
 @Composable
 private fun Metric(label: String, value: String) {
-    Column {
+    Column(modifier = Modifier.widthIn(min = METRIC_MIN_WIDTH)) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
+
+/** Lo ancho que hay que reservar para que «7:25 /km» y «En movimiento» quepan sin bailar. */
+private val METRIC_MIN_WIDTH = 96.dp
 
 @Composable
 private fun SessionControls(
