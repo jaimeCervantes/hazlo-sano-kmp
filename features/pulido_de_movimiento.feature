@@ -232,6 +232,38 @@ Feature: Las pantallas de Movimiento dejan de estorbar
     Then estoy otra vez en el detalle de esa ruta
     And no en la lista ni en la pantalla principal
 
+  Note: **una cosa se hace desde un solo sitio.** Con «Iniciar» en el detalle de una ruta, el selector
+  que el tracker tenía pasó a ser una segunda puerta a una decisión ya tomada al llegar, así que se
+  va. Se queda el renglón que dice con qué ruta sales: llegar siguiendo una y llegar sin ella son dos
+  salidas distintas, y sin él no se sabría cuál se empieza hasta ver el trazado.
+
+  @slice-5
+  Scenario: El tracker dice con qué ruta sales, pero no deja elegirla
+    Given que llegué al tracker siguiendo una ruta
+    Then veo cuál es
+    And no hay con qué cambiarla ni quitarla desde aquí
+
+  @slice-5
+  Scenario: Volver al tracker sin ruta no arrastra la anterior
+    Given que salí siguiendo una ruta
+    When entro al tracker desde la barra de sitios
+    Then no sigo ninguna ruta
+    And no me avisa de desviarme de una que ya no llevo
+
+  @slice-5
+  Scenario: Guardar una salida como ruta es una acción, no contenido
+    Given el detalle de una salida que puede guardarse como ruta
+    When abro los tres puntos
+    Then puedo guardarla como ruta desde ahí
+    And la opción no está suelta dentro del contenido
+
+  @slice-5
+  Scenario: Los dos detalles se leen igual
+    Given el detalle de una ruta y el de una salida
+    When abro los tres puntos en cualquiera de los dos
+    Then primero están las acciones sobre lo que estoy mirando
+    And después de una raya, Ajustes
+
   # ─────────── Slice 6 — el tracker durante la salida ───────────
 
   Note: `SessionMetric` define ocho cifras —distancia, duración, tiempo en movimiento, ritmo, ascenso,

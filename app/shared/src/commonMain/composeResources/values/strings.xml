@@ -160,11 +160,7 @@
     <string name="movement_start_outing">Empezar una salida</string>
 
     <!-- Movimiento: salir siguiendo una ruta -->
-    <string name="tracker_follow_route">Seguir una ruta</string>
     <string name="tracker_following_route">Siguiendo: %1$s</string>
-    <string name="tracker_stop_following_route">Quitar la ruta</string>
-    <string name="tracker_pick_route_title">¿Con qué ruta sales?</string>
-    <string name="tracker_pick_route_empty">Todavía no tienes rutas guardadas. Importa un GPX desde «Mis rutas», o guarda una salida como ruta.</string>
     <string name="tracker_pick_route_none">Sin ruta</string>
 
     <string name="tracker_off_route">Te has salido de la ruta · %1$s</string>

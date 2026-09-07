@@ -13,11 +13,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.hazlosano.domain.feature.movement.model.Route
 import com.hazlosano.feature.movement.tracker.presentation.FollowedRoute
 import hazlosano.app.shared.generated.resources.action_cancel
-import hazlosano.app.shared.generated.resources.tracker_follow_route
 import hazlosano.app.shared.generated.resources.tracker_following_route
-import hazlosano.app.shared.generated.resources.tracker_pick_route_empty
-import hazlosano.app.shared.generated.resources.tracker_pick_route_title
-import hazlosano.app.shared.generated.resources.tracker_stop_following_route
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,14 +74,9 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
 object TrackerTags {
-    const val FOLLOW_ROUTE: String = "tracker_follow_route"
     const val FOLLOWED_ROUTE: String = "tracker_followed_route"
-    const val CLEAR_ROUTE: String = "tracker_clear_route"
-    const val ROUTE_CHOICES: String = "tracker_route_choices"
     const val OFF_ROUTE: String = "tracker_off_route"
     const val SESSION_ACTION: String = "tracker_session_action"
-
-    fun routeChoice(routeId: Long): String = "tracker_route_choice_$routeId"
 }
 
 /** How long the "session saved" confirmation stays on screen after a recording ends. */
@@ -110,13 +101,14 @@ fun TrackerScreen(
 
     val userLocation by viewModel.userLocation.collectAsState()
     val followedRoute by viewModel.followedRoute.collectAsState()
-    val savedRoutes by viewModel.savedRoutes.collectAsState()
-    var pickingRoute by remember { mutableStateOf(false) }
-
-    // Quien llega desde el detalle de una ruta ya dijo cual quiere seguir, asi que no se le vuelve a
-    // preguntar. La clave es el id: llegar con otra ruta la carga; recomponer con la misma, no.
+    // **La ruta que se sigue la dice el destino, y nada mas.** Se elige en «Mis rutas», abriendo
+    // una y pulsando Iniciar; aqui ya no hay con que elegirla, asi que esta pantalla se limita a
+    // reflejar con que se llego.
+    //
+    // El `else` no sobra: volver al tracker a secas desde uno que seguia una ruta reusa la misma
+    // composicion y, sin limpiar, la ruta anterior se quedaria pegada a una salida que no la sigue.
     LaunchedEffect(followRouteId) {
-        if (followRouteId != null) viewModel.followRoute(followRouteId)
+        if (followRouteId != null) viewModel.followRoute(followRouteId) else viewModel.stopFollowingRoute()
     }
     val routeStanding by viewModel.routeStanding.collectAsState()
     val recording by viewModel.recording.collectAsState()
@@ -193,12 +185,7 @@ fun TrackerScreen(
         }
         // Igual que el interruptor de la traza: la ruta pertenece a la salida que se va a empezar,
         // y ofrecer cambiarla a mitad de una grabacion seria ofrecer algo que no se puede hacer.
-        FollowedRouteRow(
-            route = followedRoute,
-            isRecording = isRecording,
-            onPick = { pickingRoute = true },
-            onClear = viewModel::stopFollowingRoute,
-        )
+        FollowedRouteRow(route = followedRoute)
 
         // Only offered while idle: the choice applies to the recording being started, and showing a
         // switch that silently does nothing mid-session would be a lie.
@@ -217,48 +204,27 @@ fun TrackerScreen(
             onGoToOutings = onOpenHistory,
         )
     }
-
-    if (pickingRoute) {
-        PickRouteDialog(
-            routes = savedRoutes,
-            onDismiss = { pickingRoute = false },
-            onPick = { routeId ->
-                viewModel.followRoute(routeId)
-                pickingRoute = false
-            },
-        )
-    }
 }
 
 /**
- * Con que ruta se sale, o la puerta para elegir una.
+ * Con que ruta se sale, cuando se sale con una.
  *
- * Mientras se graba solo se dice cual es: cambiarla a mitad de una salida no significa nada -la
- * sesion ya recuerda con cual empezo- y un control que no hace nada es peor que no tenerlo.
+ * **Solo lo dice; no deja elegirla.** Elegir ruta vive en «Mis rutas»: se abre la que se quiere y se
+ * pulsa Iniciar. Tener aqui una segunda puerta a lo mismo era ofrecer dos caminos para una decision
+ * que ya esta tomada al llegar, y obligaba a esta pantalla a llevar la lista entera de rutas para
+ * un dialogo que nadie necesitaba abrir dos veces.
+ *
+ * Sigue estando porque llegar siguiendo una ruta y llegar sin ella son dos salidas distintas, y sin
+ * este renglon no habria forma de saber cual de las dos se esta empezando hasta ver el trazado.
  */
 @Composable
-private fun FollowedRouteRow(
-    route: FollowedRoute?,
-    isRecording: Boolean,
-    onPick: () -> Unit,
-    onClear: () -> Unit,
-) {
+private fun FollowedRouteRow(route: FollowedRoute?) {
+    if (route == null) return
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (route == null) {
-            if (!isRecording) {
-                TextButton(
-                    onClick = onPick,
-                    modifier = Modifier.testTag(TrackerTags.FOLLOW_ROUTE),
-                ) {
-                    Text(stringResource(Res.string.tracker_follow_route))
-                }
-            }
-            return@Row
-        }
-
         Text(
             text = stringResource(Res.string.tracker_following_route, route.name),
             style = MaterialTheme.typography.bodyMedium,
@@ -267,56 +233,7 @@ private fun FollowedRouteRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).testTag(TrackerTags.FOLLOWED_ROUTE),
         )
-        if (!isRecording) {
-            TextButton(onClick = onClear, modifier = Modifier.testTag(TrackerTags.CLEAR_ROUTE)) {
-                Text(stringResource(Res.string.tracker_stop_following_route))
-            }
-        }
     }
-}
-
-/**
- * Las rutas guardadas, para elegir con cual se sale.
- *
- * No importa un GPX desde aqui: importar ya vive en "Mis rutas", con su dialogo de duplicados y su
- * acceso a archivos por plataforma. Una segunda puerta a lo mismo seria el componente casi identico
- * que AGENTS.md llama fallo de diseno; el estado vacio dice donde se importa.
- */
-@Composable
-private fun PickRouteDialog(
-    routes: List<Route>,
-    onDismiss: () -> Unit,
-    onPick: (Long) -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.tracker_pick_route_title)) },
-        text = {
-            if (routes.isEmpty()) {
-                Text(stringResource(Res.string.tracker_pick_route_empty))
-            } else {
-                LazyColumn(modifier = Modifier.testTag(TrackerTags.ROUTE_CHOICES)) {
-                    items(routes, key = { it.id }) { route ->
-                        Text(
-                            text = route.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(route.id) }
-                                .padding(vertical = HazloSpaces.sm)
-                                .testTag(TrackerTags.routeChoice(route.id)),
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(Res.string.action_cancel))
-            }
-        },
-    )
 }
 
 @Composable

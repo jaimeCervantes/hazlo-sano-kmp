@@ -151,11 +151,7 @@
     <string name="movement_start_outing">Start an outing</string>
 
     <!-- Movement: going out along a route -->
-    <string name="tracker_follow_route">Follow a route</string>
     <string name="tracker_following_route">Following: %1$s</string>
-    <string name="tracker_stop_following_route">Drop the route</string>
-    <string name="tracker_pick_route_title">Which route are you taking?</string>
-    <string name="tracker_pick_route_empty">You have no saved routes yet. Import a GPX from “My routes”, or save an outing as a route.</string>
     <string name="tracker_pick_route_none">No route</string>
 
     <string name="tracker_off_route">You have left the route · %1$s</string>

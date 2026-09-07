@@ -650,3 +650,87 @@ del destino en vez de en un estado suelto — así volver devuelve a la ruta de 
 
 **Próximos pasos.** El slice 6, el último del roadmap: el tracker durante la salida, que enseña dos
 cifras mientras la sesión terminada enseña ocho.
+
+---
+
+## Slice 5, segunda pasada — cada acción en un solo sitio (2026-09-07)
+
+Dos consecuencias del slice anterior que el usuario vio al usarlo, y las dos son del mismo tipo:
+**una cosa que se podía hacer desde dos sitios, o desde el sitio equivocado.**
+
+### Elegir ruta desaparece del tracker
+
+Desde el slice 5 se sale a seguir una ruta abriéndola en «Mis rutas» y pulsando Iniciar. El selector
+que el tracker tenía —«Seguir una ruta», con su diálogo de rutas guardadas— pasó a ser **una segunda
+puerta a una decisión que ya está tomada al llegar**. Se va, y con él el diálogo y el botón de quitar
+la ruta.
+
+**Se queda un renglón, y a propósito:** el que dice con qué ruta sales. Llegar siguiendo una ruta y
+llegar sin ella son dos salidas distintas, y sin ese renglón no habría forma de saber cuál se está
+empezando hasta ver el trazado dibujado. Ya no deja elegir; sólo dice.
+
+**Un detalle que no se ve y que habría sido un fallo.** El efecto que carga la ruta ahora también la
+**quita** cuando se llega sin ninguna:
+
+```kotlin
+if (followRouteId != null) viewModel.followRoute(followRouteId) else viewModel.stopFollowingRoute()
+```
+
+Sin el `else`, volver al tracker a secas desde uno que seguía una ruta reusa la misma composición y
+la ruta anterior se quedaría pegada a una salida que no la sigue — con su aviso de desvío incluido.
+Ahora la ruta que se sigue la dice el destino y nada más.
+
+De paso, el tracker deja de observar **todas** las rutas guardadas: `savedRoutes` existía sólo para
+llenar aquel diálogo.
+
+### «Guardar como ruta» se va al ⋮
+
+Estaba suelto bajo la barra, dentro del contenido — el mismo sitio del que el slice 5 sacó las
+navegaciones. Es una acción sobre la salida que se está mirando, así que va donde van las acciones
+desde el slice 3.
+
+De las dos opciones que el usuario dio —un botón junto a las estadísticas, o el ⋮— se elige **el ⋮**,
+porque es lo que hace que las dos pantallas de detalle se lean igual: primero lo que se le hace a esto
+que miras, una raya, y lo del app. Que el detalle de una ruta y el de una salida tengan la misma forma
+es lo que evita tener que aprenderse cada una.
+
+El menú sale con nombre propio, `SessionDetailMenuItems`, en vez de escrito dentro de la barra: la
+pantalla entera construye su ViewModel con la persistencia real y no se puede levantar en la JVM, así
+que un menú anónimo habría quedado sin prueba posible.
+
+### Limpieza que el cambio permite
+
+Salen de los dos catálogos `tracker_follow_route`, `tracker_stop_following_route`,
+`tracker_pick_route_title` y `tracker_pick_route_empty` — la copia entera del selector.
+
+### Archivos tocados
+
+- **Presentación:** `TrackerViewModel.kt` (fuera `savedRoutes`).
+- **UI:** `TrackerScreen.kt` (fuera el selector y su diálogo; la fila queda informativa; el efecto
+  limpia al llegar sin ruta), `SessionDetailScreen.kt` (`SessionDetailMenuItems`,
+  `SessionDetailTags`).
+- **Recursos:** las cuatro cadenas del selector, en los dos idiomas.
+- **Tests:** `SessionDetailMenuTest` (nuevo, 2).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **413 pruebas, 0 fallos** (venían 411).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+**Lo del `else` que limpia la ruta no lo mira ningún test**, y es lo más delicado de esta pasada:
+compone el tracker, que no se puede levantar en la JVM. Se comprueba a mano — abrir una ruta, pulsar
+Iniciar, volver, entrar al tracker desde la barra y ver que ya no dice que sigue nada. Es otra
+anotación para la misma deuda de siempre.
+
+**Recap.** Elegir ruta ya no se puede hacer desde dos sitios: se hace en «Mis rutas» y el tracker sólo
+dice con cuál se sale. «Guardar como ruta» deja el contenido y se pone donde están las acciones,
+dando a los dos detalles la misma forma de menú. Y el efecto que carga la ruta ahora también la
+quita, que era un fallo esperando a que alguien volviera al tracker a secas.
+
+**Próximos pasos.** El slice 6: el tracker durante la salida, que enseña dos cifras mientras la sesión
+terminada enseña ocho.

@@ -33,10 +33,6 @@ class TrackerViewModel(
     private val routes: RouteRepository,
 ) : ViewModel() {
 
-    /** Las rutas guardadas, para poder elegir con cuál se sale. */
-    val savedRoutes: StateFlow<List<Route>> = routes.getAllRoutes()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
-
     private val _followedRoute = MutableStateFlow<FollowedRoute?>(null)
 
     /**

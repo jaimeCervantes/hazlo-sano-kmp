@@ -5,16 +5,21 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddRoad
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +61,11 @@ import org.jetbrains.compose.resources.stringResource
 
 private const val METRICS_PER_ROW = 4
 
+/** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
+object SessionDetailTags {
+    const val SAVE_AS_ROUTE: String = "session_detail_save_as_route"
+}
+
 /** Detail of one recorded session: its route on the map and the summary of what was recorded. */
 @Composable
 fun SessionDetailScreen(
@@ -77,24 +88,25 @@ fun SessionDetailScreen(
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
             menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+            // Guardar como ruta estaba suelto bajo la barra, dentro del contenido. Es una accion
+            // sobre la salida que se esta mirando, asi que va donde van las acciones desde el
+            // slice 3 — y con la misma forma que el detalle de una ruta: lo de esto que miras, una
+            // raya, y Ajustes.
             menuContent = { dismiss ->
-                AppSettingsMenuItem(
-                    onClick = {
+                SessionDetailMenuItems(
+                    canSaveAsRoute = viewModel.canSaveAsRoute &&
+                        state is SessionDetailUiState.Detail,
+                    onSaveAsRoute = {
+                        dismiss()
+                        namingRoute = true
+                    },
+                    onOpenSettings = {
                         dismiss()
                         onOpenSettings()
                     },
                 )
             },
         )
-
-        if (viewModel.canSaveAsRoute && state is SessionDetailUiState.Detail) {
-            TextButton(
-                onClick = { namingRoute = true },
-                modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
-            ) {
-                Text(stringResource(Res.string.session_detail_save_as_route))
-            }
-        }
 
         saveRouteMessage?.let { message ->
             Text(
@@ -317,4 +329,37 @@ private fun Message(text: String, color: Color = MaterialTheme.colorScheme.onSur
         color = color,
         textAlign = TextAlign.Center,
     )
+}
+
+/**
+ * Lo que se puede hacer con la salida que se esta mirando.
+ *
+ * **La misma forma que el detalle de una ruta**: primero lo que se le hace a esto que miras, luego
+ * una raya, luego lo del app. Que las dos pantallas de detalle se lean igual es lo que evita tener
+ * que aprenderse cada una.
+ *
+ * «Guardar como ruta» vivia suelto bajo la barra, dentro del contenido, y es una accion sobre esta
+ * salida: va donde van las acciones desde el slice 3.
+ *
+ * Sale con nombre propio y no escrito dentro de la barra para poder componerlo en un test: la
+ * pantalla entera construye su ViewModel con la persistencia real y no se puede levantar en la JVM.
+ *
+ * @param canSaveAsRoute una salida sin recorrido no puede ser una ruta, y este target puede no tener
+ * donde guardarla. Lo del app no depende de ninguna de las dos cosas, asi que Ajustes esta siempre.
+ */
+@Composable
+fun ColumnScope.SessionDetailMenuItems(
+    canSaveAsRoute: Boolean,
+    onSaveAsRoute: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    if (canSaveAsRoute) {
+        DropdownMenuItem(
+            text = { Text(stringResource(Res.string.session_detail_save_as_route)) },
+            leadingIcon = { Icon(Icons.Default.AddRoad, contentDescription = null) },
+            onClick = onSaveAsRoute,
+            modifier = Modifier.testTag(SessionDetailTags.SAVE_AS_ROUTE),
+        )
+    }
+    AppSettingsMenuItem(onClick = onOpenSettings, afterOtherItems = canSaveAsRoute)
 }
