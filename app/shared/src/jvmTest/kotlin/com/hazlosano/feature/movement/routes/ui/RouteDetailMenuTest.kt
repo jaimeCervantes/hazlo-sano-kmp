@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.core.ui.components.AppBarMenuTags
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBarTags
+import com.hazlosano.feature.movement.ui.MovementBottomBarTags
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.feature.movement.routes.presentation.RouteDetailUiState
 import kotlin.test.Test
@@ -93,5 +94,46 @@ class RouteDetailMenuTest {
         onNodeWithTag(HazloTopAppBarTags.MENU).performClick()
 
         onNodeWithTag(RouteDetailTags.DELETE).assertDoesNotExist()
+    }
+
+    // ─────────── La acción principal: salir a seguir esta ruta ───────────
+
+    /**
+     * A mirar una ruta se viene para decidir si se hace, así que la acción de hacerla está delante y
+     * no escondida en el menú. Antes había que volver a la lista, entrar al tracker y buscar la ruta
+     * en un diálogo, teniéndola ya en la pantalla.
+     */
+    @Test
+    fun `a route can be started from where it is being looked at`() = runComposeUiTest {
+        var started = 0
+        setContent {
+            RouteDetailContent(state = detail(), onBack = {}, onStartOuting = { started++ })
+        }
+
+        onNodeWithTag(RouteDetailTags.START).performClick()
+
+        assertEquals(1, started)
+    }
+
+    /** Sin ruta delante no hay nada que empezar, y el botón no se ofrece. */
+    @Test
+    fun `a missing route offers nothing to start`() = runComposeUiTest {
+        setContent { RouteDetailContent(state = RouteDetailUiState.Missing, onBack = {}) }
+
+        onNodeWithTag(RouteDetailTags.START).assertDoesNotExist()
+    }
+
+    /**
+     * Un detalle no es un sitio del pilar, así que no lleva la barra de sitios.
+     *
+     * Es la otra mitad de la regla del slice: los tres lugares la llevan y los dos detalles no. Un
+     * detalle es algo que se abrió **desde** un sitio y de lo que se sale volviendo atrás; darle
+     * destinos hermanos invita a perderse en vez de a volver.
+     */
+    @Test
+    fun `a detail is not a place and carries no place bar`() = runComposeUiTest {
+        setContent { RouteDetailContent(state = detail(), onBack = {}) }
+
+        onNodeWithTag(MovementBottomBarTags.BAR).assertDoesNotExist()
     }
 }

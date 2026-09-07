@@ -189,11 +189,13 @@ fun MainScreen(
     val openSettings = { showSettings = true }
 
     if (layer == AppLayer.Movement) when (val movementDestination = movementNav.destination) {
-        MovementDestination.Tracker -> {
+        is MovementDestination.Tracker -> {
             TrackerScreen(
                 onBack = { movementNav.back() },
                 onOpenHistory = { movementNav.openHistory() },
+                onOpenRoutes = { movementNav.openRoutes() },
                 onOpenSettings = openSettings,
+                followRouteId = movementDestination.followRouteId,
                 modifier = Modifier.fillMaxSize(),
             )
             return
@@ -204,6 +206,7 @@ fun MainScreen(
                 onBack = { movementNav.back() },
                 onOpenSession = { sessionId -> movementNav.openSessionDetail(sessionId) },
                 onOpenRoutes = { movementNav.openRoutes() },
+                onOpenRecord = { movementNav.openTracker() },
                 onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -215,6 +218,8 @@ fun MainScreen(
                 viewModel = routesViewModel,
                 onBack = { movementNav.back() },
                 onOpenRoute = { routeId -> movementNav.openRouteDetail(routeId) },
+                onOpenRecord = { movementNav.openTracker() },
+                onOpenOutings = { movementNav.openHistory() },
                 onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -225,6 +230,7 @@ fun MainScreen(
             RouteDetailScreen(
                 routeId = movementDestination.routeId,
                 onBack = { movementNav.back() },
+                onStartOuting = { movementNav.openTrackerFollowing(movementDestination.routeId) },
                 onOpenSettings = openSettings,
                 modifier = Modifier.fillMaxSize(),
             )

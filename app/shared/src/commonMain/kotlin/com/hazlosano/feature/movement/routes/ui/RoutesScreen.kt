@@ -44,6 +44,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
+import com.hazlosano.feature.movement.ui.MovementBottomBar
+import com.hazlosano.feature.movement.ui.MovementPlace
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -101,6 +103,8 @@ fun RoutesScreen(
     viewModel: RoutesViewModel,
     onBack: () -> Unit,
     onOpenRoute: (Long) -> Unit,
+    onOpenRecord: () -> Unit = {},
+    onOpenOutings: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -198,6 +202,13 @@ fun RoutesScreen(
                 )
             }
         }
+
+        MovementBottomBar(
+            current = MovementPlace.Routes,
+            onGoToRecord = onOpenRecord,
+            onGoToRoutes = {},
+            onGoToOutings = onOpenOutings,
+        )
     }
 
     renaming?.let { route ->

@@ -171,9 +171,9 @@
 
     <!-- Movimiento: tracker -->
     <string name="tracker_title">Movimiento</string>
+    <string name="movement_place_record">Grabar</string>
     <string name="tracker_start">Iniciar</string>
     <string name="tracker_stop">Detener</string>
-    <string name="tracker_open_history">Mis salidas</string>
     <string name="tracker_session_saved">Sesión guardada · %1$s · %2$s</string>
     <string name="tracker_trace_toggle_title">Guardar traza de diagnóstico</string>
     <string name="tracker_trace_toggle_description">Guarda cada lectura del GPS para ajustar el filtro.</string>
@@ -191,7 +191,6 @@
 
     <!-- Movimiento: mis salidas -->
     <string name="outings_title">Mis salidas</string>
-    <string name="outings_open_routes">Mis rutas</string>
     <string name="outings_empty">Aún no has grabado salidas. Pulsa «Iniciar» en el mapa para grabar la primera.</string>
     <string name="outings_failed">No se pudo leer tu historial de salidas.</string>
 
@@ -280,6 +279,7 @@
     <string name="route_detail_back">Volver</string>
     <string name="route_detail_distance">Distancia</string>
     <string name="route_detail_elevation">Desnivel</string>
+    <string name="route_detail_start">Iniciar</string>
     <string name="route_detail_points">Puntos</string>
     <string name="route_detail_missing">Esa ruta ya no está.</string>
     <string name="route_detail_no_path">Esta ruta se guardó sin puntos, así que no hay trazado que enseñar.</string>

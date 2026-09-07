@@ -45,6 +45,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
+import com.hazlosano.domain.model.PillarType
+import com.hazlosano.core.ui.model.palette
+import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.feature.movement.model.RouteStanding
 import com.hazlosano.domain.feature.movement.model.goneNowhereMinutes
@@ -52,11 +55,12 @@ import com.hazlosano.feature.movement.presentation.MovementFormat
 import com.hazlosano.feature.movement.tracker.presentation.TrackerDistance
 import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewModel
 import com.hazlosano.feature.movement.tracker.presentation.trackerDistance
+import com.hazlosano.feature.movement.ui.MovementBottomBar
 import com.hazlosano.feature.movement.ui.MovementMap
+import com.hazlosano.feature.movement.ui.MovementPlace
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.movement_metric_distance
 import hazlosano.app.shared.generated.resources.movement_metric_duration
-import hazlosano.app.shared.generated.resources.tracker_open_history
 import hazlosano.app.shared.generated.resources.tracker_session_saved
 import hazlosano.app.shared.generated.resources.tracker_start
 import hazlosano.app.shared.generated.resources.tracker_stop
@@ -79,6 +83,7 @@ object TrackerTags {
     const val CLEAR_ROUTE: String = "tracker_clear_route"
     const val ROUTE_CHOICES: String = "tracker_route_choices"
     const val OFF_ROUTE: String = "tracker_off_route"
+    const val SESSION_ACTION: String = "tracker_session_action"
 
     fun routeChoice(routeId: Long): String = "tracker_route_choice_$routeId"
 }
@@ -94,7 +99,10 @@ private const val SAVED_CONFIRMATION_MILLIS = 5_000L
 fun TrackerScreen(
     onBack: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenRoutes: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    /** La ruta con la que se llega, cuando se llega desde el detalle de una. */
+    followRouteId: Long? = null,
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember { createTrackerViewModel() }
@@ -104,6 +112,12 @@ fun TrackerScreen(
     val followedRoute by viewModel.followedRoute.collectAsState()
     val savedRoutes by viewModel.savedRoutes.collectAsState()
     var pickingRoute by remember { mutableStateOf(false) }
+
+    // Quien llega desde el detalle de una ruta ya dijo cual quiere seguir, asi que no se le vuelve a
+    // preguntar. La clave es el id: llegar con otra ruta la carga; recomponer con la misma, no.
+    LaunchedEffect(followRouteId) {
+        if (followRouteId != null) viewModel.followRoute(followRouteId)
+    }
     val routeStanding by viewModel.routeStanding.collectAsState()
     val recording by viewModel.recording.collectAsState()
     val savedSession by viewModel.lastSavedSession.collectAsState()
@@ -195,7 +209,12 @@ fun TrackerScreen(
             isRecording = isRecording,
             onStart = viewModel::startRecording,
             onStop = viewModel::stopRecording,
-            onOpenHistory = onOpenHistory,
+        )
+        MovementBottomBar(
+            current = MovementPlace.Record,
+            onGoToRecord = {},
+            onGoToRoutes = onOpenRoutes,
+            onGoToOutings = onOpenHistory,
         )
     }
 
@@ -439,20 +458,23 @@ private fun SessionControls(
     isRecording: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onOpenHistory: () -> Unit,
 ) {
+    // Solo la accion. El «Mis salidas» delineado que iba aqui al lado era una navegacion puesta
+    // junto a una accion, y se ha ido a la barra de abajo con los otros dos sitios del pilar.
     Row(
         modifier = Modifier.fillMaxWidth().padding(HazloSpaces.gutter),
-        horizontalArrangement = Arrangement.spacedBy(HazloSpaces.md, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Button(
             onClick = if (isRecording) onStop else onStart,
+            modifier = Modifier.fillMaxWidth().testTag(TrackerTags.SESSION_ACTION),
+            shape = RoundedCornerShape(HazloShapes.control),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isRecording) {
                     MaterialTheme.colorScheme.error
                 } else {
-                    MaterialTheme.colorScheme.primary
+                    PillarType.MOVEMENT.palette().solid
                 },
             ),
         ) {
@@ -461,9 +483,6 @@ private fun SessionControls(
                     if (isRecording) Res.string.tracker_stop else Res.string.tracker_start,
                 ),
             )
-        }
-        OutlinedButton(onClick = onOpenHistory) {
-            Text(stringResource(Res.string.tracker_open_history))
         }
     }
 }

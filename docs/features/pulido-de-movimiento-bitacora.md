@@ -548,3 +548,105 @@ curso no se escribe, porque la grabación vive en un servicio y no se descarta.
 
 **Próximos pasos.** El slice 5, el último: el tracker durante la salida, que enseña dos cifras
 mientras la sesión terminada enseña ocho.
+
+---
+
+## Slice 5 — Moverse por el pilar se hace siempre igual (2026-09-07)
+
+**Pedido por el usuario usando el app**, con tres quejas concretas: al entrar al tracker no se
+alcanzan «Mis rutas» ni «Mis salidas»; en «Mis salidas» la puerta a «Mis rutas» está metida dentro
+del contenido; y desde el detalle de una ruta no se puede salir a seguirla. Dio tres opciones —barra
+superior, menú de tres puntos, o barra inferior— y pidió elegir una y aplicarla igual en todas las
+pantallas.
+
+### La regla, que es lo que había que decidir
+
+> **Abajo se va a sitios. En el ⋮ se hacen cosas.**
+
+Estaban mezclados, y cada pantalla lo mezclaba distinto: el tracker tenía un «Mis salidas» delineado
+justo al lado del botón de Iniciar —una navegación puesta junto a una acción—, «Mis salidas» tenía un
+`TextButton` a «Mis rutas» flotando bajo la barra, y «Mis rutas» no ofrecía ninguna de las otras dos.
+Moverse por el pilar dependía de por dónde hubieras entrado.
+
+**Se elige la barra inferior** y se descartan las otras dos por lo mismo: esconder los destinos
+hermanos en un menú es precisamente lo que hacía difícil moverse. El ⋮ se queda con las acciones, que
+es lo que ya lleva desde el slice 3, y así las dos superficies quedan separadas por significado y no
+por casualidad.
+
+### Un nombre cambia respecto a lo pedido, y hay que decirlo
+
+El usuario pidió que el destino del tracker se llamara **«Iniciar»**. En esa pantalla el botón grande
+ya dice «Iniciar» y hace otra cosa —empezar a grabar—, así que habría dos «Iniciar» distintos a
+diez centímetros uno del otro: exactamente la confusión que el encargo pide quitar.
+
+El destino se llama **«Grabar»** y la acción sigue siendo «Iniciar» y «Detener». Es una desviación
+consciente de lo pedido y se puede revertir en una línea si el usuario prefiere su palabra.
+
+### Dónde va la barra, y dónde no
+
+Va en las tres pantallas que **son un sitio**: Grabar, Mis rutas, Mis salidas.
+
+**No va en los dos detalles.** Un detalle es algo que abriste *desde* un sitio y de lo que se sale
+volviendo atrás; ofrecerle destinos hermanos invita a perderse en vez de a volver. Esa mitad de la
+regla tiene su propia prueba, porque es la que se olvida al añadir una pantalla.
+
+Pulsar el sitio donde ya estás no viaja: la pila corta hasta el destino en vez de apilar una copia,
+así que sería un viaje a ninguna parte — y en el tracker, además, recomponer una grabación en curso
+por un toque sin sentido es lo último que conviene.
+
+### El eslabón que faltaba: de una ruta a seguirla
+
+El detalle de una ruta gana su acción principal abajo. Hasta ahora, para seguir una ruta había que
+volver a la lista, entrar al tracker y buscarla en un diálogo — teniéndola ya delante en el mapa.
+
+**La intención viaja en la navegación, no aparte.** `MovementDestination.Tracker` pasa de objeto a
+`data class` con un `followRouteId` opcional. La alternativa era un estado suelto en `MainScreen` que
+la pantalla recogiera y alguien tuviera que acordarse de limpiar; poniéndolo en el destino, ir a
+seguir una ruta **es** un sitio distinto de abrir el tracker a secas, con tres consecuencias que se
+prueban: la ruta llega cargada, volver devuelve al detalle del que se salió, y entrar al tracker
+desde la barra no se come el detalle de la ruta por el camino.
+
+### Limpieza que el cambio permite
+
+`outings_open_routes` y `tracker_open_history` nombraban las dos navegaciones que vivían dentro del
+contenido. Al irse a la barra —que las nombra con `routes_title` y `outings_title`, los mismos
+nombres que la lista y el historial llevan en su propia barra superior— se quedaron sin uso y salen
+de los dos catálogos. Que la puerta se llame igual que el sitio al que lleva es parte de no confundir.
+
+### Archivos tocados
+
+- **Navegación:** `MovementNavState.kt` (`Tracker` con ruta, `openTrackerFollowing`).
+- **UI:** `MovementBottomBar.kt` (nuevo), `TrackerScreen.kt` (barra; los controles de sesión pierden
+  la navegación y el botón crece a lo ancho; acepta la ruta con la que se llega),
+  `MovementHistoryScreen.kt` y `RoutesScreen.kt` (barra; fuera la puerta del contenido),
+  `RouteDetailScreen.kt` (acción principal), `MainScreen.kt` (cableado).
+- **Recursos:** `movement_place_record` y `route_detail_start` entran; `outings_open_routes` y
+  `tracker_open_history` salen. Los dos idiomas.
+- **Tests:** `MovementBottomBarTest` (nuevo, 3), `StartFromRouteTest` (nuevo, 4),
+  `RouteDetailMenuTest` (+3), `MovementNavStateTest` (ajustado al `data class`).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **411 pruebas, 0 fallos** (venían 401).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+- **Que las tres pantallas pongan la barra no lo mira ningún test**: lo que se prueba es la barra por
+  su cuenta y que el detalle **no** la lleva. Componer el tracker o «Mis salidas» enteros necesita
+  ViewModels con repositorios reales — la deuda de siempre, ahora en su cuarta aparición escrita.
+- **La ruta no se ve llegar cargada al tracker**: lo que se prueba es que el destino la lleva y que
+  la pantalla la pide en un `LaunchedEffect`. Que el mapa la dibuje se comprueba saliendo.
+- La barra en tema oscuro, y que el botón «Iniciar» a lo ancho no empuje nada en una pantalla corta,
+  siguen siendo comprobación de ojo.
+
+**Recap.** El pilar se recorre igual desde cualquiera de sus tres sitios, con una barra abajo que los
+lleva a los tres, y ninguna navegación queda ya dentro del contenido. Los dos detalles no la llevan a
+propósito: no son sitios. Y desde una ruta ya se sale a seguirla, con la intención viajando dentro
+del destino en vez de en un estado suelto — así volver devuelve a la ruta de la que se salió.
+
+**Próximos pasos.** El slice 6, el último del roadmap: el tracker durante la salida, que enseña dos
+cifras mientras la sesión terminada enseña ocho.

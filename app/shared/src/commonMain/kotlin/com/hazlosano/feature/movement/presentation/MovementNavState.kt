@@ -8,7 +8,15 @@ import androidx.compose.runtime.mutableStateListOf
  */
 sealed interface MovementDestination {
     data object Closed : MovementDestination
-    data object Tracker : MovementDestination
+
+    /**
+     * El tracker, opcionalmente ya con una ruta cargada.
+     *
+     * [followRouteId] lo trae quien abre el tracker desde el detalle de una ruta: la intención de
+     * seguirla es parte de a dónde se va, no un estado suelto que la pantalla tenga que recoger de
+     * otro sitio y alguien tenga que acordarse de limpiar.
+     */
+    data class Tracker(val followRouteId: Long? = null) : MovementDestination
     data object History : MovementDestination
     data object Routes : MovementDestination
     data class SessionDetail(val sessionId: Long) : MovementDestination
@@ -38,7 +46,18 @@ class MovementNavState {
         get() = backStack.isNotEmpty()
 
     fun openTracker() {
-        push(MovementDestination.Tracker)
+        push(MovementDestination.Tracker())
+    }
+
+    /**
+     * Empieza una salida siguiendo una ruta, desde donde se estaba mirando.
+     *
+     * Es un destino distinto de [openTracker] a propósito: abrir el tracker a secas y abrirlo con la
+     * ruta de la que se viene no son el mismo sitio, así que la pila no los confunde ni corta uno
+     * creyendo que llega al otro.
+     */
+    fun openTrackerFollowing(routeId: Long) {
+        push(MovementDestination.Tracker(followRouteId = routeId))
     }
 
     fun openHistory() {

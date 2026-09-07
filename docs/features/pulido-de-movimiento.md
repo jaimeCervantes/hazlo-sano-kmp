@@ -117,7 +117,50 @@ tocarlo dos veces.
 - Atrás desde el tracker con una grabación en curso **no** descarta la grabación sin avisar.
 - La pila del gesto y la del botón de la barra son la misma: no hay dos historias distintas.
 
-### Slice 5 — el tracker durante la salida
+### Slice 5 — moverse por el pilar se hace siempre igual
+
+**Pedido por el usuario probando el app**, con tres quejas concretas: al entrar al tracker no se
+alcanzan «Mis rutas» ni «Mis salidas»; en «Mis salidas» la puerta a «Mis rutas» está metida dentro
+del contenido; y desde el detalle de una ruta no se puede salir a seguirla.
+
+**La regla que homogeneiza, y de la que sale todo lo demás:**
+
+> **Abajo se va a sitios. En el ⋮ se hacen cosas.**
+
+Hoy están mezclados: el tracker tiene un «Mis salidas» delineado junto al botón de Iniciar —una
+navegación al lado de una acción—, «Mis salidas» tiene un `TextButton` a «Mis rutas» flotando bajo la
+barra, y «Mis rutas» no ofrece ninguna de las otras dos.
+
+**Alcance.**
+- Una **barra inferior del pilar** con sus tres lugares: Grabar, Mis rutas, Mis salidas. Va en las
+  tres pantallas que *son* un lugar, idéntica en las tres.
+- **No va en los dos detalles.** Un detalle es algo que abriste *desde* un lugar y del que se sale
+  con atrás; darle destinos hermanos invita a perderse en vez de a volver.
+- Las navegaciones que hoy viven dentro del contenido se van: el «Mis salidas» del tracker y el
+  «Mis rutas» del historial.
+- **El detalle de una ruta gana su acción principal:** un botón abajo que empieza una salida
+  siguiendo esa ruta. Es el eslabón que faltaba entre «Mis rutas» y el tracker — hasta ahora había
+  que ir al tracker y buscar la ruta en un diálogo.
+
+**De las tres opciones que el usuario dio —barra superior, ⋮, o barra inferior— se elige la barra
+inferior**, y las otras dos se descartan por lo mismo: esconder los destinos hermanos en un menú es
+lo que hacía difícil moverse. El ⋮ se queda para las acciones, que es lo que ya lleva desde el
+slice 3.
+
+**Un nombre cambia respecto a lo pedido.** El usuario pidió que el destino del tracker se llamara
+«Iniciar». En esa pantalla el botón grande ya dice «Iniciar» y hace otra cosa —empezar a grabar—, así
+que dos «Iniciar» distintos en la misma pantalla serían justo la confusión que el encargo quiere
+evitar. El destino se llama **«Grabar»**; la acción sigue siendo «Iniciar» y «Detener».
+
+**Criterios de aceptación.**
+- Las tres pantallas de lugar enseñan la misma barra, con el sitio donde estás marcado.
+- Los dos detalles no la enseñan.
+- Ninguna navegación entre lugares queda dentro del contenido.
+- Desde el detalle de una ruta se empieza una salida siguiéndola, y el tracker abre ya con esa ruta
+  cargada.
+- Volver desde el tracker abierto así devuelve al detalle de la ruta, que es de donde se vino.
+
+### Slice 6 — el tracker durante la salida
 
 **Alcance.** Las cifras que ya se calculan y hoy sólo se ven al terminar, visibles mientras vas.
 Cuáles y con qué jerarquía se decide con el sistema de diseño delante, no metiendo ocho números en
@@ -168,4 +211,5 @@ puede enseñar un ascenso que el detalle luego se niega a dar.
 | 2 — la barra pinta su fondo | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 3 — controles honestos y Ajustes alcanzable | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 4 — el botón «atrás» del sistema | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
-| 5 — el tracker durante la salida | Pendiente |
+| 5 — moverse por el pilar se hace siempre igual | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
+| 6 — el tracker durante la salida | Pendiente |

@@ -144,13 +144,13 @@ Feature: Las pantallas de Movimiento dejan de estorbar
   pintan, responden al toque con su ondita y no pasa nada. Un control que miente sobre lo que hace
   enseña a desconfiar de la interfaz entera — el mismo principio que el pilar aplica a las cifras.
 
-  @slice-3 @future
+  @slice-3
   Scenario: Un control que no hace nada no se pinta
 
-  @slice-3 @future
+  @slice-3
   Scenario: Ajustes se alcanza sin salir de donde estoy
 
-  @slice-3 @future
+  @slice-3
   Scenario: Volver de Ajustes devuelve a donde estaba
 
   # ─────────── Slice 4 — el botón «atrás» del sistema ───────────
@@ -159,19 +159,80 @@ Feature: Las pantallas de Movimiento dejan de estorbar
   falta es que el gesto de Android la use. Va después del slice 3 porque Ajustes entra en esa pila
   allí, y conectarlo antes obligaría a tocarlo dos veces.
 
-  @slice-4 @future
+  @slice-4
   Scenario: Atrás desde el detalle de una ruta devuelve a Mis rutas
 
-  @slice-4 @future
+  @slice-4
   Scenario: Atrás desde el fondo del pilar cierra el pilar
 
-  @slice-4 @future
+  @slice-4
   Scenario: Atrás con una grabación en curso no la descarta sin avisar
 
-  @slice-4 @future
+  @slice-4
   Scenario: El gesto y el botón de la barra recorren la misma historia
 
-  # ─────────── Slice 5 — el tracker durante la salida ───────────
+  # ─────── Slice 5 — moverse por el pilar se hace siempre igual ───────
+
+  Note: la regla que homogeneiza, y de la que sale todo lo demás: **abajo se va a sitios, en el ⋮ se
+  hacen cosas**. Hoy están mezclados — el tracker tiene un «Mis salidas» delineado al lado del botón
+  de Iniciar, «Mis salidas» tiene una puerta a «Mis rutas» flotando dentro del contenido, y «Mis
+  rutas» no ofrece ninguna de las otras dos.
+
+  Note: de las tres opciones que el usuario dio —barra superior, ⋮, o barra inferior— se elige la
+  **barra inferior**, y las otras dos se descartan por lo mismo: esconder los destinos hermanos en un
+  menú es lo que hacía difícil moverse por el pilar.
+
+  Note: **un nombre cambia respecto a lo pedido.** El destino del tracker se pidió como «Iniciar»,
+  pero en esa pantalla el botón grande ya dice «Iniciar» y hace otra cosa. Dos «Iniciar» distintos en
+  la misma pantalla serían justo la confusión que este slice existe para quitar, así que el destino
+  se llama «Grabar» y la acción sigue siendo «Iniciar» y «Detener».
+
+  @slice-5
+  Scenario Outline: Los tres lugares del pilar enseñan la misma barra
+    Given que estoy en <pantalla>
+    When miro abajo
+    Then veo los tres lugares del pilar
+    And el que veo marcado es <pantalla>
+
+    Examples:
+      | pantalla    |
+      | Grabar      |
+      | Mis rutas   |
+      | Mis salidas |
+
+  @slice-5
+  Scenario Outline: Un detalle no es un lugar, y no lleva barra
+    Given que abrí <detalle>
+    When miro abajo
+    Then no hay barra de lugares
+    And se sale de aquí volviendo atrás
+
+    Examples:
+      | detalle                  |
+      | el detalle de una ruta   |
+      | el detalle de una salida |
+
+  @slice-5
+  Scenario: Ninguna navegación entre lugares queda dentro del contenido
+    Given cualquiera de los tres lugares del pilar
+    When miro lo que hay entre la barra de arriba y la de abajo
+    Then no encuentro botones que lleven a otro lugar del pilar
+
+  @slice-5
+  Scenario: Desde una ruta se sale a seguirla
+    Given que abrí una ruta desde Mis rutas
+    When pulso Iniciar
+    Then empiezo una salida con esa ruta ya cargada
+    And no he tenido que buscarla en la lista del tracker
+
+  @slice-5
+  Scenario: Y volver devuelve a la ruta
+    Given que empecé una salida desde el detalle de una ruta
+    When vuelvo atrás
+    Then estoy otra vez en el detalle de esa ruta
+    And no en la lista ni en la pantalla principal
+
+  # ─────────── Slice 6 — el tracker durante la salida ───────────
 
   Note: `SessionMetric` define ocho cifras —distancia, duración, tiempo en movimiento, ritmo, ascenso,
   descenso, altitud máxima y mínima— y el detalle de una salida terminada las enseña. Durante la
@@ -180,16 +241,16 @@ Feature: Las pantallas de Movimiento dejan de estorbar
   Note: la regla heredada de B3 y B4 vale igual en marcha que al terminar: **una cifra que no se midió
   no se enseña**. El tracker no puede enseñar un ascenso que el detalle luego se niega a dar.
 
-  @slice-5 @future
+  @slice-6 @future
   Scenario: El ritmo y el tiempo en movimiento se ven mientras voy
 
-  @slice-5 @future
+  @slice-6 @future
   Scenario: Una cifra sin medida enseña una raya y no un cero
 
-  @slice-5 @future
+  @slice-6 @future
   Scenario: Las cifras no tapan el trazado ni el aviso de desvío
 
-  @slice-5 @future
+  @slice-6 @future
   Scenario: La barra de cifras no cambia de altura según lo que valgan los números
 
   # ─────────────────── Lo que esta spec no cubre ───────────────────

@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.runtime.Composable
@@ -49,6 +52,7 @@ import hazlosano.app.shared.generated.resources.route_detail_elevation
 import hazlosano.app.shared.generated.resources.route_detail_missing
 import hazlosano.app.shared.generated.resources.route_detail_no_path
 import hazlosano.app.shared.generated.resources.route_detail_points
+import hazlosano.app.shared.generated.resources.route_detail_start
 import hazlosano.app.shared.generated.resources.routes_delete
 import hazlosano.app.shared.generated.resources.routes_export
 import hazlosano.app.shared.generated.resources.top_app_bar_back
@@ -64,12 +68,14 @@ object RouteDetailTags {
     const val METRICS: String = "route_detail_metrics"
     const val EXPORT: String = "route_detail_export"
     const val DELETE: String = "route_detail_delete"
+    const val START: String = "route_detail_start"
 }
 
 @Composable
 fun RouteDetailScreen(
     routeId: Long,
     onBack: () -> Unit,
+    onStartOuting: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -99,6 +105,7 @@ fun RouteDetailScreen(
         onBack = onBack,
         onExport = viewModel::export,
         onDelete = viewModel::delete,
+        onStartOuting = onStartOuting,
         onOpenSettings = onOpenSettings,
         modifier = modifier,
     )
@@ -111,6 +118,7 @@ fun RouteDetailContent(
     onBack: () -> Unit,
     onExport: () -> Unit = {},
     onDelete: () -> Unit = {},
+    onStartOuting: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -187,6 +195,33 @@ fun RouteDetailContent(
             }
 
             is RouteDetailUiState.Detail -> RouteDetailBody(state)
+        }
+
+        // A mirar una ruta se viene para decidir si se hace, asi que la accion de hacerla vive aqui
+        // y no escondida en un menu. Solo con una ruta delante: sobre un detalle que se esta
+        // cargando o que no encontro nada, «Iniciar» no significa nada.
+        //
+        // Esta pantalla no lleva la barra de sitios del pilar: un detalle es algo que se abrio
+        // DESDE un sitio y de lo que se sale volviendo atras. Lo de abajo es su accion, no un
+        // destino.
+        detail?.let {
+            Button(
+                onClick = onStartOuting,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(HazloSpaces.gutter)
+                    .testTag(RouteDetailTags.START),
+                shape = RoundedCornerShape(HazloShapes.control),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PillarType.MOVEMENT.palette().solid,
+                ),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = null)
+                Text(
+                    text = stringResource(Res.string.route_detail_start),
+                    modifier = Modifier.padding(start = HazloSpaces.sm),
+                )
+            }
         }
     }
 }

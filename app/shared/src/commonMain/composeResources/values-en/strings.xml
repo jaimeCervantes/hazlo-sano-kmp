@@ -162,9 +162,9 @@
 
     <!-- Movement: tracker -->
     <string name="tracker_title">Movement</string>
+    <string name="movement_place_record">Record</string>
     <string name="tracker_start">Start</string>
     <string name="tracker_stop">Stop</string>
-    <string name="tracker_open_history">My outings</string>
     <string name="tracker_session_saved">Session saved · %1$s · %2$s</string>
     <string name="tracker_trace_toggle_title">Save a diagnostic trace</string>
     <string name="tracker_trace_toggle_description">Keeps every GPS reading, to tune the filter.</string>
@@ -182,7 +182,6 @@
 
     <!-- Movement: my outings -->
     <string name="outings_title">My outings</string>
-    <string name="outings_open_routes">My routes</string>
     <string name="outings_empty">You haven\'t recorded any outings yet. Press “Start” on the map to record your first.</string>
     <string name="outings_failed">We couldn\'t read your outings.</string>
 
@@ -246,6 +245,7 @@
     <string name="route_detail_back">Back</string>
     <string name="route_detail_distance">Distance</string>
     <string name="route_detail_elevation">Climb</string>
+    <string name="route_detail_start">Start</string>
     <string name="route_detail_points">Points</string>
     <string name="route_detail_missing">That route is gone.</string>
     <string name="route_detail_no_path">This route was saved with no points, so there is no track to show.</string>

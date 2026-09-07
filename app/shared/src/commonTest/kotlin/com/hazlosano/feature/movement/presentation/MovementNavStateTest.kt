@@ -57,7 +57,7 @@ class MovementNavStateTest {
 
         nav.back()
 
-        assertEquals(MovementDestination.Tracker, nav.destination)
+        assertEquals(MovementDestination.Tracker(), nav.destination)
     }
 
     @Test

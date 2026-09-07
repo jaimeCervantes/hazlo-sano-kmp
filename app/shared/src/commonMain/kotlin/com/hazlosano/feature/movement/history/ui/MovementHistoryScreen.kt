@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
+import com.hazlosano.feature.movement.ui.MovementBottomBar
+import com.hazlosano.feature.movement.ui.MovementPlace
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -45,7 +47,6 @@ import hazlosano.app.shared.generated.resources.movement_metric_distance
 import hazlosano.app.shared.generated.resources.movement_metric_duration
 import hazlosano.app.shared.generated.resources.outings_empty
 import hazlosano.app.shared.generated.resources.outings_failed
-import hazlosano.app.shared.generated.resources.outings_open_routes
 import hazlosano.app.shared.generated.resources.outings_title
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import hazlosano.app.shared.generated.resources.top_app_bar_menu
@@ -62,6 +63,7 @@ fun MovementHistoryScreen(
     onBack: () -> Unit,
     onOpenSession: (Long) -> Unit,
     onOpenRoutes: () -> Unit,
+    onOpenRecord: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -85,13 +87,6 @@ fun MovementHistoryScreen(
             },
         )
 
-        TextButton(
-            onClick = onOpenRoutes,
-            modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
-        ) {
-            Text(stringResource(Res.string.outings_open_routes))
-        }
-
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {
                 is MovementHistoryUiState.Loading -> CenteredBox {
@@ -112,6 +107,13 @@ fun MovementHistoryScreen(
                 is MovementHistoryUiState.Sessions -> OutingList(current.items, onOpenSession)
             }
         }
+
+        MovementBottomBar(
+            current = MovementPlace.Outings,
+            onGoToRecord = onOpenRecord,
+            onGoToRoutes = onOpenRoutes,
+            onGoToOutings = {},
+        )
     }
 }
 
