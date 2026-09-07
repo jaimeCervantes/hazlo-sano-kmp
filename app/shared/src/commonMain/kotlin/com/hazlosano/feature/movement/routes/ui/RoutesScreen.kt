@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,12 +72,15 @@ import hazlosano.app.shared.generated.resources.routes_name_dialog_title
 import hazlosano.app.shared.generated.resources.routes_name_label
 import hazlosano.app.shared.generated.resources.routes_rename
 import hazlosano.app.shared.generated.resources.routes_title
+import hazlosano.app.shared.generated.resources.routes_importing
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la pantalla se afirma por aqui y no por su redaccion. */
 object RoutesTags {
     const val EMPTY_IMPORT: String = "routes_empty_import"
+    const val IMPORTING: String = "routes_importing"
+    const val IMPORT: String = "routes_import"
 
     fun silhouette(routeId: Long): String = "route_silhouette_$routeId"
 }
@@ -99,8 +103,20 @@ fun RoutesScreen(
     val state by viewModel.uiState.collectAsState()
     var renaming by remember { mutableStateOf<Route?>(null) }
 
-    val pickGpx = rememberGpxPicker { fileName, bytes -> viewModel.import(fileName, bytes) }
+    val pickGpx = rememberGpxPicker(
+        onPicked = { fileName, bytes -> viewModel.import(fileName, bytes) },
+        onAbandoned = viewModel::importAbandoned,
+    )
     val saveGpx = rememberGpxSaver()
+
+    // La espera empieza al pedir el archivo y no al recibirlo: entre las dos cosas esta el selector
+    // del sistema, que baja el archivo si esta en la nube y es la parte que de verdad se sufre.
+    // Parsear y guardar 20.000 puntos son 378 ms; el selector puede ser segundos.
+    val askForGpx = {
+        viewModel.importRequested()
+        pickGpx()
+    }
+    var deleting by remember { mutableStateOf<Route?>(null) }
 
     // The export is handed to the platform once and then cleared, so returning to this screen does
     // not open the file picker again for a route already written out.
@@ -119,6 +135,10 @@ fun RoutesScreen(
             backContentDescription = stringResource(Res.string.top_app_bar_back),
         )
 
+        if (state.isImporting) {
+            ImportingNotice()
+        }
+
         state.message?.let { message ->
             Text(
                 text = message.text(),
@@ -134,10 +154,14 @@ fun RoutesScreen(
         // dos pulgadas uno de otro no dan una opcion mas, dan una duda.
         if (gpxFileAccessAvailable && routes.isNotEmpty()) {
             Button(
-                onClick = pickGpx,
+                onClick = askForGpx,
+                // Dos importaciones a la vez dejarian dos rutas de un archivo o una carrera por
+                // cual gana. Apagado ademas dice, sin texto, que ya hay una en marcha.
+                enabled = !state.isImporting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm),
+                    .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm)
+                    .testTag(RoutesTags.IMPORT),
             ) {
                 Icon(Icons.Default.FileUpload, contentDescription = null)
                 Text(
@@ -149,14 +173,14 @@ fun RoutesScreen(
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (routes.isEmpty()) {
-                EmptyRoutes(onImport = pickGpx)
+                EmptyRoutes(onImport = askForGpx, enabled = !state.isImporting)
             } else {
                 RouteList(
                     routes = routes,
                     onOpen = { onOpenRoute(it.id) },
                     onRename = { renaming = it },
                     onExport = { viewModel.export(it.id) },
-                    onDelete = { viewModel.delete(it.id) },
+                    onDelete = { deleting = it },
                 )
             }
         }
@@ -169,6 +193,17 @@ fun RoutesScreen(
             onConfirm = { newName ->
                 viewModel.rename(route.id, newName)
                 renaming = null
+            },
+        )
+    }
+
+    deleting?.let { route ->
+        DeleteRouteDialog(
+            routeName = route.name,
+            onDismiss = { deleting = null },
+            onConfirm = {
+                viewModel.delete(route.id)
+                deleting = null
             },
         )
     }
@@ -374,7 +409,7 @@ private fun RenameRouteDialog(
  * lo unico honesto que se puede poner: un boton que no lleva a ninguna parte es peor que una frase.
  */
 @Composable
-private fun EmptyRoutes(onImport: () -> Unit) {
+private fun EmptyRoutes(onImport: () -> Unit, enabled: Boolean) {
     Column(
         modifier = Modifier.fillMaxSize().padding(HazloSpaces.gutter),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -394,7 +429,11 @@ private fun EmptyRoutes(onImport: () -> Unit) {
         )
         if (gpxFileAccessAvailable) {
             Spacer(modifier = Modifier.height(HazloSpaces.md))
-            Button(onClick = onImport, modifier = Modifier.testTag(RoutesTags.EMPTY_IMPORT)) {
+            Button(
+                onClick = onImport,
+                enabled = enabled,
+                modifier = Modifier.testTag(RoutesTags.EMPTY_IMPORT),
+            ) {
                 Icon(Icons.Default.FileUpload, contentDescription = null)
                 Text(
                     text = stringResource(Res.string.routes_import_gpx),
@@ -402,5 +441,29 @@ private fun EmptyRoutes(onImport: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Que hay una importacion en marcha.
+ *
+ * **Indeterminado a proposito, y sin porcentaje.** Se midio antes de decidirlo
+ * (`GpxImportBenchmark`): parsear, medir, guardar y releer un GPX de 20.000 puntos son 378 ms. Con
+ * eso no hay trabajo largo que repartir, y una barra que va del 0 al 100 en un parpadeo es un adorno
+ * que finge medir — la misma clase de cifra inventada que el pilar lleva cuatro slices quitando de
+ * sus distancias y sus desniveles.
+ */
+@Composable
+private fun ImportingNotice() {
+    Column(modifier = Modifier.fillMaxWidth().testTag(RoutesTags.IMPORTING)) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Text(
+            text = stringResource(Res.string.routes_importing),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.sm),
+        )
     }
 }

@@ -224,6 +224,10 @@
     <string name="routes_rename">Renombrar ruta</string>
     <string name="routes_export">Exportar a GPX</string>
     <string name="routes_delete">Eliminar ruta</string>
+    <string name="routes_importing">Importando ruta…</string>
+    <string name="routes_delete_title">¿Eliminar esta ruta?</string>
+    <string name="routes_delete_body">Se borra «%1$s» y no se puede deshacer.</string>
+    <string name="routes_delete_confirm">Eliminar</string>
     <string name="routes_name_dialog_title">Nombre de la ruta</string>
     <string name="routes_name_label">Nombre</string>
     <string name="routes_duplicate_title">Esta ruta ya existe</string>

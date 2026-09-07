@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 @Composable
 actual fun rememberGpxPicker(
     onPicked: (fileName: String, bytes: ByteArray) -> Unit,
+    onAbandoned: () -> Unit,
 ): () -> Unit = {}
 
 @Composable

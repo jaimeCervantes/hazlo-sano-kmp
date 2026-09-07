@@ -18,6 +18,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -159,6 +160,95 @@ class RoutesViewModelTest {
         viewModel.consumeExport()
 
         assertNull(viewModel.uiState.value.exported)
+    }
+
+    // ─────────── La espera de la importación ───────────
+    //
+    // Spec: `features/pulido_de_movimiento.feature`, slice 1. El hueco que estas pruebas cubren es
+    // el que se vive: entre pedir el archivo y verlo importado, la pantalla no decía nada.
+
+    /**
+     * La espera empieza **al pedir** el archivo, no al recibirlo.
+     *
+     * Es la parte contraintuitiva y la que se midió: parsear y guardar 20.000 puntos son 378 ms,
+     * mientras que el selector del sistema puede tardar segundos si baja el archivo de la nube.
+     * Empezar a esperar cuando llegan los bytes dejaría sin explicar justo el trozo que se sufre.
+     */
+    @Test
+    fun `asking for a file is already waiting`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+
+        viewModel.importRequested()
+
+        assertTrue(viewModel.uiState.value.isImporting)
+    }
+
+    @Test
+    fun `a stored route ends the wait`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+        viewModel.importRequested()
+
+        viewModel.import("cerro.gpx", gpxNamed("Subida al cerro"))
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isImporting)
+    }
+
+    /** El desenlace que más se olvida de apagar la espera es el del error. */
+    @Test
+    fun `a file that cannot be read ends the wait too`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+        viewModel.importRequested()
+
+        viewModel.import("roto.gpx", "no soy un gpx".encodeToByteArray())
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isImporting)
+        assertNotNull(viewModel.uiState.value.message)
+    }
+
+    /** Un duplicado deja de esperar a un archivo y pasa a esperar a una persona. */
+    @Test
+    fun `a duplicate ends the wait and asks instead`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+        viewModel.import("cerro.gpx", gpxNamed("Subida al cerro"))
+        testScheduler.advanceUntilIdle()
+
+        viewModel.import("cerro-copia.gpx", gpxNamed("Subida al cerro"))
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isImporting)
+        assertNotNull(viewModel.uiState.value.pendingImport)
+    }
+
+    @Test
+    fun `replacing a duplicate is a wait of its own`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+        viewModel.import("cerro.gpx", gpxNamed("Subida al cerro"))
+        testScheduler.advanceUntilIdle()
+        viewModel.import("cerro-copia.gpx", gpxNamed("Subida al cerro"))
+        testScheduler.advanceUntilIdle()
+
+        viewModel.confirmReplace()
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isImporting, "la espera se quedó encendida")
+    }
+
+    /**
+     * Cerrar el selector sin elegir es lo normal —cambiar de idea— y tiene que apagar la espera.
+     *
+     * Sin esto, la pantalla se queda diciendo «importando» para siempre por un archivo que nadie
+     * llegó a mandar, y el botón de importar apagado con ella.
+     */
+    @Test
+    fun `closing the picker without choosing ends the wait`() = runTest(dispatcher) {
+        val viewModel = viewModel(FakeRoutes())
+        viewModel.importRequested()
+
+        viewModel.importAbandoned()
+
+        assertFalse(viewModel.uiState.value.isImporting)
     }
 
     private fun viewModel(repository: RouteRepository): RoutesViewModel = RoutesViewModel(

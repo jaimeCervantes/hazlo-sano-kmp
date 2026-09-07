@@ -10,9 +10,18 @@ import androidx.compose.runtime.Composable
  * platform knowledge and can be read on any target.
  */
 
-/** @return a callback that asks the user for a GPX file; [onPicked] receives its bytes. */
+/**
+ * @return a callback that asks the user for a GPX file; [onPicked] receives its bytes.
+ *
+ * [onAbandoned] corre cuando no va a llegar ningun archivo: se cerro el selector sin elegir, o lo
+ * elegido no se pudo leer. Hace falta porque la pantalla empieza a esperar **al pedir** el archivo,
+ * y sin esta señal cancelar la dejaria esperando para siempre.
+ */
 @Composable
-expect fun rememberGpxPicker(onPicked: (fileName: String, bytes: ByteArray) -> Unit): () -> Unit
+expect fun rememberGpxPicker(
+    onPicked: (fileName: String, bytes: ByteArray) -> Unit,
+    onAbandoned: () -> Unit,
+): () -> Unit
 
 /** @return a callback that asks the user where to write a GPX file and writes it there. */
 @Composable

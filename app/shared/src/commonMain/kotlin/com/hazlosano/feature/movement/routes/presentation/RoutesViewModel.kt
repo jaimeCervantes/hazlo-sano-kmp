@@ -18,11 +18,17 @@ import kotlinx.coroutines.launch
  *
  * [pendingImport] is the duplicate question: the same track arrives twice more often than it
  * sounds, and the screen has to ask before replacing a route the person may still want.
+ *
+ * [isImporting] cubre la espera entera y no sólo el trabajo propio. Se midió: parsear y guardar un
+ * GPX de 20.000 puntos son 378 ms, mientras que el selector de archivos de Android puede tardar
+ * varios segundos si el archivo está en la nube y hay que bajarlo. Contar sólo lo segundo dejaría
+ * sin explicar justo la parte que se sufre.
  */
 data class RoutesUiState(
     val message: RoutesMessage? = null,
     val pendingImport: PendingImport? = null,
     val exported: ExportedGpx? = null,
+    val isImporting: Boolean = false,
 )
 
 /** A track that is already stored, waiting on the answer to whether it should be replaced. */
@@ -62,16 +68,40 @@ class RoutesViewModel(
     val uiState: StateFlow<RoutesUiState> = _uiState.asStateFlow()
 
     /**
+     * Se ha pedido un archivo y todavía no ha llegado.
+     *
+     * La espera empieza aquí y no cuando llegan los bytes: entre pulsar y recibirlos está el
+     * selector del sistema, que es la parte lenta. Se avisa antes de abrirlo para que el hueco no
+     * quede sin explicar.
+     */
+    fun importRequested() {
+        _uiState.value = _uiState.value.copy(isImporting = true, message = null)
+    }
+
+    /**
+     * Ya no va a llegar nada: se cerró el selector sin elegir, o el archivo no se pudo leer.
+     *
+     * Sin esto, cancelar dejaría la pantalla esperando para siempre por algo que nadie va a mandar.
+     */
+    fun importAbandoned() {
+        _uiState.value = _uiState.value.copy(isImporting = false)
+    }
+
+    /**
      * @param fileName the name of the file picked. Used only when the track inside does not name
      * itself, so a route never ends up called "Ruta sin nombre" when the file said more than that.
      */
     fun import(fileName: String, data: ByteArray) {
         val fallback = fileName.substringBeforeLast('.')
+        _uiState.value = _uiState.value.copy(isImporting = true)
         viewModelScope.launch {
             when (val result = importRoute(data, fallbackName = fallback)) {
                 is ImportRouteUseCase.Result.Success -> show(RoutesMessage.Imported(result.route.name))
                 is ImportRouteUseCase.Result.Failed -> show(RoutesMessage.Failed(result.problem))
+                // La pregunta del duplicado pasa a ser lo que está ocurriendo: la espera termina
+                // aquí, porque ahora se espera a una persona y no a un archivo.
                 is ImportRouteUseCase.Result.AlreadyExists -> _uiState.value = _uiState.value.copy(
+                    isImporting = false,
                     pendingImport = PendingImport(
                         existingName = result.existingRoute.name,
                         incomingName = result.newRoute.name,
@@ -84,7 +114,7 @@ class RoutesViewModel(
 
     fun confirmReplace() {
         val pending = _uiState.value.pendingImport ?: return
-        _uiState.value = _uiState.value.copy(pendingImport = null)
+        _uiState.value = _uiState.value.copy(pendingImport = null, isImporting = true)
         viewModelScope.launch {
             val result = importRoute(
                 pending.data,
@@ -143,7 +173,14 @@ class RoutesViewModel(
         _uiState.value = _uiState.value.copy(message = null)
     }
 
+    /**
+     * Tener algo que decir es haber terminado, así que aquí se apaga la espera.
+     *
+     * Está en un solo sitio a propósito: si cada desenlace de la importación tuviera que acordarse
+     * de apagarla, el que se olvidara dejaría la pantalla esperando para siempre — y el desenlace
+     * que más se olvida es el del error.
+     */
     private fun show(message: RoutesMessage) {
-        _uiState.value = _uiState.value.copy(message = message)
+        _uiState.value = _uiState.value.copy(message = message, isImporting = false)
     }
 }

@@ -21,20 +21,27 @@ import kotlinx.coroutines.withContext
 @Composable
 actual fun rememberGpxPicker(
     onPicked: (fileName: String, bytes: ByteArray) -> Unit,
+    onAbandoned: () -> Unit,
 ): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
+        // Cerrar el selector sin elegir llega como una URI nula. Es el caso normal —cambiar de
+        // idea— y quien espera tiene que enterarse, o se queda esperando un archivo que nadie
+        // mandó.
+        if (uri == null) {
+            onAbandoned()
+            return@rememberLauncherForActivityResult
+        }
         scope.launch {
             val bytes = withContext(Dispatchers.IO) {
                 runCatching {
                     context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
                 }.getOrNull()
             }
-            if (bytes != null) onPicked(context.displayNameOf(uri), bytes)
+            if (bytes != null) onPicked(context.displayNameOf(uri), bytes) else onAbandoned()
         }
     }
     // GPX is XML, and plenty of file providers report it as text/xml or as nothing at all.

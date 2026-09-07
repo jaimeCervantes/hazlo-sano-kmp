@@ -8,11 +8,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -37,6 +46,8 @@ import hazlosano.app.shared.generated.resources.route_detail_elevation
 import hazlosano.app.shared.generated.resources.route_detail_missing
 import hazlosano.app.shared.generated.resources.route_detail_no_path
 import hazlosano.app.shared.generated.resources.route_detail_points
+import hazlosano.app.shared.generated.resources.routes_delete
+import hazlosano.app.shared.generated.resources.routes_export
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import org.jetbrains.compose.resources.stringResource
 
@@ -46,6 +57,8 @@ object RouteDetailTags {
     const val MISSING: String = "route_detail_missing"
     const val NO_PATH: String = "route_detail_no_path"
     const val METRICS: String = "route_detail_metrics"
+    const val EXPORT: String = "route_detail_export"
+    const val DELETE: String = "route_detail_delete"
 }
 
 @Composable
@@ -54,9 +67,34 @@ fun RouteDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val state by rememberRouteDetailViewModel(routeId).state.collectAsState()
+    val viewModel = rememberRouteDetailViewModel(routeId)
+    val state by viewModel.state.collectAsState()
+    val exported by viewModel.exported.collectAsState()
+    val deleted by viewModel.deleted.collectAsState()
+    val saveGpx = rememberGpxSaver()
 
-    RouteDetailContent(state = state, onBack = onBack, modifier = modifier)
+    // Igual que en la lista: el GPX se entrega a la plataforma una vez y se limpia, para que volver
+    // a esta pantalla no abra otra vez el selector de guardado.
+    exported?.let { file ->
+        LaunchedEffect(file) {
+            saveGpx(file.fileName, file.gpx)
+            viewModel.consumeExport()
+        }
+    }
+
+    // Quedarse mirando el detalle de una ruta que se acaba de borrar no es una pantalla, es un
+    // hueco. Se vuelve a la lista, que es donde esta lo que si existe.
+    LaunchedEffect(deleted) {
+        if (deleted) onBack()
+    }
+
+    RouteDetailContent(
+        state = state,
+        onBack = onBack,
+        onExport = viewModel::export,
+        onDelete = viewModel::delete,
+        modifier = modifier,
+    )
 }
 
 /** Sin ViewModel, para poder componerlo en un test con cualquier estado. */
@@ -64,15 +102,41 @@ fun RouteDetailScreen(
 fun RouteDetailContent(
     state: RouteDetailUiState,
     onBack: () -> Unit,
+    onExport: () -> Unit = {},
+    onDelete: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    var confirmingDelete by remember { mutableStateOf(false) }
+    val detail = state as? RouteDetailUiState.Detail
+
     Column(modifier = modifier.fillMaxSize()) {
         HazloTopAppBar(
-            title = (state as? RouteDetailUiState.Detail)?.name.orEmpty(),
+            title = detail?.name.orEmpty(),
             showBackButton = true,
             onBackClick = onBack,
             backContentDescription = stringResource(Res.string.top_app_bar_back),
         )
+
+        // Las acciones solo existen mientras hay una ruta: sobre un detalle que se esta cargando o
+        // que no encontro nada, borrar y descargar no significan nada.
+        detail?.let { route ->
+            RouteActions(
+                canExport = gpxFileAccessAvailable,
+                onExport = onExport,
+                onDelete = { confirmingDelete = true },
+            )
+
+            if (confirmingDelete) {
+                DeleteRouteDialog(
+                    routeName = route.name,
+                    onDismiss = { confirmingDelete = false },
+                    onConfirm = {
+                        confirmingDelete = false
+                        onDelete()
+                    },
+                )
+            }
+        }
 
         when (state) {
             RouteDetailUiState.Loading -> Centered {
@@ -200,4 +264,41 @@ private fun Message(text: String, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
     )
+}
+
+/**
+ * Lo que se puede hacer con la ruta que se esta mirando.
+ *
+ * Descargar y borrar existian solo en las filas de la lista, asi que quien abria una ruta para verla
+ * en el mapa —que es donde se decide si sirve— tenia que volver atras para hacer nada con ella.
+ *
+ * Descargar se esconde donde la plataforma no sabe escribir archivos, igual que en la lista: un
+ * boton que no puede funcionar es peor que ninguno.
+ */
+@Composable
+private fun RouteActions(
+    canExport: Boolean,
+    onExport: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = HazloSpaces.gutter),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (canExport) {
+            IconButton(onClick = onExport, modifier = Modifier.testTag(RouteDetailTags.EXPORT)) {
+                Icon(
+                    Icons.Default.FileDownload,
+                    contentDescription = stringResource(Res.string.routes_export),
+                )
+            }
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.testTag(RouteDetailTags.DELETE)) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = stringResource(Res.string.routes_delete),
+            )
+        }
+    }
 }
