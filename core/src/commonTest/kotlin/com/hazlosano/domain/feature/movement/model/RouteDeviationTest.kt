@@ -38,19 +38,47 @@ class RouteDeviationTest {
     }
 
     /**
-     * El peor desvío que las trazas midieron moviéndose fue de 19,4 m. Un umbral que avisara ahí
-     * estaría avisando de la imprecisión del receptor, no de un desvío.
+     * El peor desvío que las nueve trazas midieron moviéndose fue de 21,3 m. Un umbral que avisara
+     * ahí estaría avisando de la imprecisión del receptor, no de un desvío.
      */
     @Test
     fun `the worst stray the field traces measured is not a deviation`() {
         val deviation = RouteDeviation(straightRoute)
 
         val standing = deviation.standing(
-            at(19.4350, metersEastOfRoute(19.4), atMillis = 60_000),
+            at(19.4350, metersEastOfRoute(21.3), atMillis = 60_000),
             moving = true,
         )
 
         assertIs<RouteStanding.OnRoute>(standing)
+    }
+
+    /**
+     * El desvío que la salida de campo midió, con su forma real — y el que los 30 s originales
+     * dejaban pasar en silencio.
+     *
+     * Se salió del trazado en bici, la señal se alejó progresivamente hasta 77,7 m y volvió: **nueve
+     * lecturas por encima de los 50 m repartidas en 16 s**, a lecturas cada 2 s, y 18 s entre las dos
+     * lecturas que sí estaban dentro. Es el caso que movió [RouteDeviation.PERSISTENCE_MILLIS] de
+     * 30 s a 15 s, así que se queda clavado aquí: si alguien vuelve a subirla, esta prueba lo dice.
+     */
+    @Test
+    fun `the deviation the field outing measured is warned about`() {
+        val deviation = RouteDeviation(straightRoute)
+        // La rampa medida: cruza los 50 m, sigue alejándose hasta el punto de vuelta.
+        val measured = listOf(51.9, 58.9, 64.1, 68.9, 73.6, 76.0, 74.5, 68.6, 58.0)
+
+        val standings = measured.mapIndexed { index, meters ->
+            deviation.standing(
+                at(19.4350, metersEastOfRoute(meters), atMillis = index * 2_000L),
+                moving = true,
+            )
+        }
+
+        assertIs<RouteStanding.OffRoute>(
+            standings.last(),
+            "18 s fuera del trazado y llegando a 77 m tienen que avisar",
+        )
     }
 
     @Test

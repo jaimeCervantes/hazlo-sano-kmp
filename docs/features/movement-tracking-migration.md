@@ -36,7 +36,7 @@ Qué falta por traer del proyecto de referencia (`C:\Users\S2G52\AndroidStudioPr
 | Detalle de una ruta guardada en el mapa | Hecho (punto C2). Primera pantalla del pilar con test de host |
 | Que el ruido del receptor no se convierta en kilómetros | Hecho (slice 14, punto B3). De 2 832 m a ~165 con el teléfono quieto media hora, sin costarle distancia a las salidas reales |
 | El desnivel se calla cuando la altitud se queda pegada | Hecho (B4, slice 1). Una racha rancia de 60 s o más apaga el desnivel de la sesión entera; umbral conservador, sin validar contra una segunda traza |
-| Aviso de desvío al seguir una ruta | Hecho (C3). 50 m sostenidos 30 s, y callado mientras estás parado. Los 50 m calibrados contra las cuatro trazas; los 30 s no |
+| Aviso de desvío al seguir una ruta | Hecho (C3). 50 m sostenidos **15 s**, y callado mientras estás parado. Los dos umbrales calibrados contra nueve trazas, incluida una salida que siguió una ruta y se desvió a propósito |
 
 **Validado en dispositivo:** solo hasta el slice 7. Los slices 8 y 9 se contrastaron contra tres trazas reales en la primera calibración de campo (ver bitácora), que destapó un bug de truncamiento y el problema de la altitud congelada. El slice 12 se contrastó contra una cuarta traza en la segunda calibración, que respondió su pregunta y destapó B3. Los slices 10, 11, 13 y B4 (slice 1) no se han probado en una salida real.
 
@@ -121,7 +121,7 @@ mismo valor (depende del muestreo, que no es constante), sino **cuánto tiempo**
 es lo que de verdad importa (cuánto terreno pudo cambiar sin que el sensor se enterara) y es
 comparable directamente con el dato de campo (385 s). Umbral de partida: **60 s** sin cambiar el
 valor exacto, muy por debajo del incidente medido y sin ningún caso real que muestre una repetición
-corta y legítima; queda anotado como el número a validar en la próxima salida de campo.
+corta y legítima; **validado en campo dos veces** (rachas de 180 s, y de 150 s y 137 s, contra rachas legítimas máximas de 16 s y 12 s), una de ellas congelándose mientras se pedaleaba — ver la bitácora.
 
 **Alcance:** `CalculateStatsUseCase` detecta rachas de altitud idéntica por duración; una racha que
 alcanza el umbral apaga **todas** las cifras derivadas de altitud de la sesión entera (máxima, mínima,
@@ -136,7 +136,7 @@ sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igua
 - **Estado: C1 hecho** en el slice 13 — spec: [`movement_routes_gpx.feature`](../../features/movement_routes_gpx.feature). **C2 y C3 pendientes**, y son las que convierten una ruta en algo que se sigue.
   - **Hecho (C1):** `GpxFormat` en `commonMain` (lee y escribe, sin librería XML, tolera lo que no entiende), tablas `RouteEntity`/`RoutePointEntity` con su migración `4.sqm`, pantalla "Mis rutas" para importar, renombrar, exportar y borrar, y guardar una salida del historial como ruta con nombre. Importar y exportar no piden permiso de almacenamiento: van por el Storage Access Framework. Escritorio, iOS y web esconden ambas acciones porque todavía no tienen acceso a archivos.
   - **Hecho (C2):** ver la ruta en el mapa — spec: [`movement_route_detail.feature`](../../features/movement_route_detail.feature). Se toca una ruta de la lista y se abre con su trazado encuadrado y sus tres cifras. Reutiliza `MovementMap` con `fitPathInView`, que ya dibujaba el recorrido de una sesión terminada. **Destapó una mentira heredada:** `calculateStats` acumula un desnivel de 0.0 cuando ningún punto trae altitud, y ese cero se guarda en la fila indistinguible de un llano real; la pantalla lo recupera mirando los puntos y pinta "—". Primera pantalla del pilar con test de host.
-  - **Hecho (C3):** avisar cuando te sales del trazado — spec: [`movement_route_deviation.feature`](../../features/movement_route_deviation.feature). Se mide la distancia al **segmento** más cercano, se avisa a partir de **50 m sostenidos 30 s**, y **no se juzga mientras estás parado**. Los 50 m se calibraron replayando las cuatro trazas contra el camino que de verdad recorrieron (`RouteDeviationCalibration`): moviéndose, la señal nunca se aleja más de **19,4 m**; con el teléfono quieto bajo techo llega a **291 m**, que es de donde sale la regla de callarse parado. **Sin «smart snap»**: la referencia movía la posición sobre la ruta, y eso haría que la salida guardada siguiera el trazado aunque te hubieras desviado. El `routeId` ya se guardaba desde el slice 3 de `puertas-de-movimiento`. **Pendiente de campo:** los 30 s no están calibrados y nadie ha medido un desvío real — ver la bitácora.
+  - **Hecho (C3):** avisar cuando te sales del trazado — spec: [`movement_route_deviation.feature`](../../features/movement_route_deviation.feature). Se mide la distancia al **segmento** más cercano, se avisa a partir de **50 m sostenidos 30 s**, y **no se juzga mientras estás parado**. Los 50 m se calibraron replayando las cuatro trazas contra el camino que de verdad recorrieron (`RouteDeviationCalibration`): moviéndose, la señal nunca se aleja más de **19,4 m**; con el teléfono quieto bajo techo llega a **291 m**, que es de donde sale la regla de callarse parado. **Sin «smart snap»**: la referencia movía la posición sobre la ruta, y eso haría que la salida guardada siguiera el trazado aunque te hubieras desviado. El `routeId` ya se guardaba desde el slice 3 de `puertas-de-movimiento`. **Calibrado en campo:** la persistencia bajó de 30 s a **15 s** porque un desvío deliberado de 77,7 m duró 18 s y con 30 s el aviso no llegó a hablar. Con nueve trazas el peor desvío moviéndose es de **21,3 m** y ninguna lectura en movimiento pasa de 50 m, así que el falso positivo lo sostiene el umbral y no la espera: la salida que recorrió la misma ruta sin desviarse no avisa ni con la persistencia a cero. **Sigue pendiente** contrastar los 60 s de `isMoving` contra una parada larga siguiendo una ruta — ver la bitácora.
 - **Problem:** no se puede seguir una ruta planificada: no hay forma de verla en el mapa ni de saber si te estás saliendo del trazado.
 - **Savings:** evita depender de otra app para seguir rutas y el riesgo de perderse o desviarse sin darse cuenta.
 - **Why:** "recorrer rutas" es la promesa central del pilar en la referencia; la sesión libre es solo la mitad.
@@ -220,20 +220,17 @@ sesión (distancia, tiempo en movimiento, ritmo) no depende de esto y sigue igua
 
 **G** (sobrevivir a que el sistema mate el proceso) no tiene posición fija: depende de si en uso real Android está matando la app durante las grabaciones. Si ocurre, sube al principio; si no, puede esperar.
 
-También pendiente de campo, arrastrado desde la primera calibración: repetir la prueba de teléfono quieto **a cielo abierto** (las dos que tenemos, T1 y la parte parada de T4, se hicieron bajo techo) y medir una ruta real para cerrar la duda de la distancia caminando. Ninguna de las dos bloquea B3: la traza T4 ya trae el caso que hay que arreglar.
+También pendiente de campo, arrastrado desde la primera calibración: repetir la prueba de teléfono quieto **a cielo abierto** (las dos que tenemos, T1 y la parte parada de T4, se hicieron bajo techo). La duda de la distancia caminando quedó cerrada: una parada real de 153 s a cielo abierto dejó **2,8 m** de distancia fantasma, con 2 de 77 lecturas aceptadas.
 
-**Lo que la próxima salida tiene que responder, en un solo sitio.** C3 se construyó antes de salir, a
-propósito, calibrando contra las trazas todo lo calibrable. Lo que queda son tres preguntas concretas,
-y las tres se contestan con **una sola captura: caminar una ruta conocida y salirse de ella a
-propósito**, con la traza encendida:
+**Lo que la salida de campo contestó, y lo que no.** C3 se construyó antes de salir, a propósito,
+calibrando contra las trazas todo lo calibrable. Las tres preguntas que quedaban, y su respuesta:
 
-1. **¿Los 30 s de persistencia del aviso de desvío sobran o faltan?** No están calibrados, igual que
-   los 60 s de B4.
-2. **¿Se detecta un desvío real a tiempo?** Las cuatro trazas dan el ruido que el umbral debe dejar
-   pasar, pero ninguna es de alguien siguiendo una ruta.
-3. **¿Los 60 s de `isMoving` callan el aviso en una parada legítima?** Un semáforo largo podría.
-
-Y de paso esa misma salida cierra las dos de arriba —el quieto a cielo abierto y la distancia
-caminando— si se hace en un sitio con cielo despejado y una parada larga en medio.
+1. ~~**¿Los 30 s de persistencia sobran o faltan?**~~ **Sobraban.** Bajados a 15 s: el desvío
+   deliberado duró 18 s y con 30 s el aviso se quedó callado.
+2. ~~**¿Se detecta un desvío real a tiempo?**~~ **Ahora sí; antes no.** Es el hallazgo que movió el
+   número, y quedó clavado en un test con la forma real de la rampa medida.
+3. **¿Los 60 s de `isMoving` callan el aviso en una parada legítima?** **Sigue abierta:** la salida se
+   hizo sin pausas. Hace falta seguir una ruta **con una parada larga en medio**, que es también la
+   captura que cerraría lo del teléfono quieto a cielo abierto.
 
 El orden es una recomendación, no un compromiso: cada slice se aprueba en su momento con su encuadre y su `.feature`.

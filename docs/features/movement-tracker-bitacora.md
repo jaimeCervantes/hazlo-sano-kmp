@@ -1436,3 +1436,119 @@ referencia dejó copiados sin consumidor.
 **Próximos pasos (opciones).** (1) **La salida de campo**, ahora con tres preguntas concretas que
 responder; (2) mirar en el teléfono lo acumulado de los cuatro slices anteriores; (3) del backlog,
 D (offline), E (satélite) y G (sobrevivir a que el sistema mate el proceso).
+
+---
+
+## La salida de campo — dos umbrales confirmados y uno movido (2026-09-06)
+
+Tres salidas en bici, una de ellas siguiendo una ruta guardada y saliéndose de ella a propósito. Es
+la captura que cuatro slices llevaban pidiendo, y contesta lo que quedaba abierto de **B3**, **B4** y
+**C3**. Las trazas nuevas suben el corpus de calibración de cuatro a nueve.
+
+### B4 — los 60 s de altitud rancia, confirmados por segunda vez
+
+La salida terminó **sin desnivel y sin altitud**, y es correcto. La traza dice por qué:
+
+| racha de altitud idéntica | duración | qué pasaba |
+|---|---|---|
+| 208,5 m | **150 s** | pedaleando: 93, 111, 134 y 95 m por ventana de 30 s |
+| 211,3 m | **137 s** | mayormente parado |
+| 206,0 m | 12 s | la racha legítima más larga de toda la salida |
+
+Sólo 110 de 273 lecturas traían un valor distinto. El umbral son 60 s y las dos rachas malas lo
+doblan largamente, mientras que la más larga que no es un defecto se queda en 12 s. **Es la segunda
+vez que el mismo salto aparece**: la salida anterior dio 180 s de congelación contra 16 s de racha
+legítima. Entre 12-16 s y 137-150 s no hay ambigüedad que calibrar.
+
+Lo importante es que la primera racha ocurre **moviéndose**, no parado: el sensor mantuvo 208,5 m
+clavados mientras se recorrían ~430 m. Eso descarta la explicación cómoda —«se congela porque no te
+mueves»— y confirma que es un defecto del receptor. Callar el desnivel entero de la sesión, y no sólo
+el tramo congelado, es lo correcto: durante esos 150 s pudo haber 30 m de subida o ninguno, y
+cualquier total sería una suma con un agujero dentro presentada como completa.
+
+### B3 — la parada de dos minutos y medio, confirmada
+
+Una parada real de **153 s** en mitad de la salida, sin tocar el teléfono:
+
+| | |
+|---|---|
+| distancia cruda | 4,1 m |
+| distancia registrada | **2,8 m** |
+| lecturas aceptadas | 2 de 77 (75 `WITHIN_NOISE`) |
+| deriva máxima | 3,6 m |
+| precisión declarada | mediana 2,8 m · p90 5,7 m · peor 19,1 m |
+
+2,8 m de distancia fantasma en dos minutos y medio parado. La comparación con T4 no es limpia —el
+cielo era distinto— pero el orden de magnitud es el que B3 buscaba.
+
+### C3 — los 50 m aguantan, los 30 s no
+
+**Los 50 m salen reforzados** con nueve trazas en vez de cuatro. Peor caso moviéndose: **21,3 m**
+(era 19,4 con cuatro). Y el dato que no se tenía: **ninguna lectura de ninguna traza en movimiento
+pasó de los 50 m**, ni una. El umbral no está cerca de su falso positivo; está lejos.
+
+**Los 30 s de persistencia estaban mal, y la salida lo demostró en el primer intento.** El desvío
+deliberado, replayado contra la ruta guardada de la salida anterior (`RouteFollowingReplay`):
+
+```
+distancia al trazado: mediana 2.5 m · p90 9.6 m · maxima 77.7 m
+lecturas fuera de los 50 m: 9
+tramos fuera del umbral: a los 149s, 15s fuera, hasta 77.7 m
+
+persistencia   avisos   primer aviso   retraso   metros al avisar
+        0s        1   149s           0s        53.4 m
+       10s        1   161s           11s       76.2 m
+       15s        1   165s           15s       59.5 m
+       20s        0   —              —         —
+       30s        0   —              —         —
+```
+
+**Con 30 s el aviso no llegó a hablar.** La rampa es inconfundible —3, 5, 8, 9, 13, 19, 25, 30, 37,
+44, 52, 59, 64, 69, 74, 76 m y de vuelta— pero duró 18 s entre las dos lecturas que sí estaban
+dentro, y la persistencia pedía 30.
+
+Lo que decidió bajarla no fue sólo eso, sino descubrir **quién sostiene de verdad el falso positivo**.
+Se creía que era la persistencia; es el umbral de 50 m. Replayando contra la misma ruta la salida que
+la recorrió sin desviarse (T5, 167 lecturas, mediana 2,1 m, máxima 18,2 m), **no sale un solo aviso
+ni con la persistencia a cero**. El coste medido de bajarla es cero.
+
+Queda en **15 s**: a 3-5 m/s son ~60 m más de camino equivocado en vez de ~120 m. No se bajó más
+porque la persistencia se cuenta en tiempo y no en lecturas — con un receptor que reporte cada 10 s,
+un número menor dejaría de ser varias lecturas y pasaría a ser una o dos.
+
+### La pregunta que la salida no contestó
+
+**`isMoving` y sus 60 s siguen sin contrastar.** La salida se hizo sin pausas, así que la regla de
+callarse parado sigue apoyada en T4 —el teléfono quieto bajo techo— y no en un semáforo real en
+mitad de una ruta. Es lo único de las tres preguntas que sigue abierto, y hace falta una salida
+siguiendo una ruta **con una parada larga en medio**.
+
+Un residuo más, ahora dicho con número: un desvío que dure menos de 15 s se escapa igual, y el que
+se midió duró 18 — el margen es de una o dos lecturas.
+
+### Archivos tocados
+
+- **core:** `model/RouteDeviation.kt` (`PERSISTENCE_MILLIS` 30 s → 15 s, y la documentación de ambos
+  umbrales reescrita contra lo medido).
+- **Tests:** `RouteDeviationTest` (+1: la rampa real de campo, que falla si alguien vuelve a subir la
+  persistencia; y el peor desvío medido pasa de 19,4 a 21,3 m).
+- **Arneses:** `RouteFollowingReplay.kt` (nuevo — replaya una traza contra la ruta de otra y barre
+  persistencias), `app/shared/build.gradle.kts` (deja pasar también `-Droute=`).
+- **Spec:** `features/movement_route_deviation.feature`.
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos** (venían 152).
+- `.\gradlew.bat :app:shared:jvmTest` → **371 pruebas, 0 fallos** (venían 370).
+- `.\gradlew.bat :app:shared:jvmTest --tests "*RouteDeviationCalibration*" --tests
+  "*RouteFollowingReplay*" -Droute=1788749302780 --rerun-tasks` → las dos tablas de arriba.
+
+**Recap.** La salida confirmó los 60 s de B4 por segunda vez y con el caso limpio —altitud congelada
+**mientras se pedaleaba**—, confirmó que B3 deja una parada de 153 s en 2,8 m de distancia fantasma,
+y tumbó los 30 s de C3: el desvío deliberado duró 18 s y el aviso se quedó callado. Ahora son 15 s,
+con el falso positivo cubierto por los 50 m y no por la espera. Sigue sin medirse la parada legítima
+mientras se sigue una ruta.
+
+**Próximos pasos (opciones).** (1) Una salida siguiendo una ruta **con una parada larga**, la única
+pregunta de C3 que queda; (2) mirar en el teléfono lo acumulado de los slices de UI; (3) del backlog,
+D (offline), E (satélite) y G (sobrevivir a que el sistema mate el proceso).

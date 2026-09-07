@@ -116,3 +116,16 @@ kotlin {
         }
     }
 }
+
+/**
+ * Deja pasar `-Dtrace=<nombre>` y `-Droute=<nombre>` a las pruebas.
+ *
+ * Los arneses de calibración leen `traces/` entera; con `trace` se replaya una sola salida, que es
+ * como se mira una traza concreta. `route` elige de qué otra traza sale la ruta que se seguía, para
+ * `RouteFollowingReplay`. Ver `TraceFiles.kt`.
+ */
+tasks.withType<Test>().configureEach {
+    listOf("trace", "route").forEach { name ->
+        System.getProperty(name)?.let { systemProperty(name, it) }
+    }
+}

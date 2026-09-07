@@ -14,8 +14,21 @@ import java.io.File
 internal fun traceFiles(): List<File> =
     tracesDirectory().takeIf { it.isDirectory }
         ?.listFiles { file -> file.name.endsWith(".csv") }
+        ?.filter { it.name.contains(onlyTrace ?: "") }
         ?.sortedBy { it.name }
         .orEmpty()
+
+/**
+ * Con que traza calibrar, cuando se quiere una sola.
+ *
+ * Calibrar es mirar una salida concreta y decidir sobre ella, asi que replayar las cinco para leer
+ * una es ruido. Se pasa por propiedad de sistema:
+ *
+ *     .\gradlew.bat :app:shared:jvmTest --tests "*TraceReplayHarness" -Dtrace=1788749302780
+ *
+ * Sin ella se replayan todas, que es lo que hace falta al cambiar una constante del filtro.
+ */
+private val onlyTrace: String? get() = System.getProperty("trace")?.takeIf { it.isNotBlank() }
 
 /** The repository root's `traces/`, reached from the module the test runs in. */
 internal fun tracesDirectory(): File = File("../../traces")

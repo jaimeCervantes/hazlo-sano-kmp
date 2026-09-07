@@ -27,21 +27,33 @@ Feature: Salirse de la ruta se nota mientras todavía se puede volver
   bifurcación ya quedó atrás. El desvío no acumula nada: sólo compara una posición con una línea, así
   que no necesita la protección que el filtro da a la distancia.
 
-  Note: los umbrales salen de medir, no de suponer. Se replayaron las cuatro trazas de campo midiendo
+  Note: los umbrales salen de medir, no de suponer. Se replayaron las nueve trazas de campo midiendo
   cuánto se aleja la señal cruda del camino que de verdad se recorrió (`RouteDeviationCalibration`):
 
     | traza | qué fue                          | p90    | máximo   |
     | T2    | caminata y trote, 7,6 min        | 1,4 m  | 15,9 m   |
     | T3    | bici, 5,2 min                    | 6,9 m  | 19,4 m   |
     | T4    | bici 2 min + 31 min parado       | 8,6 m  | 291,5 m  |
+    | T5    | bici, 5,7 min                    | 11,1 m | 14,4 m   |
+    | T6    | bici, 5,6 min                    | 11,7 m | 21,3 m   |
+    | T7    | bici, 9,4 min (la ruta guardada) | 2,5 m  | 4,2 m    |
+    | T8    | bici siguiendo esa ruta, 6,4 min | 1,8 m  | 8,2 m    |
 
-  Moviéndose de verdad, la señal nunca se aleja más de ~20 m del camino recorrido: **50 m deja 2,5
-  veces de holgura** sobre el peor caso medido. Los 291 m de T4 son el teléfono quieto bajo techo, y
-  son la razón del escenario de abajo: parado, la distancia a la ruta es ruido y el aviso se calla.
+  (T1 y una novena captura no llegaron a tener recorrido aceptado y no dicen nada aquí.)
 
-  Note: los 30 s de persistencia son una elección de producto y **no una medida**, igual que los 60 s
-  de B4: bastante rápido para servir en una bifurcación, bastante lento para que una lectura mala
-  suelta no dispare nada. Es el número que la próxima salida de campo tiene que calibrar.
+  Moviéndose de verdad, la señal nunca se aleja más de **21,3 m** del camino recorrido, y **ninguna
+  lectura de ninguna traza en movimiento pasó de los 50 m**: el umbral deja algo más del doble de
+  holgura sobre el peor caso medido. Los 291 m de T4 son el teléfono quieto bajo techo, y son la
+  razón del escenario de abajo: parado, la distancia a la ruta es ruido y el aviso se calla.
+
+  Note: **los 15 s de persistencia salen de una salida de campo, y corrigen los 30 s que no salían de
+  nada.** T8 recorrió la ruta guardada de T7 y se desvió a propósito: la señal se alejó
+  progresivamente hasta 77,7 m y volvió, dejando nueve lecturas por encima de los 50 m repartidas en
+  16 s. **Con 30 s el aviso no llegó a hablar.** Replayando T8 con varias persistencias
+  (`RouteFollowingReplay`), avisa con 0, 10 y 15 s, y se calla con 20 s o más. El otro lado —que una
+  lectura mala suelta no dispare nada— resultó estar sostenido por los 50 m y no por este número: T5,
+  que recorre las mismas calles sin desviarse, no produce un solo aviso ni con la persistencia a
+  cero. Lo que sigue sin cubrir: un desvío más corto que 15 s se escapa igual.
 
   # ─────────────────── Slice 1 — el aviso ───────────────────
 
@@ -55,13 +67,14 @@ Feature: Salirse de la ruta se nota mientras todavía se puede volver
     Examples: dentro de lo que la señal puede equivocarse
       | metros | segundos | avisa    | reason                                          |
       | 0      | 60       | no avisa | encima de la ruta                               |
-      | 20     | 60       | no avisa | el peor desvío medido moviéndose fue de 19,4 m  |
+      | 21     | 60       | no avisa | el peor desvío medido moviéndose fue de 21,3 m  |
       | 49     | 60       | no avisa | por debajo del umbral                           |
 
     Examples: fuera, y sostenido
-      | metros | segundos | avisa | reason                                    |
-      | 60     | 30       | avisa | pasa el umbral y aguanta la persistencia  |
-      | 300    | 30       | avisa | inequívocamente fuera                     |
+      | metros | segundos | avisa | reason                                        |
+      | 60     | 15       | avisa | pasa el umbral y aguanta la persistencia      |
+      | 78     | 16       | avisa | el desvío que T8 midió en campo, con su forma |
+      | 300    | 30       | avisa | inequívocamente fuera                         |
 
     Examples: fuera, pero sin aguantar
       | metros | segundos | avisa    | reason                                        |
@@ -81,7 +94,7 @@ Feature: Salirse de la ruta se nota mientras todavía se puede volver
     Given una salida que ya avisó de un desvío
     When vuelvo a menos de 50 m del trazado
     Then el aviso desaparece
-    And no hace falta esperar otros 30 s para que se calle
+    And no hace falta esperar otros 15 s para que se calle
 
   @slice-1
   Scenario: Sin ruta no hay desvío del que hablar
@@ -113,7 +126,14 @@ Feature: Salirse de la ruta se nota mientras todavía se puede volver
 
   # ─────────────────── Lo que esta spec no cubre ───────────────────
 
-  Note: **nadie ha medido un desvío real.** Las cuatro trazas son salidas libres, así que dan el
-  ruido que el umbral tiene que dejar pasar pero no si un desvío de verdad se detecta a tiempo. Eso
-  queda para la próxima salida: caminar una ruta conocida y salirse de ella a propósito. Hasta
-  entonces, los 50 m están calibrados contra el falso positivo y los 30 s no están calibrados.
+  Note: **la parada legítima sigue sin medirse.** La salida que calibró la persistencia se hizo sin
+  pausas, así que la regla de callarse parado está sostenida por T4 —el teléfono quieto bajo techo— y
+  no por un semáforo real en mitad de una ruta. Los 60 s de `isMoving` siguen sin contrastar contra
+  una parada de verdad mientras se sigue un trazado.
+
+  Note: la persistencia se cuenta en **tiempo y no en lecturas**, y ahí queda una holgura sin cerrar:
+  con un receptor que reporte cada 10 s en vez de cada 2, los 15 s dejan de ser siete lecturas y
+  pasan a ser una o dos. Por eso no se bajó más, aun cuando el falso positivo no aparece ni con la
+  persistencia a cero.
+
+  Note: el aviso en pantalla sigue sin mirarlo ningún test de host: sólo el estado que lo produce.

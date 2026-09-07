@@ -19,10 +19,11 @@ sealed interface RouteStanding {
 /**
  * Decide si te has salido de la ruta, y lo dice sólo cuando merece la pena decirlo.
  *
- * **Los umbrales salen de medir.** Se replayaron las cuatro trazas de campo comparando la señal cruda
- * contra el camino que de verdad se recorrió: moviéndose, el receptor nunca se aleja más de 19,4 m
- * del sitio por el que se pasó (p90 de 1,4 y 6,9 m en la caminata y la bici). [TOLERANCE_METERS]
- * deja 2,5 veces de holgura sobre ese peor caso.
+ * **Los umbrales salen de medir.** Se replayaron las nueve trazas de campo comparando la señal cruda
+ * contra el camino que de verdad se recorrió: moviéndose, el receptor nunca se aleja más de 21,3 m
+ * del sitio por el que se pasó (p90 entre 1,4 y 11,7 m). [TOLERANCE_METERS] deja algo más del doble
+ * de holgura sobre ese peor caso, y [PERSISTENCE_MILLIS] la afinó una salida siguiendo una ruta de
+ * verdad.
  *
  * **Parado no se juzga, y esa regla la produjo una traza.** La cuarta captura —media hora con el
  * teléfono en una mesa bajo techo— coloca la señal hasta a **291 m** del sitio donde estaba. Parado,
@@ -90,10 +91,26 @@ class RouteDeviation(
         /**
          * Cuánto tiene que aguantar el desvío antes de decirse.
          *
-         * **No está calibrado**, igual que los 60 s de B4: es bastante rápido para servir en una
-         * bifurcación y bastante lento para que una lectura mala suelta no dispare nada. El número
-         * que la próxima salida de campo tiene que confirmar o mover.
+         * **Estaba en 30 s sin calibrar, y la salida de campo lo movió.** Se salió del trazado a
+         * propósito en bici: la señal cruzó los 50 m, llegó a 77,7 m y volvió — **18 s fuera del
+         * umbral**. Con 30 s el aviso no llegó a hablar, que es justo el fallo que la salida existía
+         * para buscar.
+         *
+         * El otro lado —que una lectura mala suelta no dispare nada— resultó estar sostenido por
+         * [TOLERANCE_METERS] y no por este número: en las nueve trazas, moviéndose, la señal cruda
+         * nunca superó los 21,3 m respecto al camino recorrido, y **ninguna lectura de ninguna traza
+         * en movimiento pasó de los 50 m**. Replayando contra una ruta real, la salida que la
+         * recorrió sin desviarse no produce un solo aviso ni con la persistencia a cero.
+         *
+         * Así que el coste medido de bajarla es cero y la ganancia es no callarse ante un desvío
+         * real. A las velocidades observadas (3-5 m/s en bici), 15 s son ~60 m más de camino
+         * equivocado en vez de ~120 m.
+         *
+         * **Lo que sigue sin cubrir:** un desvío más corto que esto se escapa igual, y el que se
+         * midió duró 18 s — el margen es de una o dos lecturas. No se bajó más porque la persistencia
+         * se cuenta en tiempo y no en lecturas: con un receptor que reporte cada 10 s en vez de cada
+         * 2, un número más pequeño dejaría de ser varias lecturas y pasaría a ser una.
          */
-        const val PERSISTENCE_MILLIS: Long = 30_000L
+        const val PERSISTENCE_MILLIS: Long = 15_000L
     }
 }
