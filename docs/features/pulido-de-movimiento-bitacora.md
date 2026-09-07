@@ -449,3 +449,102 @@ encima del `when` que devolvía antes de llegar a ella.
 
 **Próximos pasos.** El slice 4: el botón «atrás» de Android, que sigue sin existir en todo el
 proyecto. Ajustes ya está en la pila, que era la razón de ponerlo después de éste.
+
+---
+
+## Slice 4 — El botón «atrás» de Android (2026-09-07)
+
+**Lo que había: nada.** Cero `BackHandler` en todo el proyecto. El gesto más usado de Android no
+hacía lo que debe desde ninguna pantalla — desde el tracker, «Mis salidas», «Mis rutas», Ajustes o
+cualquiera de los dos detalles, volver atrás salía del app.
+
+### No hace falta `expect`/`actual`
+
+Compose Multiplatform 1.11 trae `BackHandler(enabled, onBack)` en código común
+(`androidx.compose.ui.backhandler`), y el artefacto ya estaba en la caché de Gradle aunque no
+declarado. Se añade `compose-ui-backhandler` al catálogo y se usa directo, en vez del `expect`/`actual`
+sobre el `BackHandler` de Android que este repositorio habría escrito por costumbre — que es
+exactamente lo que esta API ya hace, y que habría que borrar el día que deje de ser experimental.
+
+Sigue marcado experimental, así que lleva un `@OptIn` con el motivo escrito al lado.
+
+### El problema de verdad no era el gesto, era el orden
+
+`MainScreen` no tiene grafo de navegación: tiene cuatro banderas sueltas —ajustes, el pilar de
+Movimiento, la ficha de un pilar, el historial de sueño— y pinta la primera que comprueba, con una
+cadena de `return`. El gesto de volver atrás necesita **el mismo orden al revés**, y escribirlo a mano
+habría dejado dos copias del mismo orden en dos sitios.
+
+Dos copias de un orden se separan en cuanto alguien mueve un bloque, **y eso ya pasó**: en el slice 3
+hubo que subir la comprobación de Ajustes por encima del `when` de movimiento porque estaba debajo y
+no llegaba a pintarse nunca.
+
+Así que el orden se saca a una función, `topLayer(...)`, y la usan **las dos** cosas: qué se pinta y
+qué deshace el gesto. Mover el orden lo mueve para los dos, porque es el mismo.
+
+### Salir del tracker no descarta la grabación, y no hace falta avisar
+
+El criterio decía que volver atrás con una grabación en curso no la descartara sin avisar. Al ir a
+escribir el aviso resultó que **no hay nada de lo que avisar**: la grabación vive en un servicio en
+primer plano desde el slice de grabación en segundo plano, precisamente «so it survives leaving the
+tracker screen». Se comprobó además que `stopRecording()` se llama desde **un solo sitio** en todo el
+código común: el botón de Parar.
+
+Así que salir del tracker —por el gesto o por la flecha— deja la grabación corriendo, y volver la
+reencuentra donde iba. Un diálogo de confirmación habría sido una pregunta sobre un peligro que no
+existe, que es su propia clase de mentira. Queda dicho en el código, donde se decide.
+
+### Las pruebas
+
+`AppLayerTest` afirma el orden, que es lo único que puede estar mal. La que lo dice entero pela las
+cuatro capas de arriba abajo y comprueba la secuencia completa más el `null` final — que es lo que
+hace el gesto pulsado cinco veces, y afirmarlo así es afirmar que deshace las cosas en el orden
+inverso al que se hicieron.
+
+Los otros dos criterios —volver del detalle de una ruta a «Mis rutas», y salir del pilar desde el
+fondo— ya estaban cubiertos por `MovementNavStateTest` desde el slice 1 de las puertas. El gesto llama
+al mismo `back()` que la flecha de la barra, así que no hay dos historias que puedan discrepar: es el
+tercer criterio, y se cumple por construcción y no por coincidencia.
+
+### Un tropiezo conocido, por tercera vez
+
+Kotlin/Native no admite comas en los nombres de prueba entre backticks, y `:app:shared:check` lo cazó
+en `settings covers everything, including the movement pillar`. Es la tercera vez en este proyecto.
+Se revisó de paso el resto de `commonTest` buscando el mismo caso: no había más.
+
+### Archivos tocados
+
+- **Presentación:** `AppLayer.kt` (nuevo).
+- **UI:** `MainScreen.kt` (`topLayer` manda sobre pintar y sobre volver; `BackHandler`).
+- **Build:** `gradle/libs.versions.toml` y `app/shared/build.gradle.kts`
+  (`compose-ui-backhandler`).
+- **Tests:** `AppLayerTest` (nuevo, 6).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **401 pruebas, 0 fallos** (venían 395).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL, incluida la compilación de
+  las pruebas para iOS que cazó lo de la coma.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+**Que el gesto esté conectado no lo mira ningún test**: lo que se prueba es el orden que decide qué
+deshace, no que `MainScreen` llame a `BackHandler` con él. Es la misma deuda de siempre en este
+proyecto —`MainScreen` construye ViewModels con repositorios reales y no se puede componer en la
+JVM— y es la tercera vez que aparece por escrito: la dejó pasar el bug del indicador de importación,
+se anotó en el slice 3 y sigue aquí. **Se comprueba pulsando atrás en el teléfono.**
+
+Tampoco se prueba que la grabación siga viva al salir del tracker: eso depende del servicio, que es
+de Android.
+
+**Recap.** El gesto de volver atrás existe por fin, y en código común sin `expect`/`actual` porque
+Compose Multiplatform ya lo trae. Lo que costó no fue el gesto sino el orden: pintar y volver son la
+misma pregunta —qué hay encima— y ahora la contesta una sola función, en vez de dos copias que ya se
+habían separado una vez. Y el aviso que el criterio pedía al salir del tracker con una grabación en
+curso no se escribe, porque la grabación vive en un servicio y no se descarta.
+
+**Próximos pasos.** El slice 5, el último: el tracker durante la salida, que enseña dos cifras
+mientras la sesión terminada enseña ocho.

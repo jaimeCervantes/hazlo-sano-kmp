@@ -167,5 +167,5 @@ puede enseñar un ascenso que el detalle luego se niega a dar.
 | 1 — la importación se ve, y la ruta se maneja desde el detalle | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 2 — la barra pinta su fondo | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 3 — controles honestos y Ajustes alcanzable | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
-| 4 — el botón «atrás» del sistema | Pendiente |
+| 4 — el botón «atrás» del sistema | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 5 — el tracker durante la salida | Pendiente |

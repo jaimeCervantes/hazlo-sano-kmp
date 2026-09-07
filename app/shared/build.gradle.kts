@@ -68,6 +68,10 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
+            // El gesto de volver atras del sistema, en codigo comun: Compose Multiplatform
+            // lo trae desde 1.11 y no hace falta expect/actual. En los targets sin gesto
+            // propio no hace nada.
+            implementation(libs.compose.ui.backhandler)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodelCompose)

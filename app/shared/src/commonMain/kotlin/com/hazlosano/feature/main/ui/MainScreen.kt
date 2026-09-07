@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.backhandler.BackHandler
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
@@ -40,6 +42,8 @@ import com.hazlosano.domain.usecase.GetSleepHistoryUseCase
 import com.hazlosano.feature.catalog.presentation.rememberPillarCatalogViewModel
 import com.hazlosano.feature.catalog.ui.PillarCatalogScreen
 import com.hazlosano.feature.home.presentation.HomeViewModel
+import com.hazlosano.feature.main.presentation.AppLayer
+import com.hazlosano.feature.main.presentation.topLayer
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
@@ -117,6 +121,12 @@ internal fun BottomTab.palette(): PillarPalette {
     )
 }
 
+/**
+ * `BackHandler` sigue siendo experimental en Compose Multiplatform 1.11. Se acepta a sabiendas: la
+ * alternativa era un `expect`/`actual` propio sobre el `BackHandler` de Android, que es exactamente
+ * lo que esta API ya hace en comun, y que habria que borrar el dia que deje de ser experimental.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MainScreen(
     homeViewModel: HomeViewModel,
@@ -144,12 +154,31 @@ fun MainScreen(
     // depende de la pantalla— pero el aviso y el resultado se los llevaba la navegación.
     val routesViewModel = rememberRoutesViewModel()
 
-    // Ajustes se comprueba ANTES del `when` de movimiento, y ese orden es el que hace que se pueda
-    // abrir desde dentro del pilar: comprobado despues, el `when` devolvia la pantalla de movimiento
-    // y Ajustes no llegaba a pintarse nunca. Al volver, `showSettings` vuelve a false y se cae otra
-    // vez en el `when`, que sigue teniendo su destino — asi que se vuelve a donde estabas y no a la
-    // pantalla principal.
-    if (showSettings) {
+    // Qué hay encima, preguntado una sola vez. Lo usan **las dos** cosas que dependen de ese orden:
+    // qué pantalla se pinta y qué deshace el gesto de volver atrás. Repetir el orden en los dos
+    // sitios es lo que los deja separarse en cuanto alguien mueve un bloque.
+    val layer = topLayer(
+        settingsOpen = showSettings,
+        movementOpen = movementNav.isOpen,
+        pillarInfoOpen = pillarInfo != null,
+        sleepHistoryOpen = showSleepHistory,
+    )
+
+    // Volver atrás deshace la capa de arriba, y sólo se ofrece cuando hay alguna: sin nada abierto,
+    // el gesto vuelve a ser del sistema y sale del app, que es lo que quien lo hace espera.
+    BackHandler(enabled = layer != null) {
+        when (layer) {
+            // No para la grabación: vive en un servicio en primer plano, así que salir del tracker
+            // —por el gesto o por la flecha— la deja corriendo y volver la reencuentra donde iba.
+            AppLayer.Movement -> movementNav.back()
+            AppLayer.Settings -> showSettings = false
+            AppLayer.PillarInfo -> pillarInfo = null
+            AppLayer.SleepHistory -> showSleepHistory = false
+            null -> Unit
+        }
+    }
+
+    if (layer == AppLayer.Settings) {
         SettingsScreen(
             onBack = { showSettings = false },
             modifier = Modifier.fillMaxSize(),
@@ -159,7 +188,7 @@ fun MainScreen(
 
     val openSettings = { showSettings = true }
 
-    when (val movementDestination = movementNav.destination) {
+    if (layer == AppLayer.Movement) when (val movementDestination = movementNav.destination) {
         MovementDestination.Tracker -> {
             TrackerScreen(
                 onBack = { movementNav.back() },
@@ -215,7 +244,7 @@ fun MainScreen(
         MovementDestination.Closed -> Unit
     }
 
-    pillarInfo?.let { pillar ->
+    if (layer == AppLayer.PillarInfo) pillarInfo?.let { pillar ->
         PillarInfoScreen(
             pillar = pillar,
             onBack = { pillarInfo = null },
