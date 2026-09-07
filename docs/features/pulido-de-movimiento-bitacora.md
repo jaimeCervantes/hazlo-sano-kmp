@@ -251,3 +251,88 @@ en el sitio donde se va a quedar. Las acciones del detalle viven en el menú de 
 estar pintado por gusto. Y el indicador ya no se pierde al navegar: el ViewModel estaba construido
 dentro de una rama del `when` que la navegación desmonta — la importación terminaba, pero se quedaba
 sin nadie mirándola.
+
+---
+
+## Slice 2 — La barra superior deja de depender de quien la llame (2026-09-07)
+
+**El fallo reportado.** Al abrir una ruta desde «Mis rutas», el header no respetaba el tema. Fue lo
+primero que el usuario dijo al usar el app.
+
+**La causa no estaba donde se veía.** `RouteDetailScreen` era el único de los ocho llamantes de
+`HazloTopAppBar` cuya raíz no pintaba fondo. Pero eso es el síntoma: la barra era un `Row`
+**transparente** que delegaba su fondo en quien la compusiera, y las otras siete pantallas repetían a
+mano la misma línea. Con ocho llamantes copiando la misma línea, que uno la olvidara era estadística
+— y cada pantalla nueva traía una ocasión más.
+
+Así que el slice no arregla esa pantalla: arregla que una pantalla **pueda** nacer rota por olvido.
+La barra pinta lo suyo, y a partir de aquí ninguna puede repetir el fallo.
+
+### Dónde se pinta, que no da igual
+
+El fondo va **antes** del `windowInsetsPadding(statusBars)` en la cadena de modificadores. Puesto
+después, el color llegaría hasta donde empieza el contenido y dejaría una franja del color del
+sistema bajo el reloj y la batería — el mismo fallo, más estrecho.
+
+### Las siete que ya lo pintaban se quedan como están
+
+No se les quita la línea, y es deliberado: la pintaban para **su cuerpo**, no para la barra. Quitarla
+dejaría el cuerpo transparente, que es cambiar un fallo por otro. La barra pinta encima el mismo
+color, así que ninguna cambia de aspecto — y hay una prueba que lo dice.
+
+`RouteDetailScreen`, la octava, gana la línea que le faltaba: con la ruta cargando o sin ruta que
+encontrar no hay mapa que tape el cuerpo, y sin fondo se veía el color de la ventana.
+
+### Las pruebas, y por qué son dos y no ocho
+
+El criterio de aceptación que había escrito decía «un test compone cada pantalla de Movimiento». Al
+escribirlo se vio que era contar llamantes en vez de cubrir el defecto: una vez la barra pinta lo
+suyo, afirmar lo mismo cinco veces no añade nada, y no cubriría la sexta pantalla que alguien escriba
+mañana. Se prueba el **componente**, que es donde vive el invariante, más la pantalla que tenía el
+fallo.
+
+**Las dos usan un fondo hostil (magenta), y ahí está el valor.** Sobre un padre del color del tema,
+una barra transparente y una pintada se ven idénticas: la prueba pasaría con el fallo dentro.
+
+**Las dos se verificaron quitando el arreglo**, y la segunda no pasó a la primera:
+
+- La de la barra falló sin el fondo, como se esperaba.
+- La de la pantalla **pasó igualmente sin su arreglo**, porque muestreaba el píxel de la esquina
+  superior izquierda — que desde este mismo slice es la barra, no el cuerpo. Corregida a muestrear
+  abajo del todo, falla sin el arreglo y pasa con él. Queda escrito en el propio test, porque es la
+  clase de error que se vuelve a cometer.
+
+Es la primera vez que este proyecto afirma un **color** en una prueba. `captureToImage()` más
+`toPixelMap()` funcionan en `jvmTest` con `compose.uiTest` y `compose.desktop.currentOs`, que ya
+estaban.
+
+### Archivos tocados
+
+- **UI:** `HazloTopAppBar.kt` (pinta su fondo; `HazloTopAppBarTags`), `RouteDetailScreen.kt` (fondo en
+  la raíz; `RouteDetailTags.SCREEN`).
+- **Tests:** `HazloTopAppBarBackgroundTest` (nuevo, 2), `RouteDetailScreenTest` (+1).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **387 pruebas, 0 fallos** (venían 384).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+El tema **oscuro** no lo mira ninguna prueba: las dos corren sobre el esquema por defecto de
+`MaterialTheme`, y lo que afirman es que el color pintado es el del tema **sea cual sea**, no que sea
+uno concreto. Eso cubre el defecto —heredar el fondo de detrás— en cualquier tema, pero que el
+oscuro se vea bien sigue siendo una comprobación de ojo.
+
+**Recap.** El header de la ruta ya respeta el tema, y no porque se le haya puesto un parche a esa
+pantalla: la barra pinta su propio fondo, así que el fallo deja de ser posible. Las siete pantallas
+que se acordaban de pintarlo no cambian de aspecto. Y las dos pruebas nuevas se verificaron quitando
+el arreglo, que es lo que separa una prueba de un adorno — una de ellas pasaba sin él y hubo que
+corregirla.
+
+**Próximos pasos.** El slice 3: que la barra sólo pinte controles que hacen algo. Los tres puntos ya
+hacen algo en el detalle de una ruta desde la segunda pasada del slice 1; queda la campana, el icono
+de perfil, y llevar Ajustes a las pantallas donde hoy no se alcanza.

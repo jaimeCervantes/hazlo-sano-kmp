@@ -1,13 +1,23 @@
 package com.hazlosano.feature.movement.routes.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runComposeUiTest
 import com.hazlosano.domain.feature.movement.model.UserLocation
 import com.hazlosano.feature.movement.routes.presentation.RouteDetailUiState
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * La pantalla de una ruta guardada, mirada como la mira alguien que la abre desde la lista.
@@ -112,4 +122,44 @@ class RouteDetailScreenTest {
 
         onNodeWithTag(RouteDetailTags.METRICS).assertIsDisplayed()
     }
+
+    /**
+     * La pantalla pinta su fondo, y no ensena lo que haya detras.
+     *
+     * Es el fallo que se reporto usando el app: esta era **la unica pantalla del app cuya raiz no
+     * pintaba fondo**, asi que al abrir una ruta desde la lista el header salia del color del
+     * sistema en vez del del tema. La barra ya se pinta sola desde este slice; esto cubre la otra
+     * mitad, el cuerpo, que queda a la vista siempre que el mapa no lo tape — con la ruta cargando o
+     * sin ruta que encontrar.
+     *
+     * El fondo hostil es lo que da valor a la prueba: sobre un padre del color del tema, una raiz
+     * transparente y una pintada se ven identicas.
+     */
+    @Test
+    fun `the screen paints its own background instead of showing what is behind`() =
+        runComposeUiTest {
+            val themeBackground = mutableStateOf(Color.Unspecified)
+
+            setContent {
+                MaterialTheme {
+                    themeBackground.value = MaterialTheme.colorScheme.background
+                    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFFF00FF))) {
+                        // Sin ruta que encontrar: es cuando no hay mapa que tape el cuerpo.
+                        RouteDetailContent(state = RouteDetailUiState.Missing, onBack = {})
+                    }
+                }
+            }
+
+            // Abajo del todo, no arriba: arriba esta la barra, que desde este slice pinta su
+            // propio fondo y taparia el fallo que esta prueba busca. Se comprobo: muestreando la
+            // esquina superior, la prueba pasaba con el cuerpo transparente.
+            val body = onNodeWithTag(RouteDetailTags.SCREEN).captureToImage().toPixelMap()
+            val painted = body[body.width / 2, body.height - 1]
+
+            assertEquals(
+                themeBackground.value,
+                painted,
+                "la pantalla dejo ver lo que tenia detras",
+            )
+        }
 }

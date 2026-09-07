@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.DropdownMenu
@@ -28,9 +29,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.theme.HazloSpaces
+
+/** Etiquetas de prueba: la barra se afirma por aqui y no por su redaccion. */
+object HazloTopAppBarTags {
+    const val BAR: String = "hazlo_top_app_bar"
+}
 
 @Composable
 fun HazloTopAppBar(
@@ -55,9 +62,21 @@ fun HazloTopAppBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // La barra pinta su propio fondo, y no lo hereda de quien la componga.
+            //
+            // Era transparente, y las ocho pantallas que la usan repetian a mano la misma linea de
+            // fondo en su raiz. Siete se acordaron; `RouteDetailScreen` no, y era la unica pantalla
+            // del app cuyo header no respetaba el tema. El fallo no estaba en esa pantalla: estaba
+            // en que la barra dejaba el trabajo a quien la llamara, con ocho ocasiones de olvidarlo
+            // y una mas por cada pantalla nueva.
+            //
+            // Se pinta ANTES del padding de la barra de estado, para que el color llegue tambien
+            // bajo el reloj y la bateria en vez de dejar una franja del color del sistema.
+            .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = HazloSpaces.gutter)
-            .padding(top = HazloSpaces.unit),
+            .padding(top = HazloSpaces.unit)
+            .testTag(HazloTopAppBarTags.BAR),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

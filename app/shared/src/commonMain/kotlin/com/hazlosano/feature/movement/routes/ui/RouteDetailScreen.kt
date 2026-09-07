@@ -1,5 +1,6 @@
 package com.hazlosano.feature.movement.routes.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +56,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba: la estructura se afirma por aquí, no por la redacción. */
 object RouteDetailTags {
+    const val SCREEN: String = "route_detail_screen"
     const val MAP: String = "route_detail_map"
     const val MISSING: String = "route_detail_missing"
     const val NO_PATH: String = "route_detail_no_path"
@@ -111,7 +113,14 @@ fun RouteDetailContent(
     var confirmingDelete by remember { mutableStateOf(false) }
     val detail = state as? RouteDetailUiState.Detail
 
-    Column(modifier = modifier.fillMaxSize()) {
+    // El cuerpo tambien: con el mapa cargando o sin ruta que encontrar no hay nada opaco debajo,
+    // y sin esto se veria el color de la ventana en vez del del tema. La barra ya se pinta sola.
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .testTag(RouteDetailTags.SCREEN),
+    ) {
         HazloTopAppBar(
             title = detail?.name.orEmpty(),
             showBackButton = true,
