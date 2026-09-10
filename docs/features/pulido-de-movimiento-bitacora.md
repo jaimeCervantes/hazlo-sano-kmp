@@ -948,3 +948,72 @@ se pinta y qué deshace «atrás», así que no puede contradecirlos. Y de paso,
 deja de costar una validación entera.
 
 **Próximos pasos.** Probarlo en el teléfono, que es donde vive todo lo de arriba.
+
+---
+
+## Slice 7, segunda pasada — el brinco tenía tres causas (2026-09-09)
+
+**Lo reportado.** Probado en el teléfono: las animaciones del proyecto de referencia
+(`AndroidStudioProjects/HazloSano`) se sienten más fluidas, «y sin ningún brinco en cuanto el
+contenido».
+
+**La referencia usa `NavHost` de Navigation Compose.** Ahí estaba la pista: `NavHost` no es un
+`AnimatedContent` crudo, y las tres diferencias que lo separan son exactamente lo que se sentía.
+
+### 1. Se estaba animando el tamaño
+
+`AnimatedContent` interpola por defecto entre el tamaño del contenido que sale y el del que entra —
+lleva un `SizeTransform` puesto que nadie pidió. Con pantallas completas eso es **un contenedor
+cambiando de medida mientras su contenido se re-mide en cada fotograma**, y es el brinco. Se apaga
+con `using null`, en las dos transiciones: también entre pestañas, porque dos pilares pueden medir
+distinto.
+
+### 2. El desplazamiento medía desde el contenido, no desde el contenedor
+
+`slideInHorizontally { width -> ... }` recibe el ancho **del contenido**, que con listas perezosas
+todavía no ha terminado de medirse cuando la animación arranca. `slideIntoContainer` mide desde el
+hueco donde la pantalla va a quedar, que se conoce antes de componer nada. Es la diferencia entre
+deslizar una distancia que se sabe y una que se está averiguando.
+
+### 3. Los dos fundidos duraban lo mismo y empezaban a la vez
+
+Solapar la salida y la entrada al mismo ritmo deja un tramo con las dos pantallas medio visibles, que
+se lee como turbio más que como movimiento. Ahora **lo que se va se apaga en 150 ms y lo que llega
+enciende después**, ocupando los 110 ms restantes de los 260 del deslizamiento.
+
+Y las pestañas ganan un `scaleIn` desde 0,94: es lo que separa un fundido de un parpadeo — sin ese
+gesto las dos pantallas se cruzan sin que nada indique cuál llega.
+
+### El precio de la corrección
+
+`depth` y `siblings` pasan a ser extensiones de `AnimatedContentTransitionScope`, porque
+`slideIntoContainer` y el infijo `using` sólo existen dentro de ese scope. Los llamantes escriben
+`with(HazloTransitions) { depth(...) }`. Es más ruidoso y es el precio de usar las herramientas que
+saben del contenedor en vez de las que sólo saben del contenido.
+
+### Archivos tocados
+
+- **Sistema de diseño:** `Motion.kt` (las dos transiciones, reescritas).
+- **UI:** `MainScreen.kt` (los tres llamantes).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **436 pruebas, 0 fallos**.
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+**Ninguna prueba puede decir si esto se siente mejor**, y no la hay: lo que cambió son duraciones,
+retardos y de dónde se mide un desplazamiento. Las tres causas están identificadas y corregidas por
+lo que son —una animación de tamaño que sobraba, un origen mal medido y dos fundidos solapados—, pero
+si sigue notándose distinto de la referencia, lo siguiente que hay que mirar es **qué carga cada
+pantalla al entrar**: `AnimatedContent` compone la que llega al empezar la transición, así que una
+petición de red que arranca ahí aparece a media animación. Eso no es la transición: es el contenido.
+
+**Recap.** El brinco no era el diseño de la transición sino tres detalles de cómo estaba montada:
+`AnimatedContent` animaba un tamaño que no hacía falta animar, el deslizamiento se medía desde un
+contenido que aún no estaba medido, y los dos fundidos se pisaban. Los tres salieron de comparar con
+`NavHost`, que es lo que usa la referencia.

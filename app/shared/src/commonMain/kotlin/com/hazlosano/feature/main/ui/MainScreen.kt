@@ -192,7 +192,7 @@ fun MainScreen(
         targetState = shown,
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
-            HazloTransitions.depth(goingDeeper = targetState.depth > initialState.depth)
+            with(HazloTransitions) { depth(goingDeeper = targetState.depth > initialState.depth) }
         },
         label = "capa",
     ) { current ->
@@ -213,9 +213,9 @@ fun MainScreen(
                     targetState = step,
                     modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
-                        HazloTransitions.depth(
-                            goingDeeper = targetState.depth >= initialState.depth,
-                        )
+                        with(HazloTransitions) {
+                            depth(goingDeeper = targetState.depth >= initialState.depth)
+                        }
                     },
                     label = "pilar de movimiento",
                 ) { (destination, _) ->
@@ -360,7 +360,7 @@ fun MainScreen(
                     AnimatedContent(
                         targetState = selectedTab,
                         modifier = Modifier.padding(innerPadding).fillMaxSize(),
-                        transitionSpec = { HazloTransitions.siblings() },
+                        transitionSpec = { with(HazloTransitions) { siblings() } },
                         label = "pilar",
                     ) { tab ->
                         when (tab) {
