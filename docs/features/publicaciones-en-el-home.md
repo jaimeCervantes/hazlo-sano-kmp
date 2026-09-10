@@ -78,6 +78,73 @@ mirar sería la clase de suposición que este repositorio no se permite.
 **Criterios de aceptación.** Se detallan cuando el slice empiece; hasta entonces quedan gruesos a
 propósito.
 
+### Slice 3 — La búsqueda se queda cargando
+
+**Reportado probando el app:** al escribir un término, la pantalla se queda cargando y no sale de
+ahí. El usuario sospechó del *debounce*; **ya existe** (350 ms desde la última tecla, slice 2), así
+que la causa es otra.
+
+**Diagnóstico, leyendo el código.** Son **tres fallos que se encadenan**, todos en
+`HomeFeedViewModel`, y el resultado no es una carrera: es determinista.
+
+1. **`loadMore` deja `loading = true` para siempre cuando descarta una respuesta vieja.** Pone
+   `loading = true` antes de lanzar la petición, y su guarda de frescura
+   (`if (_state.value.query != query) return@launch`) sale **sin volver a apagarlo**. Ese `loading`
+   colgado es literalmente el indicador que no se va.
+2. **Y con él, bloquea todo lo que venga después.** La primera línea de `loadMore` es
+   `if (current.loading) return`. Con `loading` colgado en `true`, **ninguna petición futura
+   arranca**: ni la búsqueda, ni el scroll, ni el reintento.
+3. **`search` no apaga `loading` al empezar de nuevo.** Hace `copy(query = ..., publications = ...)`
+   y deja el `loading` de la petición anterior tal cual.
+
+**La secuencia que lo reproduce, sin necesidad de mala suerte:**
+
+1. Se abre el Inicio → `loadMore()` pide la página 1 del feed → `loading = true`.
+2. Se escribe antes de que vuelva → `search("m")` cambia el término y **no toca `loading`**.
+3. Pasan los 350 ms → `loadMore()` → `current.loading` es `true` → **`return`**. No se busca nada.
+4. Vuelve la respuesta del feed → el término ya no coincide → **`return@launch`**, `loading` sigue
+   en `true`.
+5. A partir de aquí no se carga nada más, nunca. Indicador para siempre.
+
+**Un cuarto fallo del mismo tipo, que conviene arreglar a la vez:** `loadMore` captura `current` al
+principio y al final escribe `current.copy(...)`. Eso **devuelve un estado anterior a la petición**,
+así que cualquier cambio ocurrido mientras viajaba —el término, el filtro— se pisa. Y
+`searchJob.cancel()` cancela sólo la espera del *debounce*: la corrutina de red que `loadMore` lanza
+aparte no la cancela nadie.
+
+**Alcance.**
+- `loading` se apaga **siempre** que la petición termina, sea con datos, con error o descartada.
+- La petición en vuelo se cancela cuando cambia el término o el filtro, en vez de dejarla llegar para
+  descartarla.
+- El estado se escribe sobre el que hay al **volver**, no sobre la foto de antes de salir.
+
+**Criterios de aceptación.**
+- Escribir un término mientras el feed está cargando **busca igual**.
+- Terminar una petición deja el indicador apagado, gane, pierda o llegue tarde.
+- Después de una respuesta descartada se puede seguir cargando: el scroll y el reintento funcionan.
+- Escribir un segundo término mientras el primero viaja da los resultados del segundo.
+- Las guardas del slice 1 siguen valiendo: ni dos páginas a la vez, ni una más allá de la última.
+
+**Y una prueba que este slice tiene que dejar puesta**, porque es la que no existía: el ViewModel se
+ejercita hoy con peticiones que responden al instante. Ninguna de las diez pruebas del slice 1 ni de
+las seis del 2 tiene una petición **todavía en vuelo** cuando ocurre lo siguiente, que es justo la
+condición de los cuatro fallos. Hace falta un doble que pueda quedarse a medias y soltarse cuando el
+test quiera.
+
+### Slice 4 — Lo que el buscador dejó a medias
+
+Tres cosas anotadas al cerrar el slice 2, ninguna urgente:
+
+- **El mapeador no se prueba contra una respuesta real.** Lo que se comprobó fue la *forma*, una vez
+  y a mano. Guardar esa respuesta como fixture y mapearla en un test cerraría el hueco por el que
+  entró el fallo que sí se evitó — un campo que cambia de nombre en el sitio no rompería nada, se
+  quedaría en blanco.
+- **La categoría se pinta con su clave cruda** (`cuidado_personal`) porque la búsqueda no manda la
+  etiqueta traducida. Es feo y es verdad. Traducirla en el app sería copiar la taxonomía del sitio,
+  que es lo que ya se decidió no hacer con el pilar; la salida buena es que el endpoint la mande.
+- **Los resultados no llevan enlace.** El buscador no devuelve `to`, y componer una URL adivinando la
+  ruta del sitio para que lleve a un 404 es peor que no ofrecer enlace.
+
 ## El jardín: lo que sustituye a los campeones, y por qué no puede entrar todavía (2026-09-09)
 
 El usuario pidió sustituir los campeones semanales por «los practicantes de los 4 pilares más
@@ -122,4 +189,6 @@ Ana y Carlos por otra ficción sería exactamente lo que este roadmap existe par
 |---|---|
 | 1 — el Home enseña publicaciones de verdad | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
 | 2 — buscar por texto | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
+| 3 — la búsqueda se queda cargando | **Pendiente** — diagnosticado, sin arreglar |
+| 4 — lo que el buscador dejó a medias | Pendiente |
 | — el jardín en lugar de los campeones | **Bloqueado**: necesita un endpoint en el proyecto hermano |

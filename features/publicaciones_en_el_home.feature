@@ -146,6 +146,77 @@ Feature: El Home enseña lo que el proyecto publica
     Then se dice que no se pudo
     And no se contesta con lo guardado, que no sabe responder a un término
 
+  # ─────── Slice 3 — la búsqueda se queda cargando ───────
+
+  Note: **el debounce no era el problema.** Existe desde el slice 2 —350 ms desde la última tecla, con
+  cancelación de la espera anterior— y funciona. Lo que falla es lo que pasa con `loading` cuando una
+  petición se descarta por vieja.
+
+  Note: **son tres fallos encadenados, y no hace falta mala suerte para verlos.** `loadMore` enciende
+  `loading` antes de salir a la red y su guarda de frescura vuelve sin apagarlo; su primera línea es
+  `if (loading) return`, así que ese `loading` colgado bloquea todo lo que venga después; y `search`
+  empieza una lista nueva sin apagarlo tampoco. Se abre el Inicio, se escribe antes de que llegue la
+  primera página, y ya no se carga nada más en toda la sesión.
+
+  Note: hay un cuarto del mismo tipo: `loadMore` escribe al final `current.copy(...)` sobre la foto
+  del estado que tomó **antes** de salir, así que pisa lo que haya cambiado mientras viajaba. Y la
+  corrutina de red no la cancela nadie — sólo se cancela la espera del debounce.
+
+  @slice-3
+  Scenario: Escribir mientras el feed está cargando busca igual
+    Given el Inicio pidiendo su primera página
+    When escribo un término antes de que llegue
+    Then se busca ese término
+    And no me quedo esperando para siempre
+
+  @slice-3
+  Scenario Outline: Toda petición que termina apaga el indicador
+    Given una petición en vuelo
+    When <desenlace>
+    Then el indicador de carga se apaga
+
+    Examples:
+      | desenlace                                  |
+      | llega con resultados                       |
+      | falla                                      |
+      | llega tarde y se descarta por ser de otra  |
+
+  @slice-3
+  Scenario: Una respuesta descartada no bloquea las siguientes
+    Given una respuesta que llegó tarde y se descartó
+    When bajo hasta el final
+    Then se pide la página siguiente
+    And el reintento también funciona
+
+  @slice-3
+  Scenario: El segundo término gana al primero
+    Given una búsqueda viajando
+    When escribo otro término
+    Then veo los resultados del segundo
+    And los del primero no aparecen aunque lleguen después
+
+  @slice-3
+  Scenario: Lo que vuelve se escribe sobre lo que hay
+    Given una petición que sale con un estado
+    When vuelve y ese estado ya cambió
+    Then no se pisa lo que cambió mientras viajaba
+
+  Note: la prueba que este slice tiene que dejar puesta es la que no existía. Las diez del slice 1 y
+  las seis del 2 usan peticiones que contestan al instante, así que **ninguna tiene una petición
+  todavía en vuelo cuando ocurre lo siguiente** — que es exactamente la condición de los cuatro
+  fallos. Hace falta un doble que se quede a medias y se suelte cuando el test quiera.
+
+  # ─────── Slice 4 — lo que el buscador dejó a medias ───────
+
+  @slice-4 @future
+  Scenario: El mapeador se prueba contra una respuesta guardada del sitio
+
+  @slice-4 @future
+  Scenario: La categoría de un resultado se lee, en vez de enseñar su clave cruda
+
+  @slice-4 @future
+  Scenario: Un resultado lleva a la publicación en el sitio
+
   # ─────────────────── Lo que esta spec no cubre ───────────────────
 
   Note: **el resto de `MockHomeRepository` se queda**, a propósito: los campeones inventados —Ana,
