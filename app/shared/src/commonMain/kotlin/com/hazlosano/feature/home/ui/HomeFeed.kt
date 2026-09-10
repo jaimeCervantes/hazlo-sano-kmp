@@ -23,8 +23,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import com.hazlosano.core.ui.components.cards.HazloPublicationCard
 import com.hazlosano.core.ui.components.sections.chunkExploreSectionItems
-import com.hazlosano.core.ui.components.sections.filterExploreSectionItems
-import com.hazlosano.core.ui.components.sections.matchesHazloProductQuery
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarShortLabel
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -125,7 +123,6 @@ private fun FeedFilterChip(
  */
 fun LazyListScope.homeFeed(
     state: HomeFeedUiState,
-    query: String,
     onReachedEnd: () -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -138,16 +135,10 @@ fun LazyListScope.homeFeed(
         }
     }
 
-    // **El termino acota lo que ya se trajo; no vuelve a preguntar al sitio.** El sitio tiene un
-    // buscador de verdad (`/api/search`), y esto no lo es: quien escriba algo que no esta entre las
-    // publicaciones cargadas no vera resultados aunque el sitio los tenga. Por eso lo que se dice
-    // cuando no hay coincidencias habla de lo cargado y no del catalogo — decir «no hay nada» seria
-    // afirmar algo que estas veinte publicaciones no pueden sostener.
-    val shown = filterExploreSectionItems(
-        items = state.publications,
-        query = query,
-        matchesQuery = ::matchesHazloProductQuery,
-    )
+    // El termino ya viajo al sitio: lo que llega en `publications` son los resultados, no el feed
+    // recortado en el dispositivo. Filtrar aqui otra vez escondería resultados que el buscador si
+    // considero validos por su parecido, que es justo lo que un buscador sabe hacer y esto no.
+    val shown = state.publications
 
     // Dos por fila, como las rejillas de los pilares, y con su misma funcion de repartir: en un
     // telefono en vertical una tarjeta a lo ancho por publicacion convierte el feed en un pasillo.
@@ -182,7 +173,7 @@ fun LazyListScope.homeFeed(
     }
 
     item {
-        FeedFooter(state = state, filtering = query.isNotBlank(), matches = shown.size, onRetry = onRetry)
+        FeedFooter(state = state, onRetry = onRetry)
     }
 }
 
@@ -202,12 +193,7 @@ private fun <T> LazyListScope.itemsIndexed(
  * decirlo aunque además esté cargando, y «no hay más» sólo tiene sentido cuando hay algo.
  */
 @Composable
-private fun FeedFooter(
-    state: HomeFeedUiState,
-    filtering: Boolean,
-    matches: Int,
-    onRetry: () -> Unit,
-) {
+private fun FeedFooter(state: HomeFeedUiState, onRetry: () -> Unit) {
     when {
         state.failed -> Column(
             modifier = Modifier.fillMaxWidth().padding(HazloSpaces.gutter).testTag(HomeFeedTags.FAILED),
@@ -224,9 +210,10 @@ private fun FeedFooter(
             }
         }
 
-        // Escribiendo algo que no aparece entre lo cargado. Se dice **eso** y no «no hay nada»:
-        // esto acota veinte publicaciones, no busca en el catalogo.
-        filtering && matches == 0 -> FeedNote(
+        // Buscando algo que el sitio no encontro. Ahora si es una respuesta sobre el catalogo,
+        // porque la pregunta la contesto el buscador y no un filtro sobre veinte publicaciones.
+        state.query.isNotBlank() && state.publications.isEmpty() && !state.firstPagePending ->
+            FeedNote(
             text = stringResource(Res.string.home_feed_no_matches),
             tag = HomeFeedTags.NO_MATCHES,
         )

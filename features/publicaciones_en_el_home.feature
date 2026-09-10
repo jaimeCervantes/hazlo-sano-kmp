@@ -97,14 +97,54 @@ Feature: El Home enseña lo que el proyecto publica
   `nextPage`, así que saber si hay más es `página × tamaño < total` y no leer un campo. Traducir uno
   al otro sin mirar sería suponer.
 
-  @slice-2 @future
+  Note: **la forma de la respuesta se comprobó antes de escribir el cliente**, y no coincidía: el
+  buscador no manda `title` sino la traducción del idioma pedido, ni la etiqueta de categoría, ni el
+  enlace absoluto. Reutilizar el DTO del feed habría compilado y habría dado tarjetas sin título,
+  porque el cliente ignora las claves que no conoce.
+
+  Note: y la misma comprobación destapó que esa respuesta incluye **el correo de quien publicó**, sin
+  pedir credenciales. Aquí no se declara ese campo, así que no entra al app; el aviso es para el
+  proyecto hermano.
+
+  @slice-2
   Scenario: Buscar publicaciones por texto
+    Given el Inicio con su feed
+    When escribo un término
+    Then los resultados vienen del buscador del sitio
+    And no de recortar en el teléfono lo que ya se había traído
 
-  @slice-2 @future
+  @slice-2
+  Scenario: Escribir una palabra es una búsqueda y no una por letra
+    Given que escribo una palabra del tirón
+    Then se pide una sola búsqueda
+    And lo que escribí aparece sin esperar a que llegue
+
+  @slice-2
   Scenario: La búsqueda respeta el filtro por pilar
+    Given una búsqueda en curso
+    When elijo un pilar
+    Then la búsqueda se acota a ese pilar
+    And no se pierde el término que había escrito
 
-  @slice-2 @future
+  @slice-2
   Scenario: Los resultados también se cargan al bajar
+    Given resultados de una búsqueda
+    When llego al final
+    Then se piden más con el mismo término
+    And se sabe si quedan porque se cuentan sobre el total y no por un campo
+
+  @slice-2
+  Scenario: Borrar el término devuelve al feed
+    Given una búsqueda en curso
+    When borro lo escrito
+    Then vuelvo a ver el feed desde su primera página
+
+  @slice-2
+  Scenario: Sin red una búsqueda no tiene respuesta
+    Given que no hay conexión
+    When busco algo
+    Then se dice que no se pudo
+    And no se contesta con lo guardado, que no sabe responder a un término
 
   # ─────────────────── Lo que esta spec no cubre ───────────────────
 

@@ -32,6 +32,25 @@ interface CatalogRepository {
         location: VisitorLocation? = null,
     ): CatalogPage
 
+    /**
+     * Buscar publicaciones por texto, opcionalmente dentro de un pilar.
+     *
+     * Va aparte de [getCatalog] y no como un parametro suyo porque **al otro lado son dos
+     * endpoints con dos contratos**: uno pagina con `nextPage` y el otro con un total, y uno
+     * entrega el idioma aplanado y el otro no. Esconder eso tras un parametro opcional habria
+     * hecho que una de las dos mitades mintiera sobre lo que sabe.
+     *
+     * Devuelve el mismo [CatalogPage] porque lo que la pantalla necesita saber es lo mismo: si
+     * llego del sitio, si vino de lo guardado, y si quedan mas.
+     */
+    suspend fun searchCatalog(
+        query: String,
+        pillar: PillarType? = null,
+        page: Int = 1,
+        pageSize: Int = DEFAULT_PAGE_SIZE,
+        location: VisitorLocation? = null,
+    ): CatalogPage
+
     companion object {
         /**
          * Veinte y no los cuatro que trae el sitio por omisión.

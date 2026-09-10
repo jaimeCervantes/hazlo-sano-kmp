@@ -18,6 +18,13 @@ class GetCatalogUseCaseTest {
         var pageSize: Int? = null
         var location: VisitorLocation? = null
 
+        override suspend fun searchCatalog(
+            query: String,
+            pillar: PillarType?,
+            page: Int,
+            pageSize: Int,
+            location: VisitorLocation?,
+        ): CatalogPage = answer
         override suspend fun getCatalog(
             pillar: PillarType?,
             page: Int,

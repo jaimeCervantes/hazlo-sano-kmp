@@ -6,6 +6,7 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.VisitorLocation
 import com.hazlosano.domain.repository.CatalogRepository
 import com.hazlosano.domain.usecase.GetCatalogUseCase
+import com.hazlosano.domain.usecase.SearchCatalogUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -17,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * El feed del Inicio: acumular páginas sin mezclar filtros y sin pedir dos veces lo mismo.
@@ -52,11 +54,25 @@ class HomeFeedViewModelTest {
         private val pagesPerPillar: Int = 2,
         private val pageSize: Int = 20,
     ) : CatalogRepository {
-        data class Ask(val pillar: PillarType?, val page: Int)
+        data class Ask(val pillar: PillarType?, val page: Int, val query: String = "")
 
         val asks = mutableListOf<Ask>()
         var failFrom: Int? = null
         var cachedFrom: Int? = null
+
+        override suspend fun searchCatalog(
+            query: String,
+            pillar: PillarType?,
+            page: Int,
+            pageSize: Int,
+            location: VisitorLocation?,
+        ): CatalogPage {
+            asks += Ask(pillar, page, query)
+            return CatalogPage.Fresh(
+                publications = List(this.pageSize) { i -> product(pillar, page, i) },
+                hasMore = page < pagesPerPillar,
+            )
+        }
 
         override suspend fun getCatalog(
             pillar: PillarType?,
@@ -88,8 +104,16 @@ class HomeFeedViewModelTest {
         )
     }
 
-    private fun feed(catalog: FakeCatalog) =
-        HomeFeedViewModel(GetCatalogUseCase(catalog), pageSize = 20)
+    private fun feed(catalog: FakeCatalog) = HomeFeedViewModel(
+        getCatalog = GetCatalogUseCase(catalog),
+        searchCatalog = SearchCatalogUseCase(catalog),
+        pageSize = 20,
+        typingPause = TYPING_PAUSE,
+    )
+
+    private companion object {
+        val TYPING_PAUSE = 350.milliseconds
+    }
 
     @Test
     fun `it opens with no filter and asks for the first page`() = runTest(dispatcher) {
@@ -247,5 +271,114 @@ class HomeFeedViewModelTest {
 
         assertTrue(model.state.value.stale)
         assertEquals(20, model.state.value.publications.size)
+    }
+
+    // ─────────── La búsqueda, que sí le pregunta al sitio ───────────
+
+    /**
+     * Escribir no dispara una petición por tecla.
+     *
+     * Sin la espera, «miel» son cuatro búsquedas de las que tres sobran — y llegan desordenadas, así
+     * que la de «mie» puede pisar a la de «miel». Cancelar la anterior es lo que lo impide.
+     */
+    @Test
+    fun `typing a word is one search and not one per letter`() = runTest(dispatcher) {
+        val catalog = FakeCatalog()
+        val model = feed(catalog)
+        testScheduler.advanceUntilIdle()
+        val before = catalog.asks.size
+
+        model.search("m")
+        model.search("mi")
+        model.search("mie")
+        model.search("miel")
+        testScheduler.advanceUntilIdle()
+
+        val searches = catalog.asks.drop(before)
+        assertEquals(1, searches.size, "pidió una búsqueda por tecla")
+        assertEquals("miel", searches.single().query)
+    }
+
+    /** Lo escrito aparece ya, aunque la petición espere: el campo no puede ir con retraso. */
+    @Test
+    fun `what is typed shows up before the request goes out`() = runTest(dispatcher) {
+        val model = feed(FakeCatalog())
+        testScheduler.advanceUntilIdle()
+
+        model.search("miel")
+
+        assertEquals("miel", model.state.value.query)
+    }
+
+    @Test
+    fun `a search asks the site and replaces the feed`() = runTest(dispatcher) {
+        val catalog = FakeCatalog()
+        val model = feed(catalog)
+        testScheduler.advanceUntilIdle()
+        model.loadMore()
+        testScheduler.advanceUntilIdle()
+        assertEquals(40, model.state.value.publications.size)
+
+        model.search("miel")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(20, model.state.value.publications.size, "quedaron resultados del feed mezclados")
+        assertEquals("miel", catalog.asks.last().query)
+    }
+
+    /** Y sus páginas siguientes también son búsquedas, con el mismo término. */
+    @Test
+    fun `the term travels with every page of results`() = runTest(dispatcher) {
+        val catalog = FakeCatalog()
+        val model = feed(catalog)
+        testScheduler.advanceUntilIdle()
+        model.search("miel")
+        testScheduler.advanceUntilIdle()
+
+        model.loadMore()
+        testScheduler.advanceUntilIdle()
+
+        val searches = catalog.asks.filter { it.query == "miel" }
+        assertEquals(listOf(1, 2), searches.map { it.page })
+    }
+
+    /**
+     * Elegir un pilar **acota** la búsqueda en curso, no la cancela.
+     *
+     * Es lo que hace el sitio con su parámetro `pillar`: buscar «miel» en Nutrición es una pregunta,
+     * y perder el término al tocar un chip obligaría a escribirlo otra vez.
+     */
+    @Test
+    fun `choosing a pillar narrows the search instead of dropping it`() = runTest(dispatcher) {
+        val catalog = FakeCatalog()
+        val model = feed(catalog)
+        testScheduler.advanceUntilIdle()
+        model.search("miel")
+        testScheduler.advanceUntilIdle()
+
+        model.select(PillarType.NUTRITION)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("miel", model.state.value.query)
+        val last = catalog.asks.last()
+        assertEquals("miel", last.query)
+        assertEquals(PillarType.NUTRITION, last.pillar)
+    }
+
+    /** Borrar el término devuelve al feed, que es otra fuente y empieza por su primera página. */
+    @Test
+    fun `clearing the term goes back to the feed`() = runTest(dispatcher) {
+        val catalog = FakeCatalog()
+        val model = feed(catalog)
+        testScheduler.advanceUntilIdle()
+        model.search("miel")
+        testScheduler.advanceUntilIdle()
+
+        model.search("")
+        testScheduler.advanceUntilIdle()
+
+        val last = catalog.asks.last()
+        assertEquals("", last.query, "siguió buscando con el término borrado")
+        assertEquals(1, last.page)
     }
 }

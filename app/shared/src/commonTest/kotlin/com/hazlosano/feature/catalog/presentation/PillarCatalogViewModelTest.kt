@@ -36,6 +36,13 @@ class PillarCatalogViewModelTest {
         var seenLocation: VisitorLocation? = null
         var calls = 0
 
+        override suspend fun searchCatalog(
+            query: String,
+            pillar: PillarType?,
+            page: Int,
+            pageSize: Int,
+            location: VisitorLocation?,
+        ): CatalogPage = answer
         override suspend fun getCatalog(
             pillar: PillarType?,
             page: Int,

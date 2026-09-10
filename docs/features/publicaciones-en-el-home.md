@@ -121,5 +121,5 @@ Ana y Carlos por otra ficción sería exactamente lo que este roadmap existe par
 | Slice | Estado |
 |---|---|
 | 1 — el Home enseña publicaciones de verdad | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
-| 2 — buscar por texto | Pendiente |
+| 2 — buscar por texto | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
 | — el jardín en lugar de los campeones | **Bloqueado**: necesita un endpoint en el proyecto hermano |

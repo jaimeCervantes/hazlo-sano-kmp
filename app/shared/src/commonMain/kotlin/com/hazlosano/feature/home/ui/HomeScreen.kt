@@ -96,10 +96,6 @@ fun HomeScreen(
     // todo Inicio cada vez que llega una pagina.
     val feedViewModel = rememberHomeFeedViewModel()
     val feedState by feedViewModel.state.collectAsState()
-    // El termino no viaja al ViewModel: acota lo que ya se trajo y no cambia lo que se pide, asi que
-    // no forma parte del estado de la carga. Meterlo alli obligaria a decidir que hace una peticion
-    // en vuelo cuando alguien escribe, que es una pregunta que aqui no existe.
-    var feedQuery by remember { mutableStateOf("") }
 
     HomeBoard(
         state = uiState,
@@ -109,8 +105,8 @@ fun HomeScreen(
         onSleepCardClick = onSleepCardClick,
         onRetry = viewModel::refresh,
         feedState = feedState,
-        feedQuery = feedQuery,
-        onFeedQueryChange = { feedQuery = it },
+        feedQuery = feedState.query,
+        onFeedQueryChange = feedViewModel::search,
         onSelectFeedFilter = feedViewModel::select,
         onFeedReachedEnd = feedViewModel::loadMore,
         onRetryFeed = feedViewModel::retry,
@@ -244,7 +240,6 @@ private fun LazyListScope.homeSections(
     // roadmap; este slice quita una ficcion, no todas.
     homeFeed(
         state = feedState,
-        query = feedQuery,
         onReachedEnd = onFeedReachedEnd,
         onRetry = onRetryFeed,
     )

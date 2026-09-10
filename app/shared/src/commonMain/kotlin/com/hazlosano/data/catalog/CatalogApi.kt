@@ -45,6 +45,30 @@ internal class CatalogApi(
     }.body()
 
     /**
+     * Buscar publicaciones por texto, opcionalmente dentro de un pilar.
+     *
+     * **Otro endpoint y otro contrato.** No devuelve `nextPage` sino `total`, asi que saber si
+     * quedan mas es una cuenta y no leer un campo. Y sus filas vienen sin aplanar el idioma: ver
+     * `SearchDto`.
+     *
+     * El sitio pagina esto con `limit` y no con `pageSize`, que es como lo llama su ruta.
+     */
+    suspend fun search(
+        query: String,
+        pillar: PillarType?,
+        page: Int,
+        pageSize: Int,
+        location: VisitorLocation?,
+    ): SearchResponseDto = client.get("$baseUrl/api/search") {
+        parameter("q", query)
+        parameter("page", page)
+        parameter("limit", pageSize)
+        parameter("locale", LOCALE)
+        pillar?.let { parameter("pillar", it.key) }
+        location?.asCookieValue()?.let { header(HttpHeaders.Cookie, "$LOCATION_COOKIE=$it") }
+    }.body()
+
+    /**
      * La ubicación viaja como la cookie que el sitio ya sabe leer: `lat,lng,ts`.
      *
      * No es un rodeo — el sitio la parsea de una cabecera y **valida lo que llegue**, con su propio
@@ -68,7 +92,8 @@ internal class CatalogApi(
         private const val LOCATION_COOKIE = "hs_location"
 
         /** El app se publica solo en español; el sitio cae a su idioma por omisión si no llega. */
-        private const val LOCALE = "es"
+        /** El app se publica solo en espanol; el sitio cae a su idioma por omision si no llega. */
+        const val LOCALE = "es"
 
         /**
          * Tolerante a propósito: el sitio añade campos al mapper sin avisar a nadie, y una clave

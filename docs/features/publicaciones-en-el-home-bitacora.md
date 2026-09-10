@@ -199,3 +199,105 @@ pruebas de cuando servían a los pilares — reusarlas fue también reusar su co
 reparto, y con cada fila como un elemento perezoso para no romper el scroll infinito. El campo de
 búsqueda acota lo cargado y **lo dice**: se llama «Filtrar lo cargado» porque eso es lo que hace, y el
 buscador de verdad del sitio sigue esperando a que alguien compruebe qué forma tiene su respuesta.
+
+---
+
+## Slice 2 — La búsqueda le pregunta al sitio (2026-09-10)
+
+**Lo primero fue comprobar la forma de la respuesta**, que es lo que el slice anterior dejó dicho
+como paso uno. Se llamó al endpoint público y **la cautela estaba justificada**:
+
+| | feed (`/api/posts`) | búsqueda (`/api/search`) |
+|---|---|---|
+| título | `title`, ya en el idioma | **`translations.{locale}.title`** |
+| contenido | `content` / `summary` | `translations.{locale}.content` |
+| categoría | `categoryLabel` traducida | sólo `category`, la clave cruda (`cuidado_personal`) |
+| enlace | `to` absoluto | **no viene** |
+| vendedor | trae `id` | trae `handle`, no `id` |
+| media, precio, tipo, distancia | ✓ | ✓ iguales |
+
+**No hay `title` plano.** Reutilizar `CatalogPostDto` habría compilado y habría dado **tarjetas sin
+título** —el campo que más importa— porque el cliente ignora las claves que no conoce: un `title`
+que no existe no falla, se queda vacío. Ése era exactamente el fallo silencioso que hizo que esto no
+se cableara a ciegas.
+
+Así que hay `SearchDto` y `SearchMapper` aparte, y el mapeador **cae a otra traducción** si no está
+la pedida: una publicación escrita sólo en inglés existe y se puede encontrar; un resultado sin
+título no se puede ni leer ni tocar.
+
+### Un hallazgo que no se buscaba: el endpoint devuelve correos
+
+La respuesta de `/api/search` incluye, por cada resultado, un objeto `user` con **el correo de quien
+publicó**, y responde **200 sin autenticación de ningún tipo** — se comprobó con una petición sin
+cookies.
+
+Aquí eso está contenido: `SearchPostDto` no declara ese campo, así que no entra al app, no se pinta y
+no se guarda. **Pero el dato sale del servidor a cualquiera que llame**, y eso no se arregla desde
+este repositorio. Queda dicho para el proyecto hermano.
+
+### Dos endpoints, dos casos de uso
+
+`searchCatalog` va aparte de `getCatalog` y no como un parámetro suyo, porque al otro lado son dos
+contratos: uno pagina con `nextPage` y el otro con un `total` —así que «quedan más» es
+`página × tamaño < total`, una cuenta y no un campo— y uno entrega el idioma aplanado y el otro no.
+Esconder eso tras un parámetro opcional habría hecho que una de las dos mitades mintiera sobre lo que
+sabe.
+
+**Buscar no cae a lo guardado, y ésa es la otra diferencia.** La caché del app guarda publicaciones,
+no búsquedas: no hay forma de saber si lo guardado contesta a «miel» sin volver a filtrar por texto
+en el dispositivo, que sería una segunda implementación del buscador con reglas peores que las del
+sitio. Sin red, una búsqueda no tiene respuesta y se dice.
+
+### La espera al teclear
+
+Escribir «miel» sin espera son cuatro búsquedas de las que tres sobran, **y llegan desordenadas**: la
+de «mie» puede pisar a la de «miel». Se espera 350 ms desde la última tecla y se cancela la anterior.
+
+El término se guarda **ya** —para que lo escrito aparezca sin retraso— y sólo la petición espera. La
+pausa entra por constructor para que un test no tenga que esperar de verdad.
+
+Y elegir un pilar **acota** la búsqueda en curso en vez de cancelarla, que es lo que hace el sitio con
+su parámetro `pillar`: buscar «miel» en Nutrición es una pregunta, y perder el término al tocar un
+chip obligaría a escribirlo otra vez.
+
+### La redacción cambia porque el significado cambió
+
+Con el filtrado local, el campo decía «Filtrar lo cargado…» y el vacío «Nada de lo cargado coincide».
+Ahora la pregunta la contesta el buscador del sitio, así que se puede afirmar sobre el catálogo:
+**«Buscar publicaciones…»** y **«No se encontró nada con ese término.»**
+
+### Archivos tocados
+
+- **core:** `CatalogRepository.kt` (`searchCatalog`), `SearchCatalogUseCase.kt` (nuevo).
+- **Datos:** `SearchDto.kt` y `SearchMapper.kt` (nuevos), `CatalogApi.kt` (`search`),
+  `CatalogRepositoryImpl.kt`.
+- **Presentación:** `HomeFeedViewModel.kt` (término, espera, cancelación) y su factoría.
+- **UI:** `HomeFeed.kt` (fuera el filtrado local), `HomeScreen.kt`.
+- **Recursos:** dos cadenas reescritas, en los dos idiomas.
+- **Tests:** `HomeFeedViewModelTest` (+6); `searchCatalog` en los dobles que ya había.
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **442 pruebas, 0 fallos** (venían 436).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+- Una llamada a mano al endpoint de búsqueda del sitio, con `q=miel&limit=2&page=1&locale=es` → 200,
+  y de ahí salió la tabla de arriba.
+
+### Sin cobertura de host
+
+- **El mapeador no se prueba contra una respuesta real.** Los tests usan un catálogo de mentira; lo
+  que se comprobó contra el sitio fue la **forma**, una vez, a mano. Una prueba con la respuesta
+  guardada como fixture cerraría eso y no se hizo.
+- **La categoría se pinta con su clave cruda** (`cuidado_personal`) porque la búsqueda no manda la
+  etiqueta traducida. Se ve fea y es verdad; traducirla aquí sería copiar la taxonomía del sitio, que
+  es lo mismo que ya se decidió no hacer con el pilar.
+- Y sin enlace: el buscador no devuelve `to`, y componer una URL adivinando la ruta del sitio para
+  que lleve a un 404 es peor que no ofrecer enlace.
+
+**Recap.** La búsqueda del Inicio le pregunta al buscador del sitio, con su filtro por pilar y sus
+páginas. Comprobar la forma antes de escribir el cliente evitó el fallo que se había previsto —
+tarjetas sin título— y destapó otro que nadie buscaba: el endpoint reparte los correos de quien
+publica, sin pedir credenciales.

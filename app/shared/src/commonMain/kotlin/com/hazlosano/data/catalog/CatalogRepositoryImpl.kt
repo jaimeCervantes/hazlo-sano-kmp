@@ -50,6 +50,34 @@ internal class CatalogRepositoryImpl(
         )
     }
 
+    /**
+     * Buscar no cae a lo guardado, y esa es la diferencia con [getCatalog].
+     *
+     * La cache del app guarda publicaciones, no busquedas: no hay forma de saber si lo guardado
+     * contesta a «miel» sin volver a filtrar por texto en el dispositivo, que es una segunda
+     * implementacion del buscador — con otras reglas que las del sitio, y peores. Sin red, una
+     * busqueda no tiene respuesta: [CatalogPage.Unavailable] lo dice.
+     */
+    override suspend fun searchCatalog(
+        query: String,
+        pillar: PillarType?,
+        page: Int,
+        pageSize: Int,
+        location: VisitorLocation?,
+    ): CatalogPage {
+        if (query.isBlank()) return CatalogPage.Fresh(publications = emptyList(), hasMore = false)
+
+        val remote = runCatching {
+            api.search(query, pillar, page, pageSize, location)
+        }.getOrNull() ?: return CatalogPage.Unavailable
+
+        return CatalogPage.Fresh(
+            publications = SearchMapper.toDomain(remote, CatalogApi.LOCALE, pillar),
+            // El buscador no dice `nextPage`: si quedan mas es una cuenta sobre el total.
+            hasMore = page * pageSize < remote.total,
+        )
+    }
+
     private suspend fun cachedOrUnavailable(
         pillar: PillarType?,
         pageSize: Int,
