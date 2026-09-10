@@ -233,4 +233,12 @@ calibrando contra las trazas todo lo calibrable. Las tres preguntas que quedaban
    hizo sin pausas. Hace falta seguir una ruta **con una parada larga en medio**, que es también la
    captura que cerraría lo del teléfono quieto a cielo abierto.
 
+**Y una cuarta, que apareció al contestar por qué las salidas cortas no dan desnivel** (análisis del
+2026-09-09 en la bitácora): el altímetro del receptor **tarda 2-3 minutos en arrancar** y lo declara
+—altitud clavada mientras la precisión vertical crece +0,01 m/s—, así que en salidas de 6-9 minutos
+B4 calla la mitad buena por culpa del arranque. La misma captura pendiente lo cierra si **dura ~15
+minutos** y **pasa por algo con más de 3 m de desnivel**: ninguna de las nueve trazas tiene una
+cuesta, todas están entre 208 y 211 m. El barómetro queda descartado como alternativa — el teléfono
+con el que se prueba no tiene.
+
 El orden es una recomendación, no un compromiso: cada slice se aprueba en su momento con su encuadre y su `.feature`.

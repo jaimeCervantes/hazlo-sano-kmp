@@ -831,3 +831,120 @@ que ningún test cubre; (2) la salida de campo que le queda a C3 —seguir una r
 en medio—, que ahora se hace con la interfaz nueva; (3) del backlog del pilar, D (offline),
 E (satélite) y G (sobrevivir a que el sistema mate el proceso); (4) la pantalla de Inicio y sus datos
 inventados, que este roadmap dejó fuera a propósito.
+
+---
+
+## Slice 7 — El app se mueve (2026-09-09)
+
+**Lo reportado.** «El cambio entre pantallas y entre pilares se ve muy duro, como que no tiene una
+transición suave.»
+
+**Y tenía nombre.** `HazloMotion` está en el sistema de diseño desde su slice 2, con las curvas y las
+duraciones traídas del `layout.css` del sitio hermano. **No lo usaba nadie**: cero animaciones en
+todo `commonMain`. El sistema de diseño trajo el movimiento y ninguna pantalla llegó a usarlo.
+
+### Una regla, dos formas
+
+> **Lo que es hermano se funde. Lo que es más profundo entra por el lado.**
+
+No hay una tercera, y **ninguna pantalla elige la suya**: la elige de dónde a dónde se va.
+
+- **Las cinco pestañas de pilar se funden.** Deslizar implicaría un orden espacial entre pilares que
+  no existe, y enseñaría una dirección que no significa nada.
+- **Todo lo demás entra por el lado**: ajustes, el pilar, la ficha de un pilar, y las pantallas de
+  dentro de Movimiento. La nueva entra entera por el borde y la vieja se retira **un cuarto** de
+  pantalla, que es lo que da la sensación de que una queda *detrás* de la otra en vez de al lado.
+  Yendo hacia atrás las dos invierten el sentido, así que el movimiento sigue al gesto.
+
+Curva `standard` y no `natural` para el deslizamiento: `natural` se documentó para desplazamientos de
+unos pocos dp, y aquí se mueve la pantalla entera.
+
+### La dirección no se escribe: se deriva
+
+Es lo que más me gusta de este slice. `AppLayer`, del slice 4, ya decidía **qué se pinta** y **qué
+deshace el gesto de atrás**. Ahora decide también **hacia dónde se desliza**, leyendo su orden al
+revés: la capa que tapa a todas es la que está más adentro.
+
+```kotlin
+val AppLayer?.depth: Int
+    get() = this?.let { AppLayer.entries.size - it.ordinal } ?: 0
+```
+
+Con eso, entrar se ve como entrar **porque es entrar**, y no porque alguien lo haya escrito dos
+veces. Si mañana se reordena el `enum` para cambiar quién tapa a quién, la dirección de las
+transiciones le sigue sola — y hay una prueba que afirma exactamente esa correspondencia.
+
+Dentro de Movimiento la profundidad la da la pila (`MovementNavState.depth`), que es la misma que
+recorre el gesto de atrás. Misma idea, un nivel más abajo.
+
+### Los `return` tempranos tenían que irse
+
+`MainScreen` despachaba con una cadena de `if (...) { Pantalla(); return }`. Un `return` no se puede
+animar: la composición termina ahí. Se sustituye por un `AnimatedContent` sobre la capa.
+
+**No hizo falta extraer nada.** La lambda de `AnimatedContent` se define dentro de `MainScreen` y
+captura los mismos locales, así que el cuerpo principal —barra superior, historial de sueño,
+`Scaffold` y las cinco pestañas— se movió **verbatim** a su rama. El único cambio estructural fue
+cambiar `return` por ramas de un `when`, que es lo que hace el cambio revisable: si hubiera extraído
+un `MainBody` con once parámetros, la mitad de la revisión se habría ido en comprobar que los once
+llegaban bien.
+
+El historial de sueño se queda **fuera** del despacho animado: se pinta *dentro* del cuerpo principal
+y no en lugar de él, así que animarlo ahí habría deslizado dos contenidos idénticos.
+
+### Un fallo que la compilación no ve
+
+Al cerrar el pilar, la pila se vacía **al instante** pero la pantalla que se va sigue compuesta hasta
+que termina de salir — y para entonces `destination` ya dice `Closed`, que no pinta nada. Se habría
+visto un panel en blanco deslizándose.
+
+El arreglo va en la navegación y no en la animación: `MovementNavState.lastPlace` recuerda de dónde
+se viene. **Es información de navegación** —«dónde estábamos»— y la tiene que contestar quien lleva la
+cuenta de por dónde se ha ido, no un apaño en la pantalla.
+
+### El guardia contra la coma
+
+Kotlin/Native rechaza la coma en un nombre de prueba entre acentos graves, y **se ha pisado cuatro
+veces**. Lo insoportable no es el error: es que sólo aparece en
+`compileTestKotlinIosSimulatorArm64`, dentro de `:app:shared:check`, así que se descubre al final de
+una validación de minutos y obliga a repetirla entera.
+
+`CommonTestNamesTest` lo caza en `:app:shared:jvmTest` —segundos, y es lo primero que se corre—
+leyendo las fuentes de `commonTest`. **Se comprobó metiendo una coma a propósito**: falla, y el
+mensaje dice el archivo y el nombre. Vigila sólo la coma, que es el único carácter que este proyecto
+ha pisado y el único cuya ausencia se ha verificado; una lista larga sacada de la documentación sería
+afirmar cosas que nadie ha comprobado.
+
+### Archivos tocados
+
+- **Sistema de diseño:** `Motion.kt` (`HazloTransitions`, que por fin usa `HazloMotion`).
+- **Presentación:** `AppLayer.kt` (`depth`), `MovementNavState.kt` (`depth`, `lastPlace`).
+- **UI:** `MainScreen.kt` (despacho animado por capas, pilar animado por pila, pestañas fundidas).
+- **Tests:** `AppLayerTest` (+3), `MovementNavStateTest` (+3), `CommonTestNamesTest` (nuevo).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **426 pruebas, 0 fallos** (venían 419).
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+**Ninguna transición la mira un test, y no es por falta de ganas**: lo que se prueba es lo que decide
+la dirección —la profundidad de las capas y la de la pila—, no que se vea bien. Que 260 ms sean los
+correctos, que el cuarto de pantalla se lea como profundidad y no como un salto, y que el fundido
+entre pilares no parpadee, **se ven mirando**.
+
+Y hay una consecuencia de `AnimatedContent` que sólo se nota en el teléfono: durante la transición
+quedan compuestas la pantalla que entra y la que sale, así que por un instante hay dos mapas o dos
+catálogos vivos. En escritorio no se nota; en un teléfono modesto podría.
+
+**Recap.** El app se mueve por fin, con las curvas que el sistema de diseño llevaba dos meses
+guardando sin usar. Una sola regla —hermanos se funden, profundidad entra por el lado— y ninguna
+pantalla elige la suya: la elige el viaje. La dirección se **deriva** del mismo orden que decide qué
+se pinta y qué deshace «atrás», así que no puede contradecirlos. Y de paso, la coma de Kotlin/Native
+deja de costar una validación entera.
+
+**Próximos pasos.** Probarlo en el teléfono, que es donde vive todo lo de arriba.

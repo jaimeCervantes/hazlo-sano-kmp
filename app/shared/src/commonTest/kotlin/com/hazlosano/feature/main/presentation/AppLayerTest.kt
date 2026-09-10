@@ -3,6 +3,7 @@ package com.hazlosano.feature.main.presentation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Qué hay encima de la pantalla principal — la pregunta que contestan a la vez lo que se pinta y lo
@@ -107,5 +108,42 @@ class AppLayerTest {
             ),
             peeled,
         )
+    }
+
+    // ─────────── La profundidad, que decide hacia dónde se desliza ───────────
+
+    /**
+     * La misma escala que decide qué se pinta y qué deshace «atrás» decide ahora hacia dónde va la
+     * transición. Se afirma aquí porque es lo que impide que el movimiento contradiga a la
+     * navegación: entrar se ve como entrar porque **es** entrar, no porque alguien lo haya escrito
+     * dos veces.
+     */
+    @Test
+    fun `the deeper a layer covers the deeper it counts`() {
+        assertTrue(AppLayer.Settings.depth > AppLayer.Movement.depth)
+        assertTrue(AppLayer.Movement.depth > AppLayer.PillarInfo.depth)
+        assertTrue(AppLayer.PillarInfo.depth > AppLayer.SleepHistory.depth)
+    }
+
+    /** La pantalla principal es el suelo: desde ella todo es entrar. */
+    @Test
+    fun `the main screen is the floor`() {
+        val main: AppLayer? = null
+        assertEquals(0, main.depth)
+        AppLayer.entries.forEach { assertTrue(it.depth > main.depth, "$it no estaba más adentro") }
+    }
+
+    /**
+     * El orden de la profundidad es exactamente el inverso del que decide qué tapa a qué.
+     *
+     * Si alguien reordena el `enum` para cambiar quién tapa a quién, la dirección de las
+     * transiciones le sigue sin tener que acordarse — que es el motivo de derivarla y no escribirla.
+     */
+    @Test
+    fun `depth is the covering order read backwards`() {
+        val byCovering = AppLayer.entries.map { it }
+        val byDepth = AppLayer.entries.sortedByDescending { it.depth }
+
+        assertEquals(byCovering, byDepth)
     }
 }

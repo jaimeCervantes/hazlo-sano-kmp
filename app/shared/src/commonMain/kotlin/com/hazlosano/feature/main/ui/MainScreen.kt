@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.backhandler.BackHandler
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
@@ -42,7 +43,9 @@ import com.hazlosano.domain.usecase.GetSleepHistoryUseCase
 import com.hazlosano.feature.catalog.presentation.rememberPillarCatalogViewModel
 import com.hazlosano.feature.catalog.ui.PillarCatalogScreen
 import com.hazlosano.feature.home.presentation.HomeViewModel
+import com.hazlosano.core.ui.theme.HazloTransitions
 import com.hazlosano.feature.main.presentation.AppLayer
+import com.hazlosano.feature.main.presentation.depth
 import com.hazlosano.feature.main.presentation.topLayer
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
@@ -178,214 +181,247 @@ fun MainScreen(
         }
     }
 
-    if (layer == AppLayer.Settings) {
-        SettingsScreen(
-            onBack = { showSettings = false },
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-
     val openSettings = { showSettings = true }
 
-    if (layer == AppLayer.Movement) when (val movementDestination = movementNav.destination) {
-        is MovementDestination.Tracker -> {
-            TrackerScreen(
-                onBack = { movementNav.back() },
-                onOpenHistory = { movementNav.openHistory() },
-                onOpenRoutes = { movementNav.openRoutes() },
-                onOpenSettings = openSettings,
-                followRouteId = movementDestination.followRouteId,
+    // El historial de sueno se pinta **dentro** del cuerpo principal y no en lugar de el, asi que no
+    // es una capa que animar aqui: su cambio pertenece al cuerpo. Sin esto se animaria un
+    // deslizamiento entre dos contenidos identicos.
+    val shown = layer?.takeIf { it != AppLayer.SleepHistory }
+
+    AnimatedContent(
+        targetState = shown,
+        modifier = Modifier.fillMaxSize(),
+        transitionSpec = {
+            HazloTransitions.depth(goingDeeper = targetState.depth > initialState.depth)
+        },
+        label = "capa",
+    ) { current ->
+        when (current) {
+            AppLayer.Settings -> SettingsScreen(
+                onBack = { showSettings = false },
                 modifier = Modifier.fillMaxSize(),
             )
-            return
-        }
 
-        MovementDestination.History -> {
-            MovementHistoryScreen(
-                onBack = { movementNav.back() },
-                onOpenSession = { sessionId -> movementNav.openSessionDetail(sessionId) },
-                onOpenRoutes = { movementNav.openRoutes() },
-                onOpenRecord = { movementNav.openTracker() },
-                onOpenSettings = openSettings,
-                modifier = Modifier.fillMaxSize(),
-            )
-            return
-        }
+            AppLayer.Movement -> {
+                // El pilar tiene su propia pila, asi que su profundidad es la de esa pila y no la de
+                // la capa: entrar al detalle de una ruta es ir mas adentro **dentro** del pilar,
+                // mientras que desde fuera el pilar entero sigue siendo una sola capa.
+                // `lastPlace` y no `destination`: al cerrar el pilar la pila se vacia de
+                // inmediato, pero esta pantalla sigue compuesta hasta que termina de irse.
+                val step = MovementStep(movementNav.lastPlace, movementNav.depth)
+                AnimatedContent(
+                    targetState = step,
+                    modifier = Modifier.fillMaxSize(),
+                    transitionSpec = {
+                        HazloTransitions.depth(
+                            goingDeeper = targetState.depth >= initialState.depth,
+                        )
+                    },
+                    label = "pilar de movimiento",
+                ) { (destination, _) ->
+                    when (destination) {
+                        is MovementDestination.Tracker -> TrackerScreen(
+                            onBack = { movementNav.back() },
+                            onOpenHistory = { movementNav.openHistory() },
+                            onOpenRoutes = { movementNav.openRoutes() },
+                            onOpenSettings = openSettings,
+                            followRouteId = destination.followRouteId,
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
-        MovementDestination.Routes -> {
-            RoutesScreen(
-                viewModel = routesViewModel,
-                onBack = { movementNav.back() },
-                onOpenRoute = { routeId -> movementNav.openRouteDetail(routeId) },
-                onOpenRecord = { movementNav.openTracker() },
-                onOpenOutings = { movementNav.openHistory() },
-                onOpenSettings = openSettings,
-                modifier = Modifier.fillMaxSize(),
-            )
-            return
-        }
+                        MovementDestination.History -> MovementHistoryScreen(
+                            onBack = { movementNav.back() },
+                            onOpenSession = { id -> movementNav.openSessionDetail(id) },
+                            onOpenRoutes = { movementNav.openRoutes() },
+                            onOpenRecord = { movementNav.openTracker() },
+                            onOpenSettings = openSettings,
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
-        is MovementDestination.RouteDetail -> {
-            RouteDetailScreen(
-                routeId = movementDestination.routeId,
-                onBack = { movementNav.back() },
-                onStartOuting = { movementNav.openTrackerFollowing(movementDestination.routeId) },
-                onOpenSettings = openSettings,
-                modifier = Modifier.fillMaxSize(),
-            )
-            return
-        }
+                        MovementDestination.Routes -> RoutesScreen(
+                            viewModel = routesViewModel,
+                            onBack = { movementNav.back() },
+                            onOpenRoute = { id -> movementNav.openRouteDetail(id) },
+                            onOpenRecord = { movementNav.openTracker() },
+                            onOpenOutings = { movementNav.openHistory() },
+                            onOpenSettings = openSettings,
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
-        is MovementDestination.SessionDetail -> {
-            SessionDetailScreen(
-                sessionId = movementDestination.sessionId,
-                onBack = { movementNav.back() },
-                onOpenSettings = openSettings,
-                modifier = Modifier.fillMaxSize(),
-            )
-            return
-        }
+                        is MovementDestination.RouteDetail -> RouteDetailScreen(
+                            routeId = destination.routeId,
+                            onBack = { movementNav.back() },
+                            onStartOuting = {
+                                movementNav.openTrackerFollowing(destination.routeId)
+                            },
+                            onOpenSettings = openSettings,
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
-        MovementDestination.Closed -> Unit
-    }
+                        is MovementDestination.SessionDetail -> SessionDetailScreen(
+                            sessionId = destination.sessionId,
+                            onBack = { movementNav.back() },
+                            onOpenSettings = openSettings,
+                            modifier = Modifier.fillMaxSize(),
+                        )
 
-    if (layer == AppLayer.PillarInfo) pillarInfo?.let { pillar ->
-        PillarInfoScreen(
-            pillar = pillar,
-            onBack = { pillarInfo = null },
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
+                        // `lastPlace` nunca es Closed, asi que esta rama no se pinta nunca; esta
+                        // porque el `when` es sobre un sellado y tiene que ser exhaustivo.
+                        MovementDestination.Closed -> Unit
+                    }
+                }
+            }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(
-            title = stringResource(
-                if (showSleepHistory) Res.string.history_title else Res.string.app_name,
-            ),
-            showBackButton = showSleepHistory,
-            onBackClick = { showSleepHistory = false },
-            backContentDescription = stringResource(Res.string.top_app_bar_back),
-            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
-            // Sin `onProfileClick` ni `onNotificationsClick`: el muñeco y la campana llevaban desde
-            // siempre sin llevar a ningun sitio, y ahora la barra no los pinta. Vuelven el dia que
-            // haya perfil y haya avisos que dar.
-            menuContent = { dismiss ->
-                AppSettingsMenuItem(
-                    onClick = {
-                        dismiss()
-                        showSettings = true
+            AppLayer.PillarInfo -> pillarInfo?.let { pillar ->
+                PillarInfoScreen(
+                    pillar = pillar,
+                    onBack = { pillarInfo = null },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
+            AppLayer.SleepHistory, null -> {
+            Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                HazloTopAppBar(
+                    title = stringResource(
+                        if (showSleepHistory) Res.string.history_title else Res.string.app_name,
+                    ),
+                    showBackButton = showSleepHistory,
+                    onBackClick = { showSleepHistory = false },
+                    backContentDescription = stringResource(Res.string.top_app_bar_back),
+                    menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+                    // Sin `onProfileClick` ni `onNotificationsClick`: el muñeco y la campana llevaban desde
+                    // siempre sin llevar a ningun sitio, y ahora la barra no los pinta. Vuelven el dia que
+                    // haya perfil y haya avisos que dar.
+                    menuContent = { dismiss ->
+                        AppSettingsMenuItem(
+                            onClick = {
+                                dismiss()
+                                showSettings = true
+                            },
+                        )
                     },
                 )
-            },
-        )
-        if (showSleepHistory && sleepSessionRepository != null) {
-            val historyViewModel = remember {
-                SleepHistoryViewModel(GetSleepHistoryUseCase(sleepSessionRepository))
-            }
-            SleepHistoryScreen(viewModel = historyViewModel)
-        } else {
-            Scaffold(
-                modifier = Modifier.weight(1f),
-                bottomBar = {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ) {
-                    BottomTab.entries.forEach { tab ->
-                        val selected = selectedTab == tab
-                        val label = tab.label()
-                        val palette = tab.palette()
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    imageVector = tab.icon(),
-                                    contentDescription = tab.accessibleLabel(),
-                                )
-                            },
-                            label = {
-                                // Un renglón siempre: la altura de la barra no puede depender de lo
-                                // largo que sea el nombre de un pilar.
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    // Si una traducción futura no cabe, que se corte con puntos
-                                    // suspensivos en vez de quedar cortada a hachazo.
-                                    overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
-                                )
-                            },
-                            selected = selected,
-                            onClick = { selectedTab = tab },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color.White,
-                                selectedTextColor = palette.ink,
-                                indicatorColor = palette.solid,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                        )
+                if (showSleepHistory && sleepSessionRepository != null) {
+                    val historyViewModel = remember {
+                        SleepHistoryViewModel(GetSleepHistoryUseCase(sleepSessionRepository))
                     }
-                }
-            },
-        ) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-                when (selectedTab) {
-                    BottomTab.Inicio -> HomeScreen(
-                        viewModel = homeViewModel,
-                        sleepAnalysis = sleepAnalysis,
-                        onNavigateToTracker = { movementNav.openTracker() },
-                        onRefreshSleep = onRefreshSleep,
-                        onSleepCardClick = navigateToSleepHistory,
-                    )
-                    // Sueño es la única pestaña de pilar que no delega entera en
-                    // PillarCatalogScreen: ya tiene su propio encabezado —el resumen de la última
-                    // noche— y sólo le faltaban las secciones del catálogo, que ahora comparte.
-                    BottomTab.Sueno -> {
-                        val sleepCatalog = rememberPillarCatalogViewModel(PillarType.SLEEP)
-                        val sleepCatalogState by sleepCatalog.uiState.collectAsState()
-                        val sleepHighlights = rememberPillarHighlightsViewModel(PillarType.SLEEP)
-                        val sleepHighlightsState by sleepHighlights.uiState.collectAsState()
-                        SleepScreen(
-                            viewModel = sleepViewModel,
-                            highlights = sleepHighlightsState,
-                            catalogState = sleepCatalogState,
-                            onOpenInfo = { pillarInfo = PillarType.SLEEP },
-                            onRetryCatalog = sleepCatalog::refresh,
-                            onRefresh = onRefreshSleep,
-                            onCardClick = navigateToSleepHistory,
-                        )
-                    }
-                    // Cada pestaña de pilar enseña su propio catálogo. La de Movimiento enseña
-                    // además sus herramientas: era el único pilar cuya herramienta no se alcanzaba
-                    // desde su propia pestaña.
-                    BottomTab.Nutricion -> PillarCatalogScreen(
-                        pillar = PillarType.NUTRITION,
-                        onOpenInfo = { pillarInfo = PillarType.NUTRITION },
-                    )
-
-                    BottomTab.Movimiento -> PillarCatalogScreen(
-                        pillar = PillarType.MOVEMENT,
-                        onOpenInfo = { pillarInfo = PillarType.MOVEMENT },
-                        pillarActions = {
-                            MovementPillarActions(
-                                onStartOuting = { movementNav.openTracker() },
-                                onOpenRoutes = { movementNav.openRoutes() },
-                                onOpenOutings = { movementNav.openHistory() },
+                    SleepHistoryScreen(viewModel = historyViewModel)
+                } else {
+                    Scaffold(
+                        modifier = Modifier.weight(1f),
+                        bottomBar = {
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ) {
+                            BottomTab.entries.forEach { tab ->
+                                val selected = selectedTab == tab
+                                val label = tab.label()
+                                val palette = tab.palette()
+                                NavigationBarItem(
+                                    icon = {
+                                        Icon(
+                                            imageVector = tab.icon(),
+                                            contentDescription = tab.accessibleLabel(),
+                                        )
+                                    },
+                                    label = {
+                                        // Un renglón siempre: la altura de la barra no puede depender de lo
+                                        // largo que sea el nombre de un pilar.
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            // Si una traducción futura no cabe, que se corte con puntos
+                                            // suspensivos en vez de quedar cortada a hachazo.
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center,
+                                        )
+                                    },
+                                    selected = selected,
+                                    onClick = { selectedTab = tab },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Color.White,
+                                        selectedTextColor = palette.ink,
+                                        indicatorColor = palette.solid,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                ) { innerPadding ->
+                    // Las cinco pestañas son hermanas: no hay una dentro de otra, asi que se
+                    // funden. Deslizar implicaria un orden espacial entre pilares que no existe, y
+                    // ensenaria una direccion que no significa nada.
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        modifier = Modifier.padding(innerPadding).fillMaxSize(),
+                        transitionSpec = { HazloTransitions.siblings() },
+                        label = "pilar",
+                    ) { tab ->
+                        when (tab) {
+                            BottomTab.Inicio -> HomeScreen(
+                                viewModel = homeViewModel,
+                                sleepAnalysis = sleepAnalysis,
+                                onNavigateToTracker = { movementNav.openTracker() },
+                                onRefreshSleep = onRefreshSleep,
+                                onSleepCardClick = navigateToSleepHistory,
                             )
-                        },
-                    )
+                            // Sueño es la única pestaña de pilar que no delega entera en
+                            // PillarCatalogScreen: ya tiene su propio encabezado —el resumen de la última
+                            // noche— y sólo le faltaban las secciones del catálogo, que ahora comparte.
+                            BottomTab.Sueno -> {
+                                val sleepCatalog = rememberPillarCatalogViewModel(PillarType.SLEEP)
+                                val sleepCatalogState by sleepCatalog.uiState.collectAsState()
+                                val sleepHighlights = rememberPillarHighlightsViewModel(PillarType.SLEEP)
+                                val sleepHighlightsState by sleepHighlights.uiState.collectAsState()
+                                SleepScreen(
+                                    viewModel = sleepViewModel,
+                                    highlights = sleepHighlightsState,
+                                    catalogState = sleepCatalogState,
+                                    onOpenInfo = { pillarInfo = PillarType.SLEEP },
+                                    onRetryCatalog = sleepCatalog::refresh,
+                                    onRefresh = onRefreshSleep,
+                                    onCardClick = navigateToSleepHistory,
+                                )
+                            }
+                            // Cada pestaña de pilar enseña su propio catálogo. La de Movimiento enseña
+                            // además sus herramientas: era el único pilar cuya herramienta no se alcanzaba
+                            // desde su propia pestaña.
+                            BottomTab.Nutricion -> PillarCatalogScreen(
+                                pillar = PillarType.NUTRITION,
+                                onOpenInfo = { pillarInfo = PillarType.NUTRITION },
+                            )
 
-                    BottomTab.Mente -> PillarCatalogScreen(
-                        pillar = PillarType.MIND,
-                        onOpenInfo = { pillarInfo = PillarType.MIND },
-                    )
+                            BottomTab.Movimiento -> PillarCatalogScreen(
+                                pillar = PillarType.MOVEMENT,
+                                onOpenInfo = { pillarInfo = PillarType.MOVEMENT },
+                                pillarActions = {
+                                    MovementPillarActions(
+                                        onStartOuting = { movementNav.openTracker() },
+                                        onOpenRoutes = { movementNav.openRoutes() },
+                                        onOpenOutings = { movementNav.openHistory() },
+                                    )
+                                },
+                            )
+
+                            BottomTab.Mente -> PillarCatalogScreen(
+                                pillar = PillarType.MIND,
+                                onOpenInfo = { pillarInfo = PillarType.MIND },
+                            )
+                        }
+                    }
+                }
                 }
             }
-        }
+            }
         }
     }
 }
+
+/** Un sitio del pilar de Movimiento junto a lo adentro que esta, para saber hacia donde animar. */
+private data class MovementStep(val destination: MovementDestination, val depth: Int)

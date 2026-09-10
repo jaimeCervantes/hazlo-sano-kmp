@@ -1552,3 +1552,98 @@ mientras se sigue una ruta.
 **Próximos pasos (opciones).** (1) Una salida siguiendo una ruta **con una parada larga**, la única
 pregunta de C3 que queda; (2) mirar en el teléfono lo acumulado de los slices de UI; (3) del backlog,
 D (offline), E (satélite) y G (sobrevivir a que el sistema mate el proceso).
+
+---
+
+## El arranque en frío del altímetro — por qué las salidas cortas no dan desnivel (2026-09-09)
+
+**No se escribió código.** Es el análisis de las nueve trazas que explica una pregunta del usuario —
+«¿por qué mi salida no marca desnivel ni altitud?»— y deja el diagnóstico anotado antes de que se
+pierda. La respuesta que se le había dado antes («el sensor se congela, es un defecto del receptor»)
+era cierta pero incompleta: ahora se sabe **el mecanismo**, y cambia lo que conviene hacer.
+
+### El receptor avisa de que no está midiendo
+
+Durante la racha congelada del principio de la salida en bici del 6 de septiembre:
+
+```
+   0 s: 208.500 m   vAcc 1.45 m
+  20 s: 208.500 m   vAcc 1.65
+  62 s: 208.500 m   vAcc 2.07
+ 102 s: 208.500 m   vAcc 2.47
+ 142 s: 208.500 m   vAcc 2.87
+```
+
+La altitud no se mueve **y la incertidumbre vertical crece en línea recta, +0,01 m/s**. Eso no es un
+sensor midiendo mal: es el receptor propagando su última altura buena y declarando que su duda sobre
+ella crece sola. La precisión horizontal, mientras tanto, se mantiene entre 2 y 4 m — el fix está
+bien; lo que no arranca es la componente vertical.
+
+**La misma firma en cinco trazas independientes**, siempre igual: empieza en ~1,3-1,5 m y crece hasta
+~3,0 m a lo largo de 120-180 s.
+
+### Y es un arranque en frío, no una avería
+
+| traza | congelada | y después |
+|---|---|---|
+| 1788749302780 (bici) | **0 → 150 s** | 109 valores distintos en 197 lecturas |
+| 1788751561052 (siguiendo la ruta) | **0 → 162 s** | 105 distintos en 110 |
+| 1788740291354 | 7 → 187 s | 48 distintos en 76 |
+| 1785123534742 (caminata) | 48 → 241 s | 108 distintos en 108 |
+| 1788047034907 (33 min, olvidada) | 0 → 170 s | **4 distintos en 328** |
+
+**El receptor tarda entre dos y tres minutos en empezar a medir altura, y después funciona bien.**
+La excepción es la grabación olvidada: allí lo rancio no es el arranque, es toda la sesión — y para
+ese caso callarse es lo correcto, que es exactamente contra lo que se diseñó B4.
+
+### Lo que esto implica sobre B4
+
+La regla actual —una racha rancia de más de 60 s calla el desnivel de la sesión entera— **está
+descartando datos buenos en las salidas cortas**. En una salida de 6 a 9 minutos, el arranque se come
+la mitad y con ella se va la otra mitad, que sí estaba medida.
+
+No es que la salida no tenga desnivel: es que el app no se atreve a dar el que sí midió.
+
+### Las tres opciones, y por qué queda una
+
+- **(a) Dejarlo.** Honesto y poco útil: con salidas cortas se ve «—» casi siempre.
+- **(b) Medir desde que el sensor despierta, y decirlo.** Descartar las lecturas del arranque —que
+  son detectables por la firma: valor clavado *más* vAcc creciendo— y calcular con las demás,
+  presentando la cifra **como parcial**, que es distinto de una cifra incompleta disfrazada de
+  completa. La grabación de 33 minutos seguiría callada.
+- **(c) El barómetro.** ~~Fuente independiente que no tiene este fallo y ve cambios de uno o dos
+  metros.~~ **Descartada: el teléfono del usuario no tiene barómetro** (2026-09-09). Sigue siendo
+  válida para otros dispositivos, pero no se puede desarrollar contra el único que hay para probar.
+
+**Queda (b), y no se hace todavía**: mueve una regla que se puso a propósito conservadora, así que
+merece su propio encuadre. Lo primero de ese slice sería medir sobre las nueve trazas cuánto desnivel
+se recuperaría y cuántas sesiones seguirían calladas.
+
+### Los umbrales que contestan «¿se mide un bache?»
+
+Preguntado por el usuario, y respondido con el código delante:
+
+- **Sólo se usa el GPS.** `AndroidLocationRepository` lee `location.altitude`, que es la altura
+  calculada por los satélites. El barómetro no se lee en ninguna parte.
+- **El error vertical es el doble del horizontal** (`VERTICAL_ACCURACY_RATIO = 2.0`), porque todos los
+  satélites están arriba: no hay ninguno bajo el horizonte contra el que triangular.
+- **La histéresis pide `vAcc × 0,6`, con suelo en 3 m** y techo en 12. Con el sensor despierto la
+  vAcc anda en 1,4-3 m, así que el umbral se va al suelo: **un desnivel de menos de 3 m no cuenta**,
+  y está bien que no cuente. Una bajada y subida de 2 m es ruido.
+- **El tiempo no entra en la cuenta del desnivel**, sólo los metros. Sí entra de otra manera: a
+  20 km/h con lecturas cada 2 s se recorren ~11 m entre puntos, así que una rampa corta son tres o
+  cuatro lecturas y se mide gruesa. Una cuesta sostenida mide mejor que un bache pronunciado.
+- **La pendiente pide tramos de al menos `max(vAcc, 20 m)`.**
+
+### Lo que sigue pendiente de campo
+
+Sin cambios respecto a lo anotado: **seguir una ruta con una parada larga en medio**, que es lo único
+que le queda a C3 (los 60 s de `isMoving`). Se le suman ahora dos cosas que la misma captura daría:
+
+1. **Que dure ~15 minutos**, no más. Con el arranque comiéndose 3, quedan 12 de datos útiles — el
+   doble de lo que tiene cualquier traza actual. Antes se pidieron 20; con este análisis, 15 bastan.
+2. **Que pase por algo con más de 3 m de desnivel**, sostenido si se puede. Las nueve trazas están
+   entre 208 y 211 m: **nunca se ha medido una cuesta**, así que no se sabe si el altímetro mide bien
+   al despertar o sólo deja de estar congelado.
+
+No bloquea nada: el slice (b) se puede encuadrar y medir con las trazas que ya hay.

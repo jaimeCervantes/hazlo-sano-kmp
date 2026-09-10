@@ -42,3 +42,14 @@ fun topLayer(
     sleepHistoryOpen -> AppLayer.SleepHistory
     else -> null
 }
+
+/**
+ * Cuánto adentro está una capa, contando la pantalla principal como cero.
+ *
+ * **Es la misma escala que decide qué se pinta y qué deshace el gesto de volver atrás**, leída al
+ * revés: la que tapa a todas es la que está más adentro. Que también decida hacia dónde se desliza
+ * una transición es lo que hace que el movimiento y la navegación no puedan contradecirse — entrar
+ * se ve como entrar porque *es* entrar, y no porque alguien lo haya escrito dos veces.
+ */
+val AppLayer?.depth: Int
+    get() = this?.let { AppLayer.entries.size - it.ordinal } ?: 0

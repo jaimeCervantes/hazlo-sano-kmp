@@ -125,4 +125,53 @@ class MovementNavStateTest {
         assertEquals(MovementDestination.RouteDetail(routeId = 1), nav.destination)
         assertTrue(nav.isOpen)
     }
+
+    // ─────────── Lo que la transición necesita saber ───────────
+
+    /** La pila es la profundidad: si crece se entra, si mengua se sale. */
+    @Test
+    fun `depth grows going in and shrinks coming back`() {
+        val nav = MovementNavState()
+        assertEquals(0, nav.depth)
+
+        nav.openRoutes()
+        assertEquals(1, nav.depth)
+        nav.openRouteDetail(routeId = 3)
+        assertEquals(2, nav.depth)
+
+        nav.back()
+        assertEquals(1, nav.depth)
+    }
+
+    /**
+     * De dónde se viene sobrevive a cerrar el pilar.
+     *
+     * Sin esto, la pantalla que se está yendo se quedaría en blanco a media transición: la pila se
+     * vacía al instante y `destination` pasa a `Closed`, pero esa pantalla sigue compuesta hasta que
+     * termina de salir.
+     */
+    @Test
+    fun `the last place outlives closing the pillar`() {
+        val nav = MovementNavState()
+        nav.openRoutes()
+        nav.openRouteDetail(routeId = 3)
+
+        nav.back()
+        nav.back()
+
+        assertEquals(MovementDestination.Closed, nav.destination)
+        assertEquals(MovementDestination.Routes, nav.lastPlace, "no recordó de dónde se venía")
+    }
+
+    @Test
+    fun `closing outright also remembers where it was`() {
+        val nav = MovementNavState()
+        nav.openTracker()
+        nav.openHistory()
+
+        nav.close()
+
+        assertEquals(MovementDestination.Closed, nav.destination)
+        assertEquals(MovementDestination.History, nav.lastPlace)
+    }
 }

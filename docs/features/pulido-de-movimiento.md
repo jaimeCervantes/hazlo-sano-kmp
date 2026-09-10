@@ -212,4 +212,5 @@ puede enseñar un ascenso que el detalle luego se niega a dar.
 | 3 — controles honestos y Ajustes alcanzable | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 4 — el botón «atrás» del sistema | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 5 — moverse por el pilar se hace siempre igual | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
+| 7 — el app se mueve | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |
 | 6 — el tracker durante la salida | **Hecho** — ver la [bitácora](pulido-de-movimiento-bitacora.md) |

@@ -42,8 +42,31 @@ class MovementNavState {
     val destination: MovementDestination
         get() = backStack.lastOrNull() ?: MovementDestination.Closed
 
+    /**
+     * El ultimo sitio donde se estuvo, que sobrevive a cerrar el pilar.
+     *
+     * Hace falta porque el pilar tarda en irse de la pantalla: mientras la transicion corre, la
+     * pantalla que sale sigue compuesta, y `destination` ya dice `Closed`. Sin esto se veria un
+     * panel en blanco deslizandose en lugar de la pantalla de la que se viene.
+     *
+     * Es informacion de navegacion —donde estabamos— y no un apaño de la animacion: la pregunta
+     * «de donde vengo» la tiene que contestar quien lleva la cuenta de por donde se ha ido.
+     */
+    var lastPlace: MovementDestination = MovementDestination.Tracker()
+        private set
+
     val isOpen: Boolean
         get() = backStack.isNotEmpty()
+
+    /**
+     * Cuantas pantallas se llevan abiertas dentro del pilar.
+     *
+     * Lo pregunta la transicion para saber si se esta yendo mas adentro o volviendo. Es la misma
+     * pila que recorre el gesto de atras, asi que el movimiento no puede contradecir a la
+     * navegacion: si la pila crece, se entra; si mengua, se sale.
+     */
+    val depth: Int
+        get() = backStack.size
 
     fun openTracker() {
         push(MovementDestination.Tracker())
@@ -79,6 +102,9 @@ class MovementNavState {
     /** Vuelve a donde se estaba. Desde la primera pantalla, sale del pilar. */
     fun back() {
         backStack.removeLastOrNull()
+        // Al salir del pilar no se toca: `lastPlace` tiene que seguir siendo la pantalla de la que
+        // se viene mientras esta se va de la pantalla.
+        backStack.lastOrNull()?.let { lastPlace = it }
     }
 
     /** Sale del pilar de una vez, sin recorrer la pila hacia atrás. */
@@ -93,6 +119,7 @@ class MovementNavState {
      * salir del pilar costaría un *volver* por cada visita.
      */
     private fun push(destination: MovementDestination) {
+        lastPlace = destination
         val existing = backStack.indexOf(destination)
         if (existing >= 0) {
             while (backStack.size > existing + 1) backStack.removeLast()
