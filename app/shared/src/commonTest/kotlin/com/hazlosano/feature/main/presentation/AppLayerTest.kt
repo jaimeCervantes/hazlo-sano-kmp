@@ -18,11 +18,13 @@ class AppLayerTest {
     private fun layer(
         settings: Boolean = false,
         movement: Boolean = false,
+        search: Boolean = false,
         pillarInfo: Boolean = false,
         sleepHistory: Boolean = false,
     ) = topLayer(
         settingsOpen = settings,
         movementOpen = movement,
+        searchOpen = search,
         pillarInfoOpen = pillarInfo,
         sleepHistoryOpen = sleepHistory,
     )
@@ -40,6 +42,7 @@ class AppLayerTest {
     fun `each thing that opens is what is on top`() {
         assertEquals(AppLayer.Settings, layer(settings = true))
         assertEquals(AppLayer.Movement, layer(movement = true))
+        assertEquals(AppLayer.Search, layer(search = true))
         assertEquals(AppLayer.PillarInfo, layer(pillarInfo = true))
         assertEquals(AppLayer.SleepHistory, layer(sleepHistory = true))
     }
@@ -55,8 +58,24 @@ class AppLayerTest {
     fun `settings covers everything including the movement pillar`() {
         assertEquals(
             AppLayer.Settings,
-            layer(settings = true, movement = true, pillarInfo = true, sleepHistory = true),
+            layer(
+                settings = true,
+                movement = true,
+                search = true,
+                pillarInfo = true,
+                sleepHistory = true,
+            ),
         )
+    }
+
+    /**
+     * Y le gana a los resultados de la búsqueda, que es el único sitio donde eso **puede** pasar de
+     * verdad: los tres puntos siguen ahí con los resultados abiertos, así que Ajustes se abre encima
+     * de ellos y volver tiene que devolver a los resultados, no a la pestaña.
+     */
+    @Test
+    fun `settings covers the search results`() {
+        assertEquals(AppLayer.Settings, layer(settings = true, search = true))
     }
 
     /** Y el pilar tapa a la ficha de un pilar, por lo mismo: se entra al pilar desde ella. */
@@ -83,15 +102,17 @@ class AppLayerTest {
         val peeled = mutableListOf<AppLayer?>()
         var settings = true
         var movement = true
+        var search = true
         var pillarInfo = true
         var sleepHistory = true
 
-        repeat(5) {
-            val top = layer(settings, movement, pillarInfo, sleepHistory)
+        repeat(6) {
+            val top = layer(settings, movement, search, pillarInfo, sleepHistory)
             peeled += top
             when (top) {
                 AppLayer.Settings -> settings = false
                 AppLayer.Movement -> movement = false
+                AppLayer.Search -> search = false
                 AppLayer.PillarInfo -> pillarInfo = false
                 AppLayer.SleepHistory -> sleepHistory = false
                 null -> Unit
@@ -102,6 +123,7 @@ class AppLayerTest {
             listOf(
                 AppLayer.Settings,
                 AppLayer.Movement,
+                AppLayer.Search,
                 AppLayer.PillarInfo,
                 AppLayer.SleepHistory,
                 null,
@@ -121,7 +143,8 @@ class AppLayerTest {
     @Test
     fun `the deeper a layer covers the deeper it counts`() {
         assertTrue(AppLayer.Settings.depth > AppLayer.Movement.depth)
-        assertTrue(AppLayer.Movement.depth > AppLayer.PillarInfo.depth)
+        assertTrue(AppLayer.Movement.depth > AppLayer.Search.depth)
+        assertTrue(AppLayer.Search.depth > AppLayer.PillarInfo.depth)
         assertTrue(AppLayer.PillarInfo.depth > AppLayer.SleepHistory.depth)
     }
 

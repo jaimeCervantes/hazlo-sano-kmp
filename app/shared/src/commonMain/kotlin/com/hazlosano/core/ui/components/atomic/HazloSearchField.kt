@@ -20,6 +20,10 @@ import androidx.compose.ui.unit.dp
  *
  * Es atómico de verdad: no lee el catálogo de recursos ni sabe qué es una publicación. El texto de
  * ayuda entra por parámetro y quien llama decide qué se está acotando.
+ *
+ * [leading] y [trailing] son huecos por la misma razón: una lupa es decorativa y un botón de borrar
+ * necesita algo que leerle a quien no ve, y ese texto vive en el catálogo de recursos — al que este
+ * componente no puede llegar sin dejar de ser atómico. Los rellena quien llama.
  */
 @Composable
 fun HazloSearchField(
@@ -28,6 +32,8 @@ fun HazloSearchField(
     placeholderText: String,
     modifier: Modifier = Modifier,
     accentColor: Color = MaterialTheme.colorScheme.primary,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     OutlinedTextField(
         value = query,
@@ -36,6 +42,8 @@ fun HazloSearchField(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(FULLY_ROUNDED),
         singleLine = true,
+        leadingIcon = leading,
+        trailingIcon = trailing,
         colors = OutlinedTextFieldDefaults.colors(
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             focusedBorderColor = accentColor,

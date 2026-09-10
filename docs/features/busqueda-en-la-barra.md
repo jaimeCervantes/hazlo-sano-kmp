@@ -127,7 +127,10 @@ Las últimas búsquedas al enfocar la barra, como hace Mercado Libre, y poder bo
 
 | Slice | Estado |
 |---|---|
-| 0 — el arreglo de la búsqueda colgada (slice 3 del otro roadmap) | Pendiente — diagnosticado |
-| 1 — el campo en la barra y los resultados en su pantalla | Pendiente |
+| 0 — el arreglo de la búsqueda colgada (slice 3 del otro roadmap) | **Hecho** — ver su [bitácora](publicaciones-en-el-home-bitacora.md) |
+| 1 — el campo en la barra y los resultados en su pantalla | **Hecho** — ver la [bitácora](busqueda-en-la-barra-bitacora.md) |
 | 2 — el campo de las pestañas de pilar | Pendiente |
 | 3 — búsquedas recientes | Pendiente |
+
+**Pendiente de probar en un teléfono:** el alto de la barra con el campo dentro (`OutlinedTextField`
+mide 56 dp de mínimo) y que buscar con red conteste bien desde las cinco pestañas.

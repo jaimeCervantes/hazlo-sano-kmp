@@ -44,13 +44,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.AsyncImageBackground
 import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
-import com.hazlosano.core.ui.components.atomic.HazloSearchField
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.components.atomic.PillarBadge
 import com.hazlosano.core.ui.components.atomic.SectionHeader
 import com.hazlosano.core.ui.components.atomic.SleepSummaryCard
+import com.hazlosano.core.presentation.PublicationListUiState
 import com.hazlosano.core.ui.components.sections.HazloChampionsSection
+import com.hazlosano.core.ui.components.sections.PillarFilterChips
 import com.hazlosano.core.ui.components.sections.pillarHighlightsSkeleton
+import com.hazlosano.core.ui.components.sections.publicationList
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
 import com.hazlosano.core.ui.model.pillarInkOnImage
@@ -62,15 +64,14 @@ import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.PillarAction
 import com.hazlosano.domain.model.PillarOverview
 import com.hazlosano.domain.model.SleepAnalysis
-import com.hazlosano.feature.home.presentation.HomeFeedUiState
 import com.hazlosano.feature.home.presentation.HomeUiState
 import com.hazlosano.feature.home.presentation.rememberHomeFeedViewModel
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.action_retry
 import hazlosano.app.shared.generated.resources.home_failed_message
-import hazlosano.app.shared.generated.resources.home_feed_search_hint
 import hazlosano.app.shared.generated.resources.home_feed_title
+import hazlosano.app.shared.generated.resources.publication_list_empty
 import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba. La estructura de Inicio se afirma por aquí y no por su redacción. */
@@ -105,8 +106,6 @@ fun HomeScreen(
         onSleepCardClick = onSleepCardClick,
         onRetry = viewModel::refresh,
         feedState = feedState,
-        feedQuery = feedState.query,
-        onFeedQueryChange = feedViewModel::search,
         onSelectFeedFilter = feedViewModel::select,
         onFeedReachedEnd = feedViewModel::loadMore,
         onRetryFeed = feedViewModel::retry,
@@ -127,9 +126,7 @@ internal fun HomeBoard(
     onRefreshSleep: (() -> Unit)?,
     onSleepCardClick: (() -> Unit)?,
     onRetry: () -> Unit = {},
-    feedState: HomeFeedUiState = HomeFeedUiState(),
-    feedQuery: String = "",
-    onFeedQueryChange: (String) -> Unit = {},
+    feedState: PublicationListUiState = PublicationListUiState(),
     onSelectFeedFilter: (PillarType?) -> Unit = {},
     onFeedReachedEnd: () -> Unit = {},
     onRetryFeed: () -> Unit = {},
@@ -180,8 +177,6 @@ internal fun HomeBoard(
                 content = state.content,
                 onNavigateToTracker = onNavigateToTracker,
                 feedState = feedState,
-                feedQuery = feedQuery,
-                onFeedQueryChange = onFeedQueryChange,
                 onSelectFeedFilter = onSelectFeedFilter,
                 onFeedReachedEnd = onFeedReachedEnd,
                 onRetryFeed = onRetryFeed,
@@ -193,9 +188,7 @@ internal fun HomeBoard(
 private fun LazyListScope.homeSections(
     content: HomeContent,
     onNavigateToTracker: () -> Unit,
-    feedState: HomeFeedUiState,
-    feedQuery: String,
-    onFeedQueryChange: (String) -> Unit,
+    feedState: PublicationListUiState,
     onSelectFeedFilter: (PillarType?) -> Unit,
     onFeedReachedEnd: () -> Unit,
     onRetryFeed: () -> Unit,
@@ -222,24 +215,19 @@ private fun LazyListScope.homeSections(
             actionText = null,
         )
         Spacer(modifier = Modifier.height(HazloSpaces.sm))
-        HomeFeedFilters(selected = feedState.filter, onSelect = onSelectFeedFilter)
-        Spacer(modifier = Modifier.height(HazloSpaces.sm))
-        HazloSearchField(
-            query = feedQuery,
-            onQueryChange = onFeedQueryChange,
-            placeholderText = stringResource(Res.string.home_feed_search_hint),
-            modifier = Modifier
-                .padding(horizontal = HazloSpaces.gutter)
-                .testTag(HomeFeedTags.SEARCH),
-        )
+        // El Inicio conserva sus chips y pierde su campo. Acotar el feed por pilar **no es buscar**:
+        // es la lista que se recorre sin preguntar nada, y sigue siendo suya. Lo que se fue a la
+        // barra de arriba es la pregunta, que nunca fue del Inicio — entra a los cuatro pilares.
+        PillarFilterChips(selected = feedState.filter, onSelect = onSelectFeedFilter)
         Spacer(modifier = Modifier.height(HazloSpaces.sm))
     }
 
     // `content.feedPosts` ya no se pinta: era la parte inventada de `MockHomeRepository`, y estas
     // publicaciones vienen del sitio. Lo demas de ese repositorio de mentira sigue ahi, dicho en el
     // roadmap; este slice quita una ficcion, no todas.
-    homeFeed(
+    publicationList(
         state = feedState,
+        emptyText = Res.string.publication_list_empty,
         onReachedEnd = onFeedReachedEnd,
         onRetry = onRetryFeed,
     )

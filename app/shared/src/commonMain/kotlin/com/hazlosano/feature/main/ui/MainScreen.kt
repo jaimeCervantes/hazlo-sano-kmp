@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -23,12 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.backhandler.BackHandler
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
+import com.hazlosano.core.ui.components.atomic.HazloSearchField
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarIcon
@@ -57,6 +62,9 @@ import com.hazlosano.feature.movement.presentation.MovementNavState
 import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import com.hazlosano.feature.pillar.ui.PillarInfoScreen
+import com.hazlosano.feature.search.presentation.rememberSearchViewModel
+import com.hazlosano.feature.search.ui.SearchResultsScreen
+import com.hazlosano.feature.search.ui.SearchTags
 import com.hazlosano.feature.settings.ui.SettingsScreen
 import com.hazlosano.feature.movement.routes.ui.RouteDetailScreen
 import com.hazlosano.feature.movement.routes.ui.RoutesScreen
@@ -69,6 +77,8 @@ import hazlosano.app.shared.generated.resources.app_name
 import hazlosano.app.shared.generated.resources.bottom_tab_home
 import hazlosano.app.shared.generated.resources.history_back
 import hazlosano.app.shared.generated.resources.history_title
+import hazlosano.app.shared.generated.resources.search_clear
+import hazlosano.app.shared.generated.resources.search_hint
 import hazlosano.app.shared.generated.resources.top_app_bar_back
 import hazlosano.app.shared.generated.resources.top_app_bar_menu
 import org.jetbrains.compose.resources.stringResource
@@ -157,12 +167,24 @@ fun MainScreen(
     // depende de la pantalla— pero el aviso y el resultado se los llevaba la navegación.
     val routesViewModel = rememberRoutesViewModel()
 
+    // La búsqueda vive aquí y no dentro de sus resultados porque **el campo está en la barra**: quien
+    // escribe está fuera de la pantalla que su término abre. Construirla dentro sería construirla
+    // después de haberla necesitado.
+    val searchViewModel = rememberSearchViewModel()
+    val searchQuery by searchViewModel.query.collectAsState()
+    val searchResults by searchViewModel.results.collectAsState()
+
+    // Los resultados están abiertos exactamente cuando hay algo escrito. No hay una segunda bandera
+    // que pudiera discrepar del término: cerrar es borrarlo, y borrarlo es cerrar.
+    val searchOpen = searchQuery.isNotBlank()
+
     // Qué hay encima, preguntado una sola vez. Lo usan **las dos** cosas que dependen de ese orden:
     // qué pantalla se pinta y qué deshace el gesto de volver atrás. Repetir el orden en los dos
     // sitios es lo que los deja separarse en cuanto alguien mueve un bloque.
     val layer = topLayer(
         settingsOpen = showSettings,
         movementOpen = movementNav.isOpen,
+        searchOpen = searchOpen,
         pillarInfoOpen = pillarInfo != null,
         sleepHistoryOpen = showSleepHistory,
     )
@@ -175,6 +197,9 @@ fun MainScreen(
             // —por el gesto o por la flecha— la deja corriendo y volver la reencuentra donde iba.
             AppLayer.Movement -> movementNav.back()
             AppLayer.Settings -> showSettings = false
+            // Volver de los resultados es olvidar lo escrito, que es lo mismo que hacen la flecha de
+            // la barra y la equis del campo. Tres gestos, una sola operación.
+            AppLayer.Search -> searchViewModel.clear()
             AppLayer.PillarInfo -> pillarInfo = null
             AppLayer.SleepHistory -> showSleepHistory = false
             null -> Unit
@@ -183,10 +208,11 @@ fun MainScreen(
 
     val openSettings = { showSettings = true }
 
-    // El historial de sueno se pinta **dentro** del cuerpo principal y no en lugar de el, asi que no
-    // es una capa que animar aqui: su cambio pertenece al cuerpo. Sin esto se animaria un
+    // El historial de sueno y los resultados de la busqueda se pintan **dentro** del cuerpo
+    // principal y no en lugar de el —la barra de arriba se queda quieta y lo de debajo cambia—, asi
+    // que no son capas que animar aqui: su cambio pertenece al cuerpo. Sin esto se animaria un
     // deslizamiento entre dos contenidos identicos.
-    val shown = layer?.takeIf { it != AppLayer.SleepHistory }
+    val shown = layer?.takeIf { it != AppLayer.SleepHistory && it != AppLayer.Search }
 
     AnimatedContent(
         targetState = shown,
@@ -280,16 +306,58 @@ fun MainScreen(
                 )
             }
 
-            AppLayer.SleepHistory, null -> {
+            AppLayer.SleepHistory, AppLayer.Search, null -> {
             Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 HazloTopAppBar(
                     title = stringResource(
                         if (showSleepHistory) Res.string.history_title else Res.string.app_name,
                     ),
-                    showBackButton = showSleepHistory,
-                    onBackClick = { showSleepHistory = false },
+                    showBackButton = showSleepHistory || searchOpen,
+                    onBackClick = {
+                        if (searchOpen) searchViewModel.clear() else showSleepHistory = false
+                    },
                     backContentDescription = stringResource(Res.string.top_app_bar_back),
                     menuContentDescription = stringResource(Res.string.top_app_bar_menu),
+                    // El campo **no** se pinta sobre el historial de sueño. Alli la flecha de volver
+                    // ya significa otra cosa, y dos vueltas atras en la misma barra no se
+                    // distinguen; ademas esa pantalla tiene titulo propio, que es lo que el campo
+                    // sustituye.
+                    searchField = if (showSleepHistory) {
+                        null
+                    } else {
+                        {
+                            HazloSearchField(
+                                query = searchQuery,
+                                onQueryChange = searchViewModel::type,
+                                placeholderText = stringResource(Res.string.search_hint),
+                                modifier = Modifier.testTag(SearchTags.FIELD),
+                                // Decorativa: lo que hay que leerle a quien no ve ya lo dice el
+                                // texto de ayuda del campo.
+                                leading = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = null,
+                                    )
+                                },
+                                // La equis solo aparece cuando hay algo que borrar: un boton que no
+                                // hace nada ensena a desconfiar de los que si.
+                                trailing = if (searchQuery.isEmpty()) {
+                                    null
+                                } else {
+                                    {
+                                        IconButton(onClick = searchViewModel::clear) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Close,
+                                                contentDescription = stringResource(
+                                                    Res.string.search_clear,
+                                                ),
+                                            )
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                    },
                     // Sin `onProfileClick` ni `onNotificationsClick`: el muñeco y la campana llevaban desde
                     // siempre sin llevar a ningun sitio, y ahora la barra no los pinta. Vuelven el dia que
                     // haya perfil y haya avisos que dar.
@@ -302,7 +370,18 @@ fun MainScreen(
                         )
                     },
                 )
-                if (showSleepHistory && sleepSessionRepository != null) {
+                if (searchOpen) {
+                    // Los resultados ocupan el cuerpo entero: sin barra de abajo y sin tocar
+                    // `selectedTab`, que sigue debajo esperando a que se vuelva. Que la pestana
+                    // sobreviva no es algo que se restaure — es que nadie la escribe.
+                    SearchResultsScreen(
+                        results = searchResults,
+                        onSelectFilter = searchViewModel::select,
+                        onReachedEnd = searchViewModel::loadMore,
+                        onRetry = searchViewModel::retry,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else if (showSleepHistory && sleepSessionRepository != null) {
                     val historyViewModel = remember {
                         SleepHistoryViewModel(GetSleepHistoryUseCase(sleepSessionRepository))
                     }

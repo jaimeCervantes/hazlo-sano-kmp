@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.hazlosano.data.catalog.catalogRepository
 import com.hazlosano.domain.usecase.GetCatalogUseCase
-import com.hazlosano.domain.usecase.SearchCatalogUseCase
 
 /**
  * Arma el feed del Inicio con lo que este target tenga.
@@ -16,9 +15,5 @@ import com.hazlosano.domain.usecase.SearchCatalogUseCase
  */
 @Composable
 fun rememberHomeFeedViewModel(): HomeFeedViewModel = remember {
-    val repository = catalogRepository()
-    HomeFeedViewModel(
-        getCatalog = GetCatalogUseCase(repository),
-        searchCatalog = SearchCatalogUseCase(repository),
-    )
+    HomeFeedViewModel(getCatalog = GetCatalogUseCase(catalogRepository()))
 }

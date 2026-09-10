@@ -69,6 +69,18 @@ fun HazloTopAppBar(
     notificationsContentDescription: String? = null,
     menuContentDescription: String? = null,
     menuContent: (@Composable ColumnScope.(dismiss: () -> Unit) -> Unit)? = null,
+    /**
+     * Un campo de búsqueda **en lugar del título**.
+     *
+     * Es un hueco y no un par de parámetros de texto por lo mismo que [menuContent]: la barra no
+     * sabe qué se busca ni de dónde sale su texto de ayuda, y así sigue sin conocer ni el dominio ni
+     * el catálogo de recursos. Recibe el campo ya escrito y le da el ancho.
+     *
+     * Sustituye al título en vez de ponerse debajo porque una segunda fila le roba medio centímetro
+     * de alto a las cinco pestañas, todo el rato, para repetir un nombre que ya está en el icono del
+     * teléfono.
+     */
+    searchField: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // Los tres puntos valen para las dos formas: un menu desplegable, o una accion suelta. Se pintan
@@ -122,12 +134,20 @@ fun HazloTopAppBar(
         // Sin vuelta atras y sin perfil no se pinta nada a la izquierda, y el titulo se va al
         // principio. Es lo que pasa hoy en la pantalla principal: el muñeco del perfil llevaba
         // desde siempre sin llevar a ningun sitio, y no hay perfil al que llevar todavia.
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
+        if (searchField != null) {
+            // El campo se come todo el ancho que sobre. El titulo no se pinta: son lo mismo, el
+            // sitio del medio, y quien pasa un campo ha decidido que ahi se escribe.
+            Box(modifier = Modifier.weight(1f).padding(horizontal = HazloSpaces.xs)) {
+                searchField()
+            }
+        } else {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Row {
             if (onNotificationsClick != null) {
                 IconButton(

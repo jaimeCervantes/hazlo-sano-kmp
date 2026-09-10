@@ -10,6 +10,7 @@ package com.hazlosano.feature.main.presentation
 enum class AppLayer {
     Settings,
     Movement,
+    Search,
     PillarInfo,
     SleepHistory,
 }
@@ -29,15 +30,24 @@ enum class AppLayer {
  * El orden va de lo más reciente a lo más antiguo, que es lo que hace que volver atrás deshaga las
  * cosas en el orden inverso al que se hicieron: ajustes se abre **desde** cualquier sitio, así que
  * tapa a todos; el pilar de Movimiento tapa a la ficha de un pilar por lo mismo.
+ *
+ * La búsqueda se abre escribiendo en la barra de arriba, y esa barra sólo existe en el cuerpo
+ * principal. Así que **hoy no puede coincidir con ninguna capa salvo ajustes**, que sí se alcanza
+ * desde los resultados por el menú de los tres puntos. Su sitio entre Movimiento y la ficha de un
+ * pilar no lo decide una carrera que exista: lo decide que ajustes tiene que ganarle y que ella
+ * tiene que ganarle al cuerpo. Queda dicho para que nadie lo lea como una regla más fuerte de lo que
+ * es.
  */
 fun topLayer(
     settingsOpen: Boolean,
     movementOpen: Boolean,
+    searchOpen: Boolean,
     pillarInfoOpen: Boolean,
     sleepHistoryOpen: Boolean,
 ): AppLayer? = when {
     settingsOpen -> AppLayer.Settings
     movementOpen -> AppLayer.Movement
+    searchOpen -> AppLayer.Search
     pillarInfoOpen -> AppLayer.PillarInfo
     sleepHistoryOpen -> AppLayer.SleepHistory
     else -> null
