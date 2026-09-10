@@ -137,3 +137,65 @@ altos en vez de estimarlos.
 **Próximos pasos (opciones).** (1) Verlo en el teléfono, que es lo único que falta; (2) el slice 2 de
 `busqueda-en-la-barra.md`, el campo de las pestañas de pilar; (3) el slice 4 de
 `publicaciones-en-el-home.md`, lo que el buscador dejó a medias.
+
+---
+
+## Slice 1, segunda pasada — 308 dp eran un tercio de aire (2026-09-10)
+
+**Probado en el teléfono.** La tarjeta quedaba con el último tercio vacío: el sitio reservado para
+dos filas que no llegan nunca.
+
+### Las dos filas opcionales están muertas hoy, y se puede demostrar
+
+- **La precisión** sólo se pinta con `averageConfidence < 1`, y `SleepReceiver` guarda
+  `confidence = 1.0f` **fijo**, escrito en el código.
+- **Las fases** sólo se pintan con LIGHT, DEEP o REM, que `mapStatusToPhase` saca de
+  `STATUS_LIGHT = 3`, `STATUS_DEEP = 4` y `STATUS_REM = 5` — valores que el Sleep API de Android no
+  devuelve: `SleepSegmentEvent` reporta si la detección fue exitosa, no en qué etapa de sueño se
+  estaba.
+
+Así que reservar 308 dp era reservar 68 para dos filas imposibles.
+
+### Los cuatro números, medidos
+
+Poniendo la constante a 1 dp —con `heightIn(min)`, nada queda forzado— la prueba reporta el alto
+natural de las cuatro variantes de una vez:
+
+| Variante | Alto |
+|---|---|
+| Sin registrar (cero segmentos) | 192 dp |
+| Con horas de dormirse y despertar | **240 dp** |
+| Con precisión | 260 dp |
+| Con las tres fases | 308 dp |
+
+**240 dp es lo que el app produce hoy**, y es el nuevo alto reservado. La tarjeta baja un 22%.
+
+### Lo que se pierde, dicho
+
+Deja de estar garantizado que la tarjeta no crezca **si alguien arregla el mapeo de fases**. Por eso
+la prueba afirma también los otros dos números en vez de olvidarlos: quien lo arregle verá fallar
+`the rows that cannot happen today would make it grow` con el número nuevo, y decidirá a sabiendas si
+sube la reserva o acepta el crecimiento. Es la diferencia entre una decisión y un descubrimiento.
+
+### Un hallazgo que no se buscaba, y que no se arregla aquí
+
+`mapStatusToPhase` no coincide con el API: los estados reales de `SleepSegmentEvent` son
+`STATUS_SUCCESSFUL`, `STATUS_MISSING_DATA` y `STATUS_NOT_DETECTED`, y aquí el 1 se lee como AWAKE y
+el 2 como ASLEEP. Con eso, **un segmento detectado con éxito se guarda como `UNKNOWN`** —que es lo
+que explica el desglose vacío de la captura— y `confidence` es una constante en vez del dato del
+sensor. No se toca en este slice: es el pilar de sueño y merece su propio encuadre. Queda dicho.
+
+### Archivos tocados
+
+- **UI:** `SleepSummaryCard.kt` (240 dp, y por qué).
+- **Tests:** `SleepSummaryCardHeightTest` (la tabla se parte en dos: lo que el app produce y lo que
+  costaría lo que no).
+- **Spec:** `el_inicio_no_brinca.feature` (dos filas fuera de la tabla, con la razón).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :app:shared:jvmTest` → **474 pruebas, 0 fallos**.
+
+**Recap.** El alto reservado pasa de 308 a 240 dp porque las dos filas que faltaban por reservar no
+pueden llegar con el detector que hay. El aire desaparece y la garantía se mantiene entera para todo
+lo que el app produce de verdad; para lo que no, la prueba se queda de guardia.

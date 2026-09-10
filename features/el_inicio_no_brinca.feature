@@ -56,9 +56,14 @@ Feature: El Inicio no brinca mientras carga
       | clase                                              |
       | de una noche sin registrar: cero segmentos         |
       | con hora de dormirse y de despertar                |
-      | con precisión por debajo del 100%                  |
-      | con las tres fases: ligero, profundo y REM         |
-      | con todo a la vez                                  |
+
+  Note: **las otras dos variantes se sacaron de la tabla al probarlo en un teléfono.** Reservar sitio
+  para la línea de precisión y para el desglose de fases dejaba la tarjeta con un tercio de aire
+  debajo, y ninguna de las dos puede ocurrir hoy: la precisión sólo se pinta con
+  `averageConfidence < 1` y `SleepReceiver` guarda `confidence = 1.0f` fijo; las fases sólo con
+  LIGHT, DEEP o REM, que salen de unos `STATUS_` que el Sleep API de Android no devuelve — no reporta
+  etapas de sueño. La prueba afirma igualmente lo que costarían, para que quien arregle ese mapeo se
+  entere de que la tarjeta crece.
 
   Note: eso importa **hoy y no en abstracto**, porque `App.kt` relee el análisis a los 3 y a los 8
   segundos de abrir. Es a propósito: el detector de sueño de Android escribe sus segmentos poco

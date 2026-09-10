@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.model.SleepPhase
@@ -64,11 +65,15 @@ class SleepSummaryCardHeightTest {
         ),
     )
 
+    /**
+     * Lo que el app produce hoy: una noche sin registrar, y una noche registrada.
+     *
+     * Las otras dos variantes existen en el código pero **no pueden llegar** — ver
+     * [the rows that cannot happen today would make it grow].
+     */
     private val variants = listOf(
         "vacia" to empty,
         "con_horas" to withTimes,
-        "con_precision" to withAccuracy,
-        "con_todo" to withEverything,
     )
 
     @Test
@@ -101,6 +106,47 @@ class SleepSummaryCardHeightTest {
             variants.associate { (tag, _) -> tag to SleepSummaryCardDefaults.height },
             measured,
             "la tarjeta no mide lo mismo con todos los análisis",
+        )
+    }
+
+    /**
+     * Las dos filas que hoy no pueden llegar, y lo que costaría reservarles sitio.
+     *
+     * **La línea de precisión** sólo se pinta con `averageConfidence < 1`, y `SleepReceiver` guarda
+     * `confidence = 1.0f` fijo. **El desglose de fases** sólo se pinta con LIGHT, DEEP o REM, que
+     * salen de unos `STATUS_` (3, 4 y 5) que el Sleep API de Android no devuelve: no reporta etapas
+     * de sueño. Reservarles sitio dejaba la tarjeta con un tercio de aire debajo, probado en un
+     * teléfono.
+     *
+     * Se afirman sus alturas igualmente para que **el día que alguien arregle ese mapeo, esta prueba
+     * le diga que la tarjeta crece** y pueda decidirlo a sabiendas en vez de descubrirlo mirando.
+     */
+    @Test
+    fun `the rows that cannot happen today would make it grow`() = runComposeUiTest {
+        setContent {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            ) {
+                SleepSummaryCard(
+                    analysis = withAccuracy,
+                    accentColor = Color.White,
+                    modifier = Modifier.testTag("con_precision"),
+                )
+                SleepSummaryCard(
+                    analysis = withEverything,
+                    accentColor = Color.White,
+                    modifier = Modifier.testTag("con_todo"),
+                )
+            }
+        }
+
+        assertEquals(
+            mapOf("con_precision" to 260.dp, "con_todo" to 308.dp),
+            mapOf(
+                "con_precision" to onNodeWithTag("con_precision").getUnclippedBoundsInRoot().height,
+                "con_todo" to onNodeWithTag("con_todo").getUnclippedBoundsInRoot().height,
+            ),
+            "cambió lo que costaría reservar sitio para la precisión o las fases",
         )
     }
 

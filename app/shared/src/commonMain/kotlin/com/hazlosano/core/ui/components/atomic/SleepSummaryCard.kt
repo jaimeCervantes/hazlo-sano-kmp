@@ -67,20 +67,22 @@ object SleepSummaryCardDefaults {
      * crece cuando el detector de Android termina de escribir sus segmentos, unos segundos después
      * de abrir el app, y al crecer empuja hacia abajo los cuatro pilares y todo lo demás.
      *
-     * El número no se eligió a ojo: son los 308 dp que mide la variante más rica —con horas,
-     * precisión y las tres fases—, leídos componiéndola. `SleepSummaryCardHeightTest` compone las
-     * cuatro variantes y afirma que todas miden esto; si alguien añade una fila que no quepa, esa
-     * prueba lo dice con el número nuevo antes de que llegue a un teléfono.
+     * **Son los 240 dp de lo que el app produce hoy**: encabezado, las tres cifras, las horas de
+     * dormirse y despertar, y la valoración. Medidos componiéndolo, no elegidos a ojo.
      *
-     * **Es bastante aire la primera noche**, cuando no hay nada registrado y la tarjeta enseña tres
-     * ceros en un espacio pensado para el doble de información. Se acepta a sabiendas: el detector
-     * escribe sus segmentos a los pocos segundos de abrir el app, así que ese estado dura una noche
-     * y el otro dura siempre.
+     * Reservar más sería reservar para dos filas que **no pueden ocurrir**, y se probó en un
+     * teléfono: la tarjeta quedaba con un tercio de aire debajo. La línea de precisión sólo se pinta
+     * con `averageConfidence < 1`, y `SleepReceiver` guarda `confidence = 1.0f` fijo; el desglose de
+     * fases sólo se pinta con LIGHT, DEEP o REM, que salen de unos `STATUS_` que el Sleep API de
+     * Android no devuelve — no reporta etapas de sueño.
+     *
+     * `SleepSummaryCardHeightTest` afirma este número **y también los otros dos**, para que el día
+     * que alguien arregle ese mapeo se entere de que la tarjeta crece y decida a sabiendas.
      *
      * Y es el mismo alto que reserva su hueco mientras se lee de la base de datos: una sola cifra,
      * imposible de desincronizar.
      */
-    val height: Dp = 308.dp
+    val height: Dp = 240.dp
 }
 
 @Composable
