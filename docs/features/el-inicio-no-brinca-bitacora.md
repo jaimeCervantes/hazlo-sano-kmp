@@ -195,6 +195,10 @@ sensor. No se toca en este slice: es el pilar de sueño y merece su propio encua
 ### Comandos y resultados
 
 - `.\gradlew.bat :app:shared:jvmTest` → **474 pruebas, 0 fallos**.
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
 
 **Recap.** El alto reservado pasa de 308 a 240 dp porque las dos filas que faltaban por reservar no
 pueden llegar con el detector que hay. El aire desaparece y la garantía se mantiene entera para todo
