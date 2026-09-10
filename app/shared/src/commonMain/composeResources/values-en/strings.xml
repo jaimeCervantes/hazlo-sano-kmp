@@ -167,6 +167,8 @@
 
     <!-- Movement: figures, shared by the tracker, the outings list and the detail -->
     <string name="home_feed_filter_all">All</string>
+    <string name="home_feed_search_hint">Filter what is loaded…</string>
+    <string name="home_feed_no_matches">Nothing loaded matches. Scroll to bring more.</string>
     <string name="home_feed_empty">Nothing published here yet.</string>
     <string name="home_feed_failed">Publications could not be loaded.</string>
     <string name="home_feed_retry">Try again</string>

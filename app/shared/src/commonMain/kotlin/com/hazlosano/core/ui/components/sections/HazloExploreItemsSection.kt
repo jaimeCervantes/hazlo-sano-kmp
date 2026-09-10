@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.hazlosano.core.ui.components.atomic.HazloSearchField
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,7 +107,7 @@ fun <T> HazloExploreItemsSection(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        HazloExploreSearchField(
+        HazloSearchField(
             query = searchQuery,
             onQueryChange = onSearchQueryChange,
             placeholderText = placeholderText,
@@ -156,30 +155,6 @@ fun <T> HazloExploreItemsSection(
             }
         }
     }
-}
-
-@Composable
-private fun HazloExploreSearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    placeholderText: String,
-    accentColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        placeholder = { Text(placeholderText) },
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(50.dp),
-        singleLine = true,
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-            focusedBorderColor = accentColor,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-        ),
-    )
 }
 
 internal fun <T> filterExploreSectionItems(

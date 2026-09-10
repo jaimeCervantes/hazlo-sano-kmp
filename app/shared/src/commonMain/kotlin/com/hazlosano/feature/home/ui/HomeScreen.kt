@@ -30,6 +30,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.AsyncImageBackground
 import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
+import com.hazlosano.core.ui.components.atomic.HazloSearchField
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.components.atomic.PillarBadge
 import com.hazlosano.core.ui.components.atomic.SectionHeader
@@ -65,6 +69,7 @@ import com.hazlosano.feature.home.presentation.HomeViewModel
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.action_retry
 import hazlosano.app.shared.generated.resources.home_failed_message
+import hazlosano.app.shared.generated.resources.home_feed_search_hint
 import hazlosano.app.shared.generated.resources.home_feed_title
 import org.jetbrains.compose.resources.stringResource
 
@@ -91,6 +96,10 @@ fun HomeScreen(
     // todo Inicio cada vez que llega una pagina.
     val feedViewModel = rememberHomeFeedViewModel()
     val feedState by feedViewModel.state.collectAsState()
+    // El termino no viaja al ViewModel: acota lo que ya se trajo y no cambia lo que se pide, asi que
+    // no forma parte del estado de la carga. Meterlo alli obligaria a decidir que hace una peticion
+    // en vuelo cuando alguien escribe, que es una pregunta que aqui no existe.
+    var feedQuery by remember { mutableStateOf("") }
 
     HomeBoard(
         state = uiState,
@@ -100,6 +109,8 @@ fun HomeScreen(
         onSleepCardClick = onSleepCardClick,
         onRetry = viewModel::refresh,
         feedState = feedState,
+        feedQuery = feedQuery,
+        onFeedQueryChange = { feedQuery = it },
         onSelectFeedFilter = feedViewModel::select,
         onFeedReachedEnd = feedViewModel::loadMore,
         onRetryFeed = feedViewModel::retry,
@@ -121,6 +132,8 @@ internal fun HomeBoard(
     onSleepCardClick: (() -> Unit)?,
     onRetry: () -> Unit = {},
     feedState: HomeFeedUiState = HomeFeedUiState(),
+    feedQuery: String = "",
+    onFeedQueryChange: (String) -> Unit = {},
     onSelectFeedFilter: (PillarType?) -> Unit = {},
     onFeedReachedEnd: () -> Unit = {},
     onRetryFeed: () -> Unit = {},
@@ -171,6 +184,8 @@ internal fun HomeBoard(
                 content = state.content,
                 onNavigateToTracker = onNavigateToTracker,
                 feedState = feedState,
+                feedQuery = feedQuery,
+                onFeedQueryChange = onFeedQueryChange,
                 onSelectFeedFilter = onSelectFeedFilter,
                 onFeedReachedEnd = onFeedReachedEnd,
                 onRetryFeed = onRetryFeed,
@@ -183,6 +198,8 @@ private fun LazyListScope.homeSections(
     content: HomeContent,
     onNavigateToTracker: () -> Unit,
     feedState: HomeFeedUiState,
+    feedQuery: String,
+    onFeedQueryChange: (String) -> Unit,
     onSelectFeedFilter: (PillarType?) -> Unit,
     onFeedReachedEnd: () -> Unit,
     onRetryFeed: () -> Unit,
@@ -211,6 +228,15 @@ private fun LazyListScope.homeSections(
         Spacer(modifier = Modifier.height(HazloSpaces.sm))
         HomeFeedFilters(selected = feedState.filter, onSelect = onSelectFeedFilter)
         Spacer(modifier = Modifier.height(HazloSpaces.sm))
+        HazloSearchField(
+            query = feedQuery,
+            onQueryChange = onFeedQueryChange,
+            placeholderText = stringResource(Res.string.home_feed_search_hint),
+            modifier = Modifier
+                .padding(horizontal = HazloSpaces.gutter)
+                .testTag(HomeFeedTags.SEARCH),
+        )
+        Spacer(modifier = Modifier.height(HazloSpaces.sm))
     }
 
     // `content.feedPosts` ya no se pinta: era la parte inventada de `MockHomeRepository`, y estas
@@ -218,6 +244,7 @@ private fun LazyListScope.homeSections(
     // roadmap; este slice quita una ficcion, no todas.
     homeFeed(
         state = feedState,
+        query = feedQuery,
         onReachedEnd = onFeedReachedEnd,
         onRetry = onRetryFeed,
     )

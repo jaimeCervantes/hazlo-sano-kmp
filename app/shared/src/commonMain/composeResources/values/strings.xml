@@ -176,6 +176,8 @@
 
     <!-- Movimiento: métricas, compartidas por el tracker, el historial y el detalle -->
     <string name="home_feed_filter_all">Todos</string>
+    <string name="home_feed_search_hint">Filtrar lo cargado…</string>
+    <string name="home_feed_no_matches">Nada de lo cargado coincide. Baja para traer más.</string>
     <string name="home_feed_empty">Aún no hay publicaciones aquí.</string>
     <string name="home_feed_failed">No se pudieron cargar las publicaciones.</string>
     <string name="home_feed_retry">Reintentar</string>

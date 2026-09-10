@@ -124,3 +124,78 @@ siempre. Y de paso, la traducción de una publicación a una tarjeta sale de don
 
 **Próximos pasos (opciones).** (1) Probarlo con red en el teléfono; (2) el slice 2, buscar por texto
 —`/api/search` existe—; (3) el jardín, que empieza con un endpoint en el proyecto hermano.
+
+---
+
+## Slice 1, segunda pasada — dos columnas y un campo para acotar (2026-09-09)
+
+Probado en el teléfono. Dos cosas: el feed pedía la rejilla de dos columnas que usan las secciones de
+los pilares, y faltaba el campo de búsqueda.
+
+### Dos por fila, con la misma función que ya repartía
+
+En un teléfono en vertical, una tarjeta a lo ancho por publicación convierte el feed en un pasillo.
+Ahora son dos, **reusando `chunkExploreSectionItems`**, que es la que ya repartía las rejillas de los
+pilares — copiar el reparto habría sido la segunda versión de una función de cuatro líneas cuyo único
+detalle interesante es qué hacer con la última fila incompleta.
+
+Se reparte en filas y **cada fila es un elemento de la lista perezosa**, en vez de meter una rejilla
+perezosa dentro de la `LazyColumn` del Inicio: dos de esas en el mismo eje no se pueden medir. Así el
+scroll infinito sigue funcionando —el disparo pasa a ser la última *fila*— y la rejilla no obliga a
+componer lo que no se ve.
+
+La última fila puede venir a medias, y su hueco se reserva con un `Spacer` de peso: sin él, la
+tarjeta que sí está crecería al doble de las de arriba.
+
+### El campo de búsqueda, y por qué **no** llama al buscador del sitio
+
+Acota **lo que ya se trajo**, con `matchesHazloProductQuery` — la misma función que filtra las
+rejillas de los pilares, que es donde el usuario señaló.
+
+**Eso tiene un límite, y la redacción lo dice en vez de esconderlo.** El sitio tiene un buscador de
+verdad (`/api/search`, con su embedding y su paginación), y esto no lo es: quien escriba algo que no
+está entre las veinte publicaciones cargadas no verá resultados aunque el sitio los tenga. Por eso:
+
+- el marcador dice **«Filtrar lo cargado…»** y no «Buscar»;
+- cuando no hay coincidencias, el mensaje es **«Nada de lo cargado coincide. Baja para traer más.»**,
+  no «no hay resultados» — que sería afirmar algo que veinte publicaciones no pueden sostener.
+
+**Por qué no se hizo contra `/api/search` ahora:** su respuesta es
+`ISearchPostResultDTO = Post & {...}`, que pasa por un mapeador distinto del que produce el feed, y
+**no se puede comprobar sin llamar a la API**. El cliente del app es tolerante a claves desconocidas,
+así que unos nombres de campo distintos no fallarían: devolverían tarjetas en blanco. Enviar eso a
+ciegas era peor que no enviarlo. Sigue siendo el slice 2, ahora con esa comprobación como primer
+paso.
+
+### Un componente más que sale de donde estaba encerrado
+
+El campo de escribir era `private` dentro de `HazloExploreItemsSection`. Sale a
+`HazloSearchField`, en `atomic/`, donde le corresponde: no lee el catálogo de recursos ni sabe qué es
+una publicación — el texto de ayuda entra por parámetro. Es el segundo componente que este slice
+libera, después de `HazloPublicationCard`.
+
+### Archivos tocados
+
+- **UI:** `HazloSearchField.kt` (nuevo, promovido), `HazloExploreItemsSection.kt` (lo usa),
+  `HomeFeed.kt` (rejilla y filtro), `HomeScreen.kt` (el campo y su término).
+- **Recursos:** `home_feed_search_hint` y `home_feed_no_matches`, en los dos idiomas.
+
+### Comandos y resultados
+
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **436 pruebas, 0 fallos**.
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Sin cobertura de host
+
+**Ni la rejilla ni el filtro los mira un test**, por lo de siempre: componer el Inicio entero necesita
+sus ViewModels con la persistencia real. Lo que sí está probado por debajo es el reparto en filas
+(`chunkExploreSectionItems`) y la coincidencia (`matchesHazloProductQuery`), que ya venían con sus
+pruebas de cuando servían a los pilares — reusarlas fue también reusar su cobertura.
+
+**Recap.** El feed va en dos columnas como las rejillas de los pilares, reusando su misma función de
+reparto, y con cada fila como un elemento perezoso para no romper el scroll infinito. El campo de
+búsqueda acota lo cargado y **lo dice**: se llama «Filtrar lo cargado» porque eso es lo que hace, y el
+buscador de verdad del sitio sigue esperando a que alguien compruebe qué forma tiene su respuesta.

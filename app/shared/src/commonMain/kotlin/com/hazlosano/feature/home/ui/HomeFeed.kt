@@ -4,6 +4,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -21,6 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import com.hazlosano.core.ui.components.cards.HazloPublicationCard
+import com.hazlosano.core.ui.components.sections.chunkExploreSectionItems
+import com.hazlosano.core.ui.components.sections.filterExploreSectionItems
+import com.hazlosano.core.ui.components.sections.matchesHazloProductQuery
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.model.pillarShortLabel
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -30,6 +34,7 @@ import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.home_feed_empty
 import hazlosano.app.shared.generated.resources.home_feed_failed
 import hazlosano.app.shared.generated.resources.home_feed_filter_all
+import hazlosano.app.shared.generated.resources.home_feed_no_matches
 import hazlosano.app.shared.generated.resources.home_feed_no_more
 import hazlosano.app.shared.generated.resources.home_feed_retry
 import hazlosano.app.shared.generated.resources.home_feed_stale
@@ -38,6 +43,8 @@ import org.jetbrains.compose.resources.stringResource
 /** Etiquetas de prueba: el feed se afirma por aquí y no por su redacción. */
 object HomeFeedTags {
     const val FILTERS: String = "home_feed_filters"
+    const val SEARCH: String = "home_feed_search"
+    const val NO_MATCHES: String = "home_feed_no_matches"
     const val EMPTY: String = "home_feed_empty"
     const val FAILED: String = "home_feed_failed"
     const val STALE: String = "home_feed_stale"
@@ -118,6 +125,7 @@ private fun FeedFilterChip(
  */
 fun LazyListScope.homeFeed(
     state: HomeFeedUiState,
+    query: String,
     onReachedEnd: () -> Unit,
     onRetry: () -> Unit,
 ) {
@@ -130,22 +138,56 @@ fun LazyListScope.homeFeed(
         }
     }
 
-    itemsIndexed(state.publications) { index, publication ->
-        if (index == state.publications.lastIndex) onReachedEnd()
-        HazloPublicationCard(
-            publication = publication,
-            onFavoriteClick = {},
+    // **El termino acota lo que ya se trajo; no vuelve a preguntar al sitio.** El sitio tiene un
+    // buscador de verdad (`/api/search`), y esto no lo es: quien escriba algo que no esta entre las
+    // publicaciones cargadas no vera resultados aunque el sitio los tenga. Por eso lo que se dice
+    // cuando no hay coincidencias habla de lo cargado y no del catalogo — decir «no hay nada» seria
+    // afirmar algo que estas veinte publicaciones no pueden sostener.
+    val shown = filterExploreSectionItems(
+        items = state.publications,
+        query = query,
+        matchesQuery = ::matchesHazloProductQuery,
+    )
+
+    // Dos por fila, como las rejillas de los pilares, y con su misma funcion de repartir: en un
+    // telefono en vertical una tarjeta a lo ancho por publicacion convierte el feed en un pasillo.
+    //
+    // Se reparte en filas y cada fila es un elemento de la lista perezosa, en vez de una rejilla
+    // perezosa dentro de otra lista perezosa — dos de esas en el mismo eje no se pueden medir.
+    val rows = chunkExploreSectionItems(shown, gridColumns = FEED_COLUMNS)
+
+    itemsIndexed(rows) { index, rowItems ->
+        if (index == rows.lastIndex) onReachedEnd()
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.xs)
-                .testTag(HomeFeedTags.publication(publication.id)),
-        )
+                .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.xs),
+            horizontalArrangement = Arrangement.spacedBy(HazloSpaces.sm),
+        ) {
+            rowItems.forEach { publication ->
+                HazloPublicationCard(
+                    publication = publication,
+                    onFavoriteClick = {},
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(HomeFeedTags.publication(publication.id)),
+                )
+            }
+            // La ultima fila puede venir a medias: el hueco se reserva para que la tarjeta que si
+            // esta no crezca al doble de las de arriba.
+            repeat(FEED_COLUMNS - rowItems.size) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+        }
     }
 
     item {
-        FeedFooter(state = state, onRetry = onRetry)
+        FeedFooter(state = state, filtering = query.isNotBlank(), matches = shown.size, onRetry = onRetry)
     }
 }
+
+/** Dos, como las rejillas de los pilares. */
+private const val FEED_COLUMNS = 2
 
 /** `itemsIndexed` con la firma que hace falta, sin arrastrar la de claves que aquí no se usa. */
 private fun <T> LazyListScope.itemsIndexed(
@@ -160,7 +202,12 @@ private fun <T> LazyListScope.itemsIndexed(
  * decirlo aunque además esté cargando, y «no hay más» sólo tiene sentido cuando hay algo.
  */
 @Composable
-private fun FeedFooter(state: HomeFeedUiState, onRetry: () -> Unit) {
+private fun FeedFooter(
+    state: HomeFeedUiState,
+    filtering: Boolean,
+    matches: Int,
+    onRetry: () -> Unit,
+) {
     when {
         state.failed -> Column(
             modifier = Modifier.fillMaxWidth().padding(HazloSpaces.gutter).testTag(HomeFeedTags.FAILED),
@@ -176,6 +223,13 @@ private fun FeedFooter(state: HomeFeedUiState, onRetry: () -> Unit) {
                 Text(stringResource(Res.string.home_feed_retry))
             }
         }
+
+        // Escribiendo algo que no aparece entre lo cargado. Se dice **eso** y no «no hay nada»:
+        // esto acota veinte publicaciones, no busca en el catalogo.
+        filtering && matches == 0 -> FeedNote(
+            text = stringResource(Res.string.home_feed_no_matches),
+            tag = HomeFeedTags.NO_MATCHES,
+        )
 
         state.loading -> Box(
             modifier = Modifier
@@ -194,7 +248,7 @@ private fun FeedFooter(state: HomeFeedUiState, onRetry: () -> Unit) {
         )
 
         // «No hay más» sólo se le dice a quien llegó hasta el final habiendo leído algo.
-        state.publications.isNotEmpty() -> FeedNote(
+        state.publications.isNotEmpty() && !state.hasMore -> FeedNote(
             text = stringResource(Res.string.home_feed_no_more),
             tag = null,
         )
