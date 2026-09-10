@@ -189,6 +189,7 @@ Ana y Carlos por otra ficción sería exactamente lo que este roadmap existe par
 |---|---|
 | 1 — el Home enseña publicaciones de verdad | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
 | 2 — buscar por texto | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
-| 3 — la búsqueda se queda cargando | **Pendiente** — diagnosticado, sin arreglar |
+| 3 — la búsqueda se queda cargando | **Hecho** — ver la [bitácora](publicaciones-en-el-home-bitacora.md) |
 | 4 — lo que el buscador dejó a medias | Pendiente |
+| — la búsqueda se muda a la barra de arriba | En curso: [`busqueda-en-la-barra.md`](busqueda-en-la-barra.md) |
 | — el jardín en lugar de los campeones | **Bloqueado**: necesita un endpoint en el proyecto hermano |

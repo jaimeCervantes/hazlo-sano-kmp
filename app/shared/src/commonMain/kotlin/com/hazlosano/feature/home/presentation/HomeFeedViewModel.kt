@@ -54,6 +54,11 @@ data class HomeFeedUiState(
  * necesita: bajar veinte publicaciones, entrar a un pilar y volver no puede costar volver a
  * bajarlas. Es la misma lección que dejó el indicador de importación de rutas, que se perdía al
  * navegar porque su ViewModel se construía dentro de una rama que la navegación desmonta.
+ *
+ * **Hay como mucho una petición en vuelo, y es cancelable.** Ésa es la regla de la que salen las
+ * tres garantías que antes se incumplían: nadie empieza una segunda mientras viaja la primera, quien
+ * empieza una lista nueva cancela la anterior en vez de dejarla llegar para descartarla, y lo que
+ * vuelve se escribe sobre el estado que hay **al volver** y no sobre la foto de antes de salir.
  */
 class HomeFeedViewModel(
     private val getCatalog: GetCatalogUseCase,
@@ -74,6 +79,15 @@ class HomeFeedViewModel(
     /** La última página que se pidió con éxito. La siguiente es esta más una. */
     private var loadedPage = 0
 
+    /**
+     * Lo que está viajando ahora mismo, si hay algo.
+     *
+     * **La espera al teclear y la ida a la red son la misma petición**, y por eso son un solo
+     * trabajo. Antes eran dos: se cancelaba la espera y la corrutina de red seguía viva, así que la
+     * respuesta de un término abandonado llegaba igual y había que descartarla al llegar.
+     */
+    private var inFlight: Job? = null
+
     init {
         loadMore()
     }
@@ -86,85 +100,14 @@ class HomeFeedViewModel(
      *
      * Elegir el filtro que ya está puesto no hace nada: sería tirar tres páginas para volver a
      * pedirlas iguales.
+     *
+     * El término se conserva: elegir un pilar acota la búsqueda que se está haciendo, no la cancela
+     * — que es lo que hace el sitio con su parámetro `pillar`.
      */
     fun select(pillar: PillarType?) {
         if (pillar == _state.value.filter) return
-        loadedPage = 0
-        // El término se conserva: elegir un pilar acota la búsqueda que se está haciendo, no la
-        // cancela — que es lo que hace el sitio con su parámetro `pillar`.
-        _state.value = HomeFeedUiState(filter = pillar, query = _state.value.query)
-        loadMore()
+        restart(filter = pillar, query = _state.value.query, wait = Duration.ZERO)
     }
-
-    /**
-     * Pide la página siguiente, si es que hay y si no se está pidiendo ya otra.
-     *
-     * Las dos guardas importan por lo mismo: la pantalla llama a esto **al llegar al final**, y ese
-     * final se alcanza varias veces mientras una petición está en vuelo. Sin ellas, un scroll
-     * decidido dispara media docena de peticiones y las publicaciones llegan repetidas.
-     */
-    fun loadMore() {
-        val current = _state.value
-        if (current.loading || !current.hasMore) return
-
-        val filter = current.filter
-        val page = loadedPage + 1
-        _state.value = current.copy(loading = true, failed = false)
-
-        val query = current.query
-
-        viewModelScope.launch {
-            // Con término se le pregunta al buscador del sitio; sin él, al feed. Son dos endpoints
-            // con dos contratos, y por eso son dos casos de uso: ver `CatalogRepository`.
-            val result = if (query.isBlank()) {
-                getCatalog(pillar = filter, page = page, pageSize = pageSize)
-            } else {
-                searchCatalog(query = query, pillar = filter, page = page, pageSize = pageSize)
-            }
-
-            // El filtro o el término pudieron cambiar mientras esto viajaba, y entonces lo que llegó
-            // es de otra lista. Descartarlo es lo correcto: quien los cambió ya dejó pedida la
-            // primera página de la nueva, y añadir esto encima mezclaría las dos.
-            if (_state.value.filter != filter || _state.value.query != query) return@launch
-
-            _state.value = when (result) {
-                is CatalogPage.Fresh -> {
-                    loadedPage = page
-                    current.copy(
-                        publications = current.publications + result.publications,
-                        loading = false,
-                        hasMore = result.hasMore,
-                        stale = false,
-                        firstPagePending = false,
-                    )
-                }
-
-                is CatalogPage.Cached -> {
-                    loadedPage = page
-                    current.copy(
-                        publications = current.publications + result.publications,
-                        loading = false,
-                        // Lo guardado se acaba donde se acabó de guardar: seguir pidiendo páginas de
-                        // una caché que ya se agotó es pedirle al disco lo que no tiene.
-                        hasMore = result.publications.size >= pageSize,
-                        stale = true,
-                        firstPagePending = false,
-                    )
-                }
-
-                // Nada que enseñar y nada guardado. **No se vacía lo ya cargado**: quien lleva tres
-                // páginas leídas y pierde la red se queda con sus tres páginas y un aviso, no con
-                // una pantalla en blanco.
-                CatalogPage.Unavailable -> current.copy(
-                    loading = false,
-                    failed = true,
-                    hasMore = false,
-                )
-            }
-        }
-    }
-
-    private var searchJob: Job? = null
 
     /**
      * Lo que se escribe, que no se pregunta en el acto.
@@ -175,27 +118,114 @@ class HomeFeedViewModel(
      */
     fun search(text: String) {
         if (text == _state.value.query) return
-        searchJob?.cancel()
-        loadedPage = 0
-        _state.value = _state.value.copy(
-            query = text,
-            publications = emptyList(),
-            hasMore = true,
-            failed = false,
-            firstPagePending = true,
-        )
-        searchJob = viewModelScope.launch {
-            delay(typingPause)
-            loadMore()
-        }
+        restart(filter = _state.value.filter, query = text, wait = typingPause)
+    }
+
+    /**
+     * Pide la página siguiente, si es que hay y si no se está pidiendo ya otra.
+     *
+     * Las dos guardas importan por lo mismo: la pantalla llama a esto **al llegar al final**, y ese
+     * final se alcanza varias veces mientras una petición está en vuelo. Sin ellas, un scroll
+     * decidido dispara media docena de peticiones y las publicaciones llegan repetidas.
+     *
+     * Que la guarda de `loading` esté **sólo aquí** y no dentro de [ask] es lo que arregla el fallo
+     * que dejaba el Inicio muerto: empezar una lista nueva pasa por [restart], que no le pide
+     * permiso a una petición que acaba de cancelar.
+     */
+    fun loadMore() {
+        val current = _state.value
+        if (current.loading || !current.hasMore) return
+        ask(wait = Duration.ZERO)
     }
 
     /** Reintenta lo que falló, sin tocar lo que ya se había leído. */
     fun retry() {
-        if (_state.value.failed) {
-            _state.value = _state.value.copy(hasMore = true, failed = false)
-            loadMore()
+        if (!_state.value.failed) return
+        _state.value = _state.value.copy(hasMore = true, failed = false)
+        loadMore()
+    }
+
+    /**
+     * Empieza una lista nueva: cancela lo que viajaba y pide su primera página.
+     *
+     * Cambiar de filtro y cambiar de término son la misma operación —otra lista desde su página 1— y
+     * por eso comparten esto. Cuando eran dos caminos separados, uno de los dos se olvidaba de
+     * apagar el indicador de la petición que acababa de abandonar.
+     */
+    private fun restart(filter: PillarType?, query: String, wait: Duration) {
+        inFlight?.cancel()
+        loadedPage = 0
+        _state.value = HomeFeedUiState(filter = filter, query = query)
+        ask(wait)
+    }
+
+    /**
+     * Sale a pedir una página, tras esperar [wait] si hay que esperar.
+     *
+     * No comprueba si ya hay otra en vuelo: eso es cosa de quien llama. [loadMore] lo comprueba
+     * porque la pantalla lo dispara sin querer; [restart] no, porque acaba de cancelar la anterior.
+     */
+    private fun ask(wait: Duration) {
+        val from = _state.value
+        val filter = from.filter
+        val query = from.query
+        val page = loadedPage + 1
+        _state.value = from.copy(loading = true, failed = false)
+
+        inFlight = viewModelScope.launch {
+            delay(wait)
+
+            // Con término se le pregunta al buscador del sitio; sin él, al feed. Son dos endpoints
+            // con dos contratos, y por eso son dos casos de uso: ver `CatalogRepository`.
+            val result = if (query.isBlank()) {
+                getCatalog(pillar = filter, page = page, pageSize = pageSize)
+            } else {
+                searchCatalog(query = query, pillar = filter, page = page, pageSize = pageSize)
+            }
+
+            // **Sobre el estado que hay ahora, no sobre `from`.** `from` es la foto de antes de
+            // salir: escribir sobre ella devolvería el app a como estaba cuando la petición
+            // arrancó, pisando lo que hubiera cambiado mientras viajaba.
+            val now = _state.value
+
+            // Quien cambia de lista cancela esta petición, así que normalmente no se llega aquí con
+            // una respuesta ajena. Se comprueba igual porque una suspensión que no atienda la
+            // cancelación dejaría llegar la respuesta de otra lista, y añadirla mezclaría las dos.
+            if (now.filter != filter || now.query != query) return@launch
+
+            if (result !is CatalogPage.Unavailable) loadedPage = page
+            _state.value = now.plus(result)
         }
+    }
+
+    /** Lo que llegó, encima de lo que ya había. */
+    private fun HomeFeedUiState.plus(result: CatalogPage): HomeFeedUiState = when (result) {
+        is CatalogPage.Fresh -> copy(
+            publications = publications + result.publications,
+            loading = false,
+            hasMore = result.hasMore,
+            stale = false,
+            firstPagePending = false,
+        )
+
+        is CatalogPage.Cached -> copy(
+            publications = publications + result.publications,
+            loading = false,
+            // Lo guardado se acaba donde se acabó de guardar: seguir pidiendo páginas de una caché
+            // que ya se agotó es pedirle al disco lo que no tiene.
+            hasMore = result.publications.size >= pageSize,
+            stale = true,
+            firstPagePending = false,
+        )
+
+        // Nada que enseñar y nada guardado. **No se vacía lo ya cargado**: quien lleva tres páginas
+        // leídas y pierde la red se queda con sus tres páginas y un aviso, no con una pantalla en
+        // blanco.
+        CatalogPage.Unavailable -> copy(
+            loading = false,
+            failed = true,
+            hasMore = false,
+        )
     }
 
     private companion object {

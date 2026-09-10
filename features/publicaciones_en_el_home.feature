@@ -176,10 +176,15 @@ Feature: El Home enseña lo que el proyecto publica
     Then el indicador de carga se apaga
 
     Examples:
-      | desenlace                                  |
-      | llega con resultados                       |
-      | falla                                      |
-      | llega tarde y se descarta por ser de otra  |
+      | desenlace                                        |
+      | llega con resultados                             |
+      | falla                                            |
+      | queda obsoleta y termina la que la sustituye     |
+
+  Note: la tercera fila se redactó al arreglarlo. Decía «llega tarde y se descarta por ser de otra»,
+  que describía el mecanismo viejo: dejar llegar la respuesta abandonada para tirarla. Al cancelarla
+  no llega, así que **el indicador pasa a ser de la petición que la sustituye** y se apaga cuando esa
+  termina. La garantía que importaba —nadie se queda esperando para siempre— es la misma.
 
   @slice-3
   Scenario: Una respuesta descartada no bloquea las siguientes

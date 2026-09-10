@@ -301,3 +301,89 @@ Ahora la pregunta la contesta el buscador del sitio, así que se puede afirmar s
 páginas. Comprobar la forma antes de escribir el cliente evitó el fallo que se había previsto —
 tarjetas sin título— y destapó otro que nadie buscaba: el endpoint reparte los correos de quien
 publica, sin pedir credenciales.
+
+---
+
+## Slice 3 — La búsqueda se queda cargando (2026-09-10)
+
+**El diagnóstico del roadmap era correcto y estaba completo**: cuatro fallos encadenados en
+`HomeFeedViewModel`, ninguno de ellos una carrera. Lo que este slice añade es que **los cuatro salen
+de una sola causa**, y que arreglarlos uno a uno habría dejado la causa puesta.
+
+### Los cuatro eran uno: nadie era dueño de la petición en vuelo
+
+`loading` intentaba ser dos cosas a la vez — un dato de la pantalla y el cerrojo que impide pedir dos
+páginas — y nadie sabía a qué petición pertenecía. De ahí salen los cuatro síntomas: la guarda de
+frescura volvía sin apagarlo, `loadMore` lo leía como cerrojo y se negaba a arrancar, `search`
+empezaba una lista nueva sin tocarlo, y el `current.copy` final escribía la foto de antes de salir.
+
+El arreglo no son cuatro parches, son tres reglas:
+
+1. **Hay como mucho una petición en vuelo, y está guardada** (`inFlight`). La espera del *debounce* y
+   la ida a la red son **el mismo trabajo**, no dos. Antes eran dos, y por eso cancelar el
+   *debounce* dejaba viva la corrutina de red.
+2. **Empezar otra lista la cancela.** `select` y `search` eran dos caminos que hacían lo mismo —otra
+   lista desde su página 1— y cada uno se olvidaba de algo distinto. Ahora los dos son `restart`.
+3. **La guarda de `loading` vive sólo en `loadMore`**, que es quien la necesita porque la pantalla lo
+   dispara sin querer al pintar la última fila. `restart` no le pide permiso a una petición que
+   acaba de cancelar. Ése era el bloqueo.
+
+Y lo que vuelve se escribe sobre `_state.value`, leído **al volver**, no sobre la foto de antes.
+
+### La prueba que faltaba, y por qué hacían falta dos dobles
+
+Las dieciséis pruebas que había usan un catálogo que contesta al instante: **ninguna tenía nunca una
+petición en vuelo cuando ocurría lo siguiente**, que es exactamente la condición de los cuatro
+fallos. `HomeFeedInFlightTest` trae un doble que se queda a medias y se suelta cuando el test quiera.
+
+Son **dos** dobles en uno, y la distinción no es un capricho:
+
+- **Atendiendo la cancelación** (`CompletableDeferred.await()`, lo que hace un cliente HTTP sano) la
+  petición abandonada muere y su respuesta no llega. Con éste se prueba que el ViewModel cancela de
+  verdad.
+- **Sin atenderla** (`suspendCoroutine`, no `suspendCancellableCoroutine`) la respuesta llega igual,
+  ya abandonada. Con éste se prueba la guarda de frescura — que **con un cliente sano es inalcanzable
+  y por eso parecería código muerto**. No lo es: es lo único que impide mezclar dos listas el día que
+  una suspensión no atienda la cancelación.
+
+### Se comprobó que las pruebas fallan contra el código roto
+
+No se dieron por buenas por pasar. Se guardó el arreglo con `git stash`, se corrió la clase nueva
+contra el `HomeFeedViewModel` original y **fallaron 5 de 9**, incluida la del fallo tal y como se
+reportó (`typing while the feed is loading searches anyway`). Las otras 4 pasan contra ambos: son
+invariantes, no regresiones.
+
+### Una frase de la spec que cambió porque el mecanismo cambió
+
+La tercera fila de «Toda petición que termina apaga el indicador» decía «llega tarde y se descarta
+por ser de otra». Eso describía el mecanismo viejo — dejar llegar la respuesta para tirarla. Al
+cancelarla no llega, así que **el indicador pasa a ser de la petición que la sustituye** y se apaga
+cuando ésa termina. La fila ahora dice eso, con una nota explicando el cambio. La garantía que
+importaba —nadie se queda esperando para siempre— es la misma.
+
+### Archivos tocados
+
+- **Presentación:** `HomeFeedViewModel.kt` (`inFlight`, `restart`, `ask`, `plus`; fuera `searchJob`).
+- **Tests:** `HomeFeedInFlightTest.kt` (nuevo, 9).
+- **Spec:** `publicaciones_en_el_home.feature` (la tercera fila de la tabla del slice 3).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :app:shared:jvmTest --tests "...HomeFeedInFlightTest"` contra el código **roto** →
+  **9 pruebas, 5 fallos** (comprobación deliberada).
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:shared:jvmTest` → **451 pruebas, 0 fallos** (venían 442).
+
+### Sin cobertura de host
+
+**La pantalla sigue sin mirarla ningún test.** Lo que se prueba es el ViewModel, que es donde vivían
+los cuatro fallos. Que el indicador se vea o no se vea es cosa de `FeedFooter`, que lee `loading` y
+no ha cambiado.
+
+**Recap.** La búsqueda ya no se queda cargando, y no porque se hayan tapado cuatro agujeros sino
+porque ahora hay un dueño de la petición en vuelo: uno solo, cancelable, y con el cerrojo en el único
+sitio que lo necesitaba. La prueba que faltaba existe y se verificó contra el código roto.
+
+**Próximos pasos (opciones).** (1) Mudar la búsqueda a la barra de arriba —
+[`busqueda-en-la-barra.md`](busqueda-en-la-barra.md), que es lo aprobado y sigue ahora; (2) el slice
+4, lo que el buscador dejó a medias.
