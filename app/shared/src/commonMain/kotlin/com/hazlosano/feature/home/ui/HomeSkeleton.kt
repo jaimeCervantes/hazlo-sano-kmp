@@ -15,14 +15,37 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.atomic.HazloSkeleton
+import com.hazlosano.core.ui.components.atomic.SleepSummaryCardDefaults
 import com.hazlosano.core.ui.components.sections.HazloSectionTitleSkeleton
+import com.hazlosano.core.ui.components.sections.publicationListSkeleton
 import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
 
 /** Etiquetas de prueba de los huecos de Inicio. */
 object HomeSkeletonTags {
+    const val SLEEP: String = "skeleton_home_sleep"
     const val PILLARS: String = "skeleton_home_pillars"
     const val FEED: String = "skeleton_home_feed"
+}
+
+/**
+ * El hueco del resumen de anoche, **del alto exacto de la tarjeta**.
+ *
+ * Lee `SleepSummaryCardDefaults.height`, la misma constante que la tarjeta aplica como alto mínimo,
+ * así que no pueden desincronizarse. Sin este hueco, el resumen no ocupaba nada mientras se leía de
+ * la base de datos y al llegar empujaba hacia abajo los cuatro pilares y todo lo demás.
+ */
+fun LazyListScope.sleepSummarySkeleton() {
+    item {
+        HazloSkeleton(
+            modifier = Modifier
+                .padding(horizontal = HazloSpaces.gutter)
+                .fillMaxWidth()
+                .height(SleepSummaryCardDefaults.height)
+                .testTag(HomeSkeletonTags.SLEEP),
+            shape = CARD_SHAPE,
+        )
+    }
 }
 
 /**
@@ -60,27 +83,24 @@ fun LazyListScope.homePillarsSkeleton() {
     item { Spacer(modifier = Modifier.height(HazloSpaces.lg)) }
 }
 
-/** El hueco del feed: su encabezado y un par de publicaciones. */
+/**
+ * El hueco del feed: su encabezado, y las publicaciones que dibuja la lista.
+ *
+ * **Las filas ya no se dibujan aquí.** Dibujaba dos tarjetas de ancho completo de 320 dp mientras el
+ * feed llevaba meses yendo de dos en dos: un hueco con otra forma que la lista que espera es un
+ * brinco con pasos intermedios, no un brinco menos. Ahora las pone `publicationListSkeleton`, la
+ * misma que usan los resultados de la búsqueda, así que sólo hay una forma que mantener.
+ */
 fun LazyListScope.homeFeedSkeleton() {
     item {
         Column(modifier = Modifier.testTag(HomeSkeletonTags.FEED)) {
             HazloSectionTitleSkeleton(modifier = Modifier.padding(horizontal = HazloSpaces.gutter))
             Spacer(modifier = Modifier.height(HazloSpaces.sm))
-            repeat(FEED_POSTS) {
-                HazloSkeleton(
-                    modifier = Modifier
-                        .padding(horizontal = HazloSpaces.gutter, vertical = HazloSpaces.unit)
-                        .fillMaxWidth()
-                        .height(FEED_POST_HEIGHT),
-                    shape = CARD_SHAPE,
-                )
-            }
         }
     }
+    publicationListSkeleton()
 }
 
 private val CARD_SHAPE = RoundedCornerShape(HazloShapes.card)
 private val LARGE_PILLAR_HEIGHT: Dp = 140.dp
-private val FEED_POST_HEIGHT: Dp = 320.dp
 private const val SMALL_PILLARS = 2
-private const val FEED_POSTS = 2

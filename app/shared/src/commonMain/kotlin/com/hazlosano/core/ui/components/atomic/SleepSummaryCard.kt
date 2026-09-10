@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -56,6 +58,31 @@ object SleepSummaryCardTags {
     const val INFO: String = "sleep_summary_info"
 }
 
+object SleepSummaryCardDefaults {
+    /**
+     * Lo que mide la tarjeta, **tenga el dato que tenga**.
+     *
+     * Tres de sus filas son opcionales —las horas de dormirse y despertar, la línea de precisión y
+     * el desglose de fases— y se pintan sólo si el análisis las trae. Sin un alto fijo la tarjeta
+     * crece cuando el detector de Android termina de escribir sus segmentos, unos segundos después
+     * de abrir el app, y al crecer empuja hacia abajo los cuatro pilares y todo lo demás.
+     *
+     * El número no se eligió a ojo: son los 308 dp que mide la variante más rica —con horas,
+     * precisión y las tres fases—, leídos componiéndola. `SleepSummaryCardHeightTest` compone las
+     * cuatro variantes y afirma que todas miden esto; si alguien añade una fila que no quepa, esa
+     * prueba lo dice con el número nuevo antes de que llegue a un teléfono.
+     *
+     * **Es bastante aire la primera noche**, cuando no hay nada registrado y la tarjeta enseña tres
+     * ceros en un espacio pensado para el doble de información. Se acepta a sabiendas: el detector
+     * escribe sus segmentos a los pocos segundos de abrir el app, así que ese estado dura una noche
+     * y el otro dura siempre.
+     *
+     * Y es el mismo alto que reserva su hueco mientras se lee de la base de datos: una sola cifra,
+     * imposible de desincronizar.
+     */
+    val height: Dp = 308.dp
+}
+
 @Composable
 fun SleepSummaryCard(
     analysis: SleepAnalysis,
@@ -75,6 +102,14 @@ fun SleepSummaryCard(
     LeafCard(
         modifier = modifier
             .fillMaxWidth()
+            // Alto reservado: ver `SleepSummaryCardDefaults.height`. Lo que sobra cuando el análisis
+            // aún no trae fases es aire dentro de la tarjeta, que es preferible a que la pantalla
+            // entera se recoloque cuando lleguen.
+            //
+            // `heightIn(min)` y no `height`: con un alto exacto, una escala de fuente grande
+            // recortaría el contenido en silencio. Así el peor caso es que la tarjeta crezca —
+            // visible, y con una prueba que lo dice antes de que llegue a un teléfono.
+            .heightIn(min = SleepSummaryCardDefaults.height)
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         containerColor = darkOverlay,
     ) {

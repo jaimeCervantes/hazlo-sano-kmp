@@ -42,7 +42,6 @@ import com.hazlosano.core.ui.model.pillarShortLabel
 import com.hazlosano.core.ui.theme.LocalHazloPalette
 import com.hazlosano.core.ui.theme.PillarPalette
 import com.hazlosano.domain.model.PillarType
-import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.domain.repository.SleepSessionRepository
 import com.hazlosano.domain.usecase.GetSleepHistoryUseCase
 import com.hazlosano.feature.catalog.presentation.rememberPillarCatalogViewModel
@@ -53,6 +52,7 @@ import com.hazlosano.feature.main.presentation.AppLayer
 import com.hazlosano.feature.main.presentation.depth
 import com.hazlosano.feature.main.presentation.topLayer
 import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
+import com.hazlosano.feature.sleep.presentation.SleepUiState
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
 import com.hazlosano.feature.movement.detail.ui.SessionDetailScreen
@@ -144,7 +144,7 @@ internal fun BottomTab.palette(): PillarPalette {
 fun MainScreen(
     homeViewModel: HomeViewModel,
     sleepViewModel: SleepViewModel,
-    sleepAnalysis: SleepAnalysis? = null,
+    sleepState: SleepUiState = SleepUiState.Loading,
     onRefreshSleep: (() -> Unit)? = null,
     sleepSessionRepository: SleepSessionRepository? = null,
 ) {
@@ -445,7 +445,7 @@ fun MainScreen(
                         when (tab) {
                             BottomTab.Inicio -> HomeScreen(
                                 viewModel = homeViewModel,
-                                sleepAnalysis = sleepAnalysis,
+                                sleepState = sleepState,
                                 onNavigateToTracker = { movementNav.openTracker() },
                                 onRefreshSleep = onRefreshSleep,
                                 onSleepCardClick = navigateToSleepHistory,

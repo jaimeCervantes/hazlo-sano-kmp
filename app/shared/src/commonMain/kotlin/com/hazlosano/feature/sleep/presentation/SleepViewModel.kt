@@ -5,13 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.hazlosano.domain.model.SleepSession
 import com.hazlosano.domain.repository.SleepSessionRepository
 import com.hazlosano.domain.usecase.GetSleepAnalysisUseCase
-import com.hazlosano.domain.model.SleepAnalysis
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.hazlosano.data.currentEpochMilliseconds
 import kotlinx.datetime.DateTimeUnit
@@ -31,10 +27,6 @@ class SleepViewModel(
 
     private val _sessions = MutableStateFlow<List<SleepSession>>(emptyList())
     val sessions: StateFlow<List<SleepSession>> = _sessions.asStateFlow()
-
-    val sleepAnalysis: StateFlow<SleepAnalysis?> = _uiState
-        .map { state -> (state as? SleepUiState.Success)?.sleepAnalysis }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         loadData()

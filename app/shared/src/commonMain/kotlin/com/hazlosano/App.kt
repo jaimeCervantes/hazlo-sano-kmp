@@ -41,7 +41,10 @@ fun App() {
             sleepSessionRepository,
         )
     }
-    val sleepAnalysis by sleepViewModel.sleepAnalysis.collectAsState()
+    // El estado entero y no el análisis aplanado: `SleepUiState` distingue «todavía se está
+    // leyendo» de «no se pudo», y el Inicio necesita esa diferencia para saber si reservar el hueco
+    // del resumen o no reservar nada.
+    val sleepState by sleepViewModel.uiState.collectAsState()
 
     val scope = rememberCoroutineScope()
 
@@ -69,7 +72,7 @@ fun App() {
                 MainScreen(
                     homeViewModel = viewModel,
                     sleepViewModel = sleepViewModel,
-                    sleepAnalysis = sleepAnalysis,
+                    sleepState = sleepState,
                     onRefreshSleep = onRefreshSleep,
                     sleepSessionRepository = sleepSessionRepository,
                 )

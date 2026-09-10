@@ -63,8 +63,8 @@ import com.hazlosano.domain.model.HomeContent
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.PillarAction
 import com.hazlosano.domain.model.PillarOverview
-import com.hazlosano.domain.model.SleepAnalysis
 import com.hazlosano.feature.home.presentation.HomeUiState
+import com.hazlosano.feature.sleep.presentation.SleepUiState
 import com.hazlosano.feature.home.presentation.rememberHomeFeedViewModel
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import hazlosano.app.shared.generated.resources.Res
@@ -76,6 +76,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Etiquetas de prueba. La estructura de Inicio se afirma por aquí y no por su redacción. */
 object HomeTags {
+    const val BOARD: String = "home_board"
+    const val SLEEP: String = "home_sleep"
     const val PILLARS: String = "home_pillars"
     const val CHAMPIONS: String = "home_champions"
     const val FEED: String = "home_feed"
@@ -86,7 +88,7 @@ object HomeTags {
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    sleepAnalysis: SleepAnalysis? = null,
+    sleepState: SleepUiState = SleepUiState.Loading,
     onNavigateToTracker: () -> Unit = {},
     onRefreshSleep: (() -> Unit)? = null,
     onSleepCardClick: (() -> Unit)? = null,
@@ -100,7 +102,7 @@ fun HomeScreen(
 
     HomeBoard(
         state = uiState,
-        sleepAnalysis = sleepAnalysis,
+        sleepState = sleepState,
         onNavigateToTracker = onNavigateToTracker,
         onRefreshSleep = onRefreshSleep,
         onSleepCardClick = onSleepCardClick,
@@ -121,7 +123,7 @@ fun HomeScreen(
 @Composable
 internal fun HomeBoard(
     state: HomeUiState,
-    sleepAnalysis: SleepAnalysis?,
+    sleepState: SleepUiState,
     onNavigateToTracker: () -> Unit,
     onRefreshSleep: (() -> Unit)?,
     onSleepCardClick: (() -> Unit)?,
@@ -132,21 +134,17 @@ internal fun HomeBoard(
     onRetryFeed: () -> Unit = {},
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .testTag(HomeTags.BOARD),
         contentPadding = PaddingValues(top = HazloSpaces.default, bottom = HazloSpaces.xl),
     ) {
-        if (sleepAnalysis != null) {
-            item {
-                SleepSummaryCard(
-                    analysis = sleepAnalysis,
-                    accentColor = pillarInkOnImage(PillarType.SLEEP),
-                    modifier = Modifier.padding(horizontal = HazloSpaces.gutter),
-                    onRefresh = onRefreshSleep,
-                    onClick = onSleepCardClick,
-                )
-            }
-            item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
-        }
+        sleepSummary(
+            state = sleepState,
+            onRefresh = onRefreshSleep,
+            onClick = onSleepCardClick,
+        )
 
         when (state) {
             HomeUiState.Loading -> {
@@ -183,6 +181,43 @@ internal fun HomeBoard(
             )
         }
     }
+}
+
+/**
+ * El resumen de anoche, o su hueco, o nada.
+ *
+ * Las tres situaciones son distintas y hasta ahora se contestaban con un solo `if (analysis !=
+ * null)`, porque a esta pantalla llegaba `SleepAnalysis?` en lugar del estado. El nulo mezclaba
+ * «todavía no ha vuelto» con «no se pudo leer», y en los dos casos no reservaba nada: al llegar el
+ * análisis, la tarjeta aparecía de la nada y empujaba la pantalla entera hacia abajo.
+ *
+ * **Fallar no deja hueco.** Un esqueleto latiendo para siempre promete algo que ya se sabe que no va
+ * a llegar, y eso es peor que la ausencia.
+ */
+private fun LazyListScope.sleepSummary(
+    state: SleepUiState,
+    onRefresh: (() -> Unit)?,
+    onClick: (() -> Unit)?,
+) {
+    val analysis = (state as? SleepUiState.Success)?.sleepAnalysis
+    when {
+        analysis != null -> item {
+            SleepSummaryCard(
+                analysis = analysis,
+                accentColor = pillarInkOnImage(PillarType.SLEEP),
+                modifier = Modifier
+                    .padding(horizontal = HazloSpaces.gutter)
+                    .testTag(HomeTags.SLEEP),
+                onRefresh = onRefresh,
+                onClick = onClick,
+            )
+        }
+
+        state is SleepUiState.Loading -> sleepSummarySkeleton()
+
+        else -> return
+    }
+    item { Spacer(modifier = Modifier.height(HazloSpaces.md)) }
 }
 
 private fun LazyListScope.homeSections(
