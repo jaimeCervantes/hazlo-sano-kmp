@@ -6,7 +6,7 @@ import com.hazlosano.domain.model.CatalogPage
 import com.hazlosano.domain.model.HazloProduct
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.VisitorLocation
-import com.hazlosano.domain.usecase.GetPillarCatalogUseCase
+import com.hazlosano.domain.usecase.GetCatalogUseCase
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  */
 class PillarCatalogViewModel(
     private val pillar: PillarType,
-    private val getPillarCatalog: GetPillarCatalogUseCase,
+    private val getCatalog: GetCatalogUseCase,
     private val readLocation: suspend () -> VisitorLocation?,
     /**
      * El reloj entra por constructor para que un test pueda situarse antes o después de un evento
@@ -47,7 +47,7 @@ class PillarCatalogViewModel(
             // por fecha, que es lo que el sitio hace con quien no dice dónde está.
             val location = runCatching { readLocation() }.getOrNull()
 
-            _uiState.value = runCatching { getPillarCatalog(pillar, location) }
+            _uiState.value = runCatching { getCatalog(pillar, location) }
                 .fold(
                     onSuccess = { it.toUiState() },
                     onFailure = { PillarCatalogUiState.Failed },

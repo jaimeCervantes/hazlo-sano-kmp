@@ -18,21 +18,29 @@ internal class CatalogRepositoryImpl(
     private val cache: ProductDataSource,
 ) : CatalogRepository {
 
-    override suspend fun getPillarCatalog(
-        pillar: PillarType,
+    override suspend fun getCatalog(
+        pillar: PillarType?,
         page: Int,
         pageSize: Int,
         location: VisitorLocation?,
     ): CatalogPage {
         val remote = runCatching {
-            api.fetchPillarPage(pillar, page, pageSize, location)
+            api.fetchPage(pillar, page, pageSize, location)
         }.getOrNull() ?: return cachedOrUnavailable(pillar, pageSize, page)
 
+        // Sin filtro las publicaciones no afirman pilar: el sitio no dice a cual pertenece cada una
+        // —lo deriva de su categoria raiz, con una taxonomia que este app no tiene— y deducirlo aqui
+        // seria una segunda copia de esa tabla, desincronizada desde el dia uno.
         val publications = CatalogMapper.toDomain(remote, pillar)
 
         // Solo la primera página sustituye la caché. Guardar la página 3 borrando las anteriores
         // dejaría al dispositivo con un trozo suelto del catálogo y sin su principio.
-        if (page == 1) {
+        //
+        // **Y solo cuando hay filtro.** `replacePillar` borra lo de un pilar antes de escribir; sin
+        // pilar no hay nada acotado que sustituir, y hacerlo sobre todo dejaria al dispositivo con
+        // veinte publicaciones sueltas donde tenia el catalogo de los cuatro. El feed sin filtro lee
+        // de lo que las pestanas de pilar hayan guardado y no escribe nada.
+        if (page == 1 && pillar != null) {
             runCatching { cache.replacePillar(pillar, publications) }
         }
 
@@ -43,18 +51,26 @@ internal class CatalogRepositoryImpl(
     }
 
     private suspend fun cachedOrUnavailable(
-        pillar: PillarType,
+        pillar: PillarType?,
         pageSize: Int,
         page: Int,
     ): CatalogPage {
+        val offset = (page - 1).coerceAtLeast(0) * pageSize
         val cached = runCatching {
-            cache.getByPillar(pillar, limit = pageSize, offset = (page - 1).coerceAtLeast(0) * pageSize)
+            if (pillar == null) {
+                cache.getAll(limit = pageSize, offset = offset)
+            } else {
+                cache.getByPillar(pillar, limit = pageSize, offset = offset)
+            }
         }.getOrNull().orEmpty()
 
         // Vacío no basta para decir «nunca se leyó»: un pilar puede estar de verdad vacío en el
         // sitio, y la última página de uno lleno también vuelve vacía. Lo que lo decide es si hay
-        // algo guardado de ese pilar, no si esta página trajo filas.
-        if (cached.isEmpty() && runCatching { cache.countByPillar(pillar) }.getOrDefault(0L) == 0L) {
+        // algo guardado, no si esta página trajo filas.
+        val stored = runCatching {
+            if (pillar == null) cache.count() else cache.countByPillar(pillar)
+        }.getOrDefault(0L)
+        if (cached.isEmpty() && stored == 0L) {
             return CatalogPage.Unavailable
         }
 

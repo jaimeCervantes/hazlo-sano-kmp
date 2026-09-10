@@ -8,7 +8,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class GetPillarCatalogUseCaseTest {
+class GetCatalogUseCaseTest {
 
     private class RecordingRepository(
         private val answer: CatalogPage = CatalogPage.Unavailable,
@@ -18,8 +18,8 @@ class GetPillarCatalogUseCaseTest {
         var pageSize: Int? = null
         var location: VisitorLocation? = null
 
-        override suspend fun getPillarCatalog(
-            pillar: PillarType,
+        override suspend fun getCatalog(
+            pillar: PillarType?,
             page: Int,
             pageSize: Int,
             location: VisitorLocation?,
@@ -36,7 +36,7 @@ class GetPillarCatalogUseCaseTest {
     fun `asks for the pillar it was given`() = runTest {
         val repository = RecordingRepository()
 
-        GetPillarCatalogUseCase(repository)(PillarType.MOVEMENT)
+        GetCatalogUseCase(repository)(PillarType.MOVEMENT)
 
         assertEquals(PillarType.MOVEMENT, repository.pillar)
     }
@@ -46,7 +46,7 @@ class GetPillarCatalogUseCaseTest {
         val repository = RecordingRepository()
         val here = VisitorLocation(19.4326, -99.1332, fixedAtEpochMillis = 1_756_512_000_000L)
 
-        GetPillarCatalogUseCase(repository)(PillarType.NUTRITION, location = here)
+        GetCatalogUseCase(repository)(PillarType.NUTRITION, location = here)
 
         assertEquals(here, repository.location)
     }
@@ -55,7 +55,7 @@ class GetPillarCatalogUseCaseTest {
     fun `defaults to the first page and the app page size`() = runTest {
         val repository = RecordingRepository()
 
-        GetPillarCatalogUseCase(repository)(PillarType.SLEEP)
+        GetCatalogUseCase(repository)(PillarType.SLEEP)
 
         assertEquals(1, repository.page)
         assertEquals(CatalogRepository.DEFAULT_PAGE_SIZE, repository.pageSize)
@@ -65,7 +65,7 @@ class GetPillarCatalogUseCaseTest {
     fun `returns whatever the repository decided`() = runTest {
         val page = CatalogPage.Cached(emptyList())
 
-        val result = GetPillarCatalogUseCase(RecordingRepository(page))(PillarType.MIND)
+        val result = GetCatalogUseCase(RecordingRepository(page))(PillarType.MIND)
 
         assertEquals(page, result)
     }

@@ -53,12 +53,14 @@ import com.hazlosano.core.ui.model.pillarInkOnImage
 import com.hazlosano.core.ui.theme.HazloShapes
 import com.hazlosano.core.ui.theme.HazloSpaces
 import com.hazlosano.domain.model.FeedPost
-import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.HomeContent
+import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.PillarAction
 import com.hazlosano.domain.model.PillarOverview
 import com.hazlosano.domain.model.SleepAnalysis
+import com.hazlosano.feature.home.presentation.HomeFeedUiState
 import com.hazlosano.feature.home.presentation.HomeUiState
+import com.hazlosano.feature.home.presentation.rememberHomeFeedViewModel
 import com.hazlosano.feature.home.presentation.HomeViewModel
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.action_retry
@@ -84,6 +86,11 @@ fun HomeScreen(
     onSleepCardClick: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    // El feed vive en su propio ViewModel y no en `HomeViewModel`: son dos cosas con ritmos
+    // distintos —uno carga una vez, el otro acumula paginas— y juntarlos obligaria a reconstruir
+    // todo Inicio cada vez que llega una pagina.
+    val feedViewModel = rememberHomeFeedViewModel()
+    val feedState by feedViewModel.state.collectAsState()
 
     HomeBoard(
         state = uiState,
@@ -92,6 +99,10 @@ fun HomeScreen(
         onRefreshSleep = onRefreshSleep,
         onSleepCardClick = onSleepCardClick,
         onRetry = viewModel::refresh,
+        feedState = feedState,
+        onSelectFeedFilter = feedViewModel::select,
+        onFeedReachedEnd = feedViewModel::loadMore,
+        onRetryFeed = feedViewModel::retry,
     )
 }
 
@@ -109,6 +120,10 @@ internal fun HomeBoard(
     onRefreshSleep: (() -> Unit)?,
     onSleepCardClick: (() -> Unit)?,
     onRetry: () -> Unit = {},
+    feedState: HomeFeedUiState = HomeFeedUiState(),
+    onSelectFeedFilter: (PillarType?) -> Unit = {},
+    onFeedReachedEnd: () -> Unit = {},
+    onRetryFeed: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -155,6 +170,10 @@ internal fun HomeBoard(
             is HomeUiState.Success -> homeSections(
                 content = state.content,
                 onNavigateToTracker = onNavigateToTracker,
+                feedState = feedState,
+                onSelectFeedFilter = onSelectFeedFilter,
+                onFeedReachedEnd = onFeedReachedEnd,
+                onRetryFeed = onRetryFeed,
             )
         }
     }
@@ -163,6 +182,10 @@ internal fun HomeBoard(
 private fun LazyListScope.homeSections(
     content: HomeContent,
     onNavigateToTracker: () -> Unit,
+    feedState: HomeFeedUiState,
+    onSelectFeedFilter: (PillarType?) -> Unit,
+    onFeedReachedEnd: () -> Unit,
+    onRetryFeed: () -> Unit,
 ) {
     item {
         PillarsOverviewSection(
@@ -186,10 +209,18 @@ private fun LazyListScope.homeSections(
             actionText = null,
         )
         Spacer(modifier = Modifier.height(HazloSpaces.sm))
+        HomeFeedFilters(selected = feedState.filter, onSelect = onSelectFeedFilter)
+        Spacer(modifier = Modifier.height(HazloSpaces.sm))
     }
-    items(content.feedPosts.size) { index ->
-        FeedPostCard(content.feedPosts[index])
-    }
+
+    // `content.feedPosts` ya no se pinta: era la parte inventada de `MockHomeRepository`, y estas
+    // publicaciones vienen del sitio. Lo demas de ese repositorio de mentira sigue ahi, dicho en el
+    // roadmap; este slice quita una ficcion, no todas.
+    homeFeed(
+        state = feedState,
+        onReachedEnd = onFeedReachedEnd,
+        onRetry = onRetryFeed,
+    )
 }
 
 @Composable

@@ -5,7 +5,7 @@ import com.hazlosano.domain.model.HazloProduct
 import com.hazlosano.domain.model.PillarType
 import com.hazlosano.domain.model.VisitorLocation
 import com.hazlosano.domain.repository.CatalogRepository
-import com.hazlosano.domain.usecase.GetPillarCatalogUseCase
+import com.hazlosano.domain.usecase.GetCatalogUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -36,8 +36,8 @@ class PillarCatalogViewModelTest {
         var seenLocation: VisitorLocation? = null
         var calls = 0
 
-        override suspend fun getPillarCatalog(
-            pillar: PillarType,
+        override suspend fun getCatalog(
+            pillar: PillarType?,
             page: Int,
             pageSize: Int,
             location: VisitorLocation?,
@@ -54,7 +54,7 @@ class PillarCatalogViewModelTest {
         location: suspend () -> VisitorLocation? = { null },
     ) = PillarCatalogViewModel(
         pillar = PillarType.NUTRITION,
-        getPillarCatalog = GetPillarCatalogUseCase(repository),
+        getCatalog = GetCatalogUseCase(repository),
         readLocation = location,
     )
 

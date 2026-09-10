@@ -15,13 +15,18 @@ import com.hazlosano.domain.model.VisitorLocation
 interface CatalogRepository {
 
     /**
-     * Una página del catálogo de un pilar.
+     * Una página del catálogo, de un pilar o de todos.
+     *
+     * **[pillar] es opcional porque en el sitio lo es**: su endpoint acepta el filtro como un
+     * parámetro que puede no ir, y sin él devuelve las publicaciones de los cuatro pilares. Tener
+     * aquí dos operaciones —una con pilar y otra sin él— seria partir en dos lo que al otro lado es
+     * una sola, y dejar a cada implementación debiendo la mitad que no le toca.
      *
      * [location] es opcional porque no todos los targets pueden saberla; cuando viaja, el sitio
      * ordena por cercanía en vez de por fecha.
      */
-    suspend fun getPillarCatalog(
-        pillar: PillarType,
+    suspend fun getCatalog(
+        pillar: PillarType? = null,
         page: Int = 1,
         pageSize: Int = DEFAULT_PAGE_SIZE,
         location: VisitorLocation? = null,

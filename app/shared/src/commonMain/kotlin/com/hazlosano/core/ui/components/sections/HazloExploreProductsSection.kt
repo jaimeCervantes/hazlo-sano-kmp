@@ -1,18 +1,12 @@
 package com.hazlosano.core.ui.components.sections
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import com.hazlosano.core.ui.components.atomic.HazloAsyncImage
-import com.hazlosano.core.ui.components.cards.HazloProductCard
-import com.hazlosano.core.ui.components.cards.HazloProductCardImagePlaceholder
+import com.hazlosano.core.ui.components.cards.HazloPublicationCard
 import com.hazlosano.domain.model.HazloProduct
-import com.hazlosano.domain.model.PublicationKind
 import hazlosano.app.shared.generated.resources.Res
-import hazlosano.app.shared.generated.resources.publication_price_free
 import hazlosano.app.shared.generated.resources.section_products_empty
 import hazlosano.app.shared.generated.resources.section_products_placeholder
 import hazlosano.app.shared.generated.resources.section_products_title
@@ -40,37 +34,15 @@ fun HazloExploreProductsSection(
      */
     overlineLabel: (@Composable (HazloProduct) -> String?)? = null,
 ) {
-    // Un evento sin precio es gratis y se dice; un anuncio sin precio simplemente no se vende, y
-    // ahí la línea se queda vacía en lugar de anunciar un "Gratis" que no significa nada.
-    val freeLabel = stringResource(Res.string.publication_price_free)
-
+    // La traduccion de una publicacion a una tarjeta vive en `HazloPublicationCard` desde que el
+    // feed del Inicio pinta lo mismo: estaba escrita aqui, donde solo la alcanzaba esta rejilla.
     val productContent: @Composable (HazloProduct, Modifier) -> Unit = { product, itemModifier ->
-        HazloProductCard(
-            title = product.name,
-            description = product.description,
-            price = product.price,
-            priceFallbackLabel = freeLabel.takeIf { product.kind == PublicationKind.EVENT },
-            overlineLabel = overlineLabel?.invoke(product),
-            isFavorite = product.isFavorite,
-            distanceMeters = product.distanceMeters,
+        HazloPublicationCard(
+            publication = product,
             onFavoriteClick = { onFavoriteClick(product) },
-            accentColor = accentColor,
             modifier = itemModifier,
-            imageContent = {
-                if (product.imageUrl.isBlank()) {
-                    HazloProductCardImagePlaceholder(
-                        title = product.name,
-                        accentColor = accentColor,
-                    )
-                } else {
-                    HazloAsyncImage(
-                        model = product.imageUrl,
-                        contentDescription = product.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            },
+            accentColor = accentColor,
+            overlineLabel = overlineLabel?.invoke(product),
         )
     }
 

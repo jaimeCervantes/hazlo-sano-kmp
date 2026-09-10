@@ -166,6 +166,12 @@
     <string name="tracker_trace_toggle_description">Keeps every GPS reading, to tune the filter.</string>
 
     <!-- Movement: figures, shared by the tracker, the outings list and the detail -->
+    <string name="home_feed_filter_all">All</string>
+    <string name="home_feed_empty">Nothing published here yet.</string>
+    <string name="home_feed_failed">Publications could not be loaded.</string>
+    <string name="home_feed_retry">Try again</string>
+    <string name="home_feed_stale">Offline: this may be out of date.</string>
+    <string name="home_feed_no_more">No more publications.</string>
     <string name="movement_metric_distance">Distance</string>
     <string name="movement_metric_duration">Time</string>
     <string name="movement_metric_moving_time">Moving</string>

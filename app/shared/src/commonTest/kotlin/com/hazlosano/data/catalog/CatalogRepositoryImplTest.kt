@@ -74,7 +74,7 @@ class CatalogRepositoryImplTest {
     fun `with network it shows what the site publishes`() = runTest {
         val repository = CatalogRepositoryImpl(onlineApi(onePost), FakeCache())
 
-        val page = repository.getPillarCatalog(PillarType.NUTRITION)
+        val page = repository.getCatalog(PillarType.NUTRITION)
 
         val fresh = assertIs<CatalogPage.Fresh>(page)
         assertEquals("Suero natural", fresh.publications.single().name)
@@ -86,7 +86,7 @@ class CatalogRepositoryImplTest {
         val cache = FakeCache()
         cache.rows += HazloProduct(id = "old", name = "Retirado", pillar = PillarType.NUTRITION)
 
-        CatalogRepositoryImpl(onlineApi(onePost), cache).getPillarCatalog(PillarType.NUTRITION)
+        CatalogRepositoryImpl(onlineApi(onePost), cache).getCatalog(PillarType.NUTRITION)
 
         // Sin el borrado, una publicación retirada del sitio viviría en el dispositivo para siempre.
         assertEquals(listOf("p1"), cache.rows.map { it.id })
@@ -96,7 +96,7 @@ class CatalogRepositoryImplTest {
     fun `only the first page replaces the cache`() = runTest {
         val cache = FakeCache()
 
-        CatalogRepositoryImpl(onlineApi(onePost), cache).getPillarCatalog(PillarType.NUTRITION, page = 3)
+        CatalogRepositoryImpl(onlineApi(onePost), cache).getCatalog(PillarType.NUTRITION, page = 3)
 
         // Guardar la página 3 borrando las anteriores dejaría un trozo suelto del catálogo.
         assertEquals(0, cache.replaceCalls)
@@ -107,7 +107,7 @@ class CatalogRepositoryImplTest {
         val cache = FakeCache()
         cache.rows += HazloProduct(id = "p9", name = "Leído ayer", pillar = PillarType.MOVEMENT)
 
-        val page = CatalogRepositoryImpl(offlineApi(), cache).getPillarCatalog(PillarType.MOVEMENT)
+        val page = CatalogRepositoryImpl(offlineApi(), cache).getCatalog(PillarType.MOVEMENT)
 
         val cached = assertIs<CatalogPage.Cached>(page)
         assertEquals("Leído ayer", cached.publications.single().name)
@@ -115,7 +115,7 @@ class CatalogRepositoryImplTest {
 
     @Test
     fun `without network and having never read it says so`() = runTest {
-        val page = CatalogRepositoryImpl(offlineApi(), FakeCache()).getPillarCatalog(PillarType.MIND)
+        val page = CatalogRepositoryImpl(offlineApi(), FakeCache()).getCatalog(PillarType.MIND)
 
         // Ni una lista vacía ni el seed: el usuario tiene que poder distinguir "no hay nada" de
         // "no lo he podido leer".
@@ -127,7 +127,7 @@ class CatalogRepositoryImplTest {
         val cache = FakeCache()
         cache.rows += HazloProduct(id = "p9", name = "De nutrición", pillar = PillarType.NUTRITION)
 
-        val page = CatalogRepositoryImpl(offlineApi(), cache).getPillarCatalog(PillarType.MIND)
+        val page = CatalogRepositoryImpl(offlineApi(), cache).getCatalog(PillarType.MIND)
 
         assertEquals(CatalogPage.Unavailable, page)
     }
@@ -136,7 +136,7 @@ class CatalogRepositoryImplTest {
     fun `an empty pillar with network is empty and not unavailable`() = runTest {
         val repository = CatalogRepositoryImpl(onlineApi("""{"posts":[]}"""), FakeCache())
 
-        val page = repository.getPillarCatalog(PillarType.SLEEP)
+        val page = repository.getCatalog(PillarType.SLEEP)
 
         val fresh = assertIs<CatalogPage.Fresh>(page)
         assertTrue(fresh.publications.isEmpty())
@@ -147,7 +147,7 @@ class CatalogRepositoryImplTest {
         val withNext = """{"posts":[{"id":"p1","title":"Uno"}],"nextPage":2}"""
 
         val page = CatalogRepositoryImpl(onlineApi(withNext), FakeCache())
-            .getPillarCatalog(PillarType.NUTRITION)
+            .getCatalog(PillarType.NUTRITION)
 
         assertTrue(assertIs<CatalogPage.Fresh>(page).hasMore)
     }

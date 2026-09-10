@@ -5,7 +5,7 @@ import androidx.compose.runtime.remember
 import com.hazlosano.data.catalog.catalogRepository
 import com.hazlosano.data.location.readVisitorLocation
 import com.hazlosano.domain.model.PillarType
-import com.hazlosano.domain.usecase.GetPillarCatalogUseCase
+import com.hazlosano.domain.usecase.GetCatalogUseCase
 
 /**
  * Arma el catálogo de un pilar con lo que este target tenga.
@@ -21,7 +21,7 @@ fun rememberPillarCatalogViewModel(pillar: PillarType): PillarCatalogViewModel =
     remember(pillar) {
         PillarCatalogViewModel(
             pillar = pillar,
-            getPillarCatalog = GetPillarCatalogUseCase(catalogRepository()),
+            getCatalog = GetCatalogUseCase(catalogRepository()),
             readLocation = ::readVisitorLocation,
         )
     }

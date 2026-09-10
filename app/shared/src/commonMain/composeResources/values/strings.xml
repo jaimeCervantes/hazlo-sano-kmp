@@ -175,6 +175,12 @@
     <string name="tracker_trace_toggle_description">Guarda cada lectura del GPS para ajustar el filtro.</string>
 
     <!-- Movimiento: métricas, compartidas por el tracker, el historial y el detalle -->
+    <string name="home_feed_filter_all">Todos</string>
+    <string name="home_feed_empty">Aún no hay publicaciones aquí.</string>
+    <string name="home_feed_failed">No se pudieron cargar las publicaciones.</string>
+    <string name="home_feed_retry">Reintentar</string>
+    <string name="home_feed_stale">Sin conexión: esto puede estar desactualizado.</string>
+    <string name="home_feed_no_more">No hay más publicaciones.</string>
     <string name="movement_metric_distance">Distancia</string>
     <string name="movement_metric_duration">Tiempo</string>
     <string name="movement_metric_moving_time">En movimiento</string>

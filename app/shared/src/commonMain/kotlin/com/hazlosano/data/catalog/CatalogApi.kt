@@ -23,14 +23,24 @@ internal class CatalogApi(
     private val baseUrl: String = DEFAULT_BASE_URL,
 ) {
 
-    suspend fun fetchPillarPage(
-        pillar: PillarType,
+    /**
+     * Una pagina del feed, filtrada por pilar o sin filtrar.
+     *
+     * **Sin pilar, el parametro no viaja**, que es como el sitio distingue «los cuatro» de «este».
+     * Mandar `pillar=` vacio seria pedir un pilar llamado cadena vacia, y `parsePublicationPillar`
+     * lo trata como ninguno — funcionaria por accidente, no por contrato.
+     *
+     * Las claves de [PillarType] son las mismas que las del sitio (`sleep`, `nutrition`,
+     * `movement`, `mindSpirit`), asi que no hace falta traducirlas.
+     */
+    suspend fun fetchPage(
+        pillar: PillarType?,
         page: Int,
         pageSize: Int,
         location: VisitorLocation?,
     ): CatalogResponseDto = client.get("$baseUrl/api/posts/page/$page/pageSize/$pageSize") {
         parameter("locale", LOCALE)
-        parameter("pillar", pillar.key)
+        pillar?.let { parameter("pillar", it.key) }
         location?.asCookieValue()?.let { header(HttpHeaders.Cookie, "$LOCATION_COOKIE=$it") }
     }.body()
 
