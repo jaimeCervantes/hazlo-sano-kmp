@@ -5,10 +5,10 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 
 /**
@@ -26,6 +26,19 @@ object HazloMotion {
 
     /** Elevación, entrada de un elemento. */
     const val DURATION_BASE_MILLIS: Int = 260
+
+    /**
+     * Pasar de una pantalla a otra. **Es el dial de toda la navegación del app.**
+     *
+     * Los 260 ms de [DURATION_BASE_MILLIS] se quedaban cortos para una pantalla entera: a esa
+     * velocidad el cambio se lee como un corte y no como un movimiento. El proyecto hermano de
+     * Android no declara transiciones y se queda con las de Navigation Compose, 700 ms, que es lo
+     * que el usuario reconoció como más fluido — pero 700 ms por cada toque de la barra inferior es
+     * demasiado para algo que se hace veinte veces seguidas.
+     *
+     * 450 ms es el punto entre los dos. Si hace falta moverlo, se mueve **aquí y sólo aquí**.
+     */
+    const val DURATION_SCREEN_MILLIS: Int = 450
 }
 
 /**
@@ -48,6 +61,11 @@ object HazloMotion {
  * 3. **Los fundidos no duran lo mismo que el deslizamiento ni empiezan a la vez.** Lo que sale se
  *    apaga rápido y lo que entra enciende después: solapar los dos al mismo ritmo deja un tramo con
  *    las dos pantallas medio visibles, que es lo que se lee como turbio.
+ *
+ * **Lo tercero valía para [depth] y no para [siblings], y se corrigió al compararlo con el proyecto
+ * hermano**: cuando lo único que cambia es la opacidad, el relevo deja un instante sin ninguna de
+ * las dos y eso parpadea. La salida no era volver a solapar —que es lo turbio— sino que la que llega
+ * se encienda **encima** de la que se va, que aguanta opaca debajo. Ver [siblings].
  */
 object HazloTransitions {
 
@@ -75,19 +93,38 @@ object HazloTransitions {
     }
 
     /**
-     * Cambiar entre cosas del mismo nivel — las pestañas de pilar.
+     * Cambiar entre cosas del mismo nivel — las pestañas de pilar, los tres sitios de Movimiento.
      *
      * Se funden porque no hay dentro ni fuera: deslizar implicaría un orden espacial entre pilares
      * que no existe, y el usuario aprendería una dirección que no significa nada.
      *
-     * Lo que entra crece un poco al aparecer, que es lo que separa un fundido de un parpadeo: sin
-     * ese gesto las dos pantallas se cruzan sin que nada indique cuál llega.
+     * **Lo que llega se enciende encima de lo que se va, que se queda opaco debajo hasta el final.**
+     * Ni relevo ni fundido cruzado, y las dos alternativas están descartadas por una razón cada una:
+     *
+     * - **El relevo** —apagar lo viejo y luego encender lo nuevo— es lo que había aquí, y deja un
+     *   instante en que ninguna de las dos está entera. Sobre fondo oscuro eso parpadea, y fue lo
+     *   que obligó a añadir un `scaleIn` para disimularlo. El gesto sobra cuando no hay parpadeo que
+     *   tapar, así que se va con él.
+     * - **El fundido cruzado** —las dos a la vez, que es lo que hace Navigation Compose por defecto
+     *   y por tanto el proyecto hermano— pone las dos pantallas a media opacidad a mitad de camino,
+     *   y por debajo se ve el fondo del app a través de ambas. Es lo que la primera versión de este
+     *   archivo llamó «turbio», y tenía razón.
+     *
+     * Encendiendo encima no hay ni hueco ni transparencia: la pantalla que llega se materializa
+     * sobre la que estaba, que nunca deja de ser opaca. Es lo que el hermano aparenta hacer, hecho
+     * de forma que no dependa de que el fondo perdone.
      */
-    fun <S> AnimatedContentTransitionScope<S>.siblings(): ContentTransform = (
-        fadeIn(enteringFade()) + scaleIn(enteringFade(), initialScale = ARRIVING_SCALE)
+    fun <S> AnimatedContentTransitionScope<S>.siblings(): ContentTransform = ContentTransform(
+        targetContentEnter = fadeIn(screenFade()),
+        // La que se va no se atenúa: aguanta entera y desaparece cuando ya está tapada. Animar su
+        // opacidad es lo que dejaba ver el fondo entre las dos.
+        initialContentExit = fadeOut(snap(delayMillis = HazloMotion.DURATION_SCREEN_MILLIS)),
+        // Encima. Sin esto, «encenderse sobre la otra» depende del orden en que se compongan.
+        targetContentZIndex = ARRIVING_ON_TOP,
         // Tambien aqui se apaga el tamaño: dos pilares pueden medir distinto, y sin esto el
         // contenedor interpolaria entre las dos alturas mientras se funden.
-        ) togetherWith fadeOut(leavingFade()) using null
+        sizeTransform = null,
+    )
 
     /** Lo que se va se apaga rápido, para dejar sitio antes de que llegue lo que viene. */
     private fun <T> leavingFade(): FiniteAnimationSpec<T> =
@@ -100,12 +137,16 @@ object HazloTransitions {
         easing = HazloMotion.standard,
     )
 
+    /** Lo que tarda una pantalla entera en llegar. Ver [HazloMotion.DURATION_SCREEN_MILLIS]. */
+    private fun <T> screenFade(): FiniteAnimationSpec<T> =
+        tween(HazloMotion.DURATION_SCREEN_MILLIS, easing = HazloMotion.standard)
+
     private fun <T> slideSpec(): FiniteAnimationSpec<T> =
         tween(HazloMotion.DURATION_BASE_MILLIS, easing = HazloMotion.standard)
 
     /** Cuánto se retira la pantalla que se va: una cuarta parte, no entera. */
     private const val RECEDING_FRACTION = 4
 
-    /** Casi uno: lo justo para que se note que llega, sin que parezca que salta. */
-    private const val ARRIVING_SCALE = 0.94f
+    /** Por encima de la que se va, que es lo que hace que no se vea el fondo entre las dos. */
+    private const val ARRIVING_ON_TOP = 1f
 }

@@ -59,6 +59,8 @@ import com.hazlosano.feature.movement.detail.ui.SessionDetailScreen
 import com.hazlosano.feature.movement.history.ui.MovementHistoryScreen
 import com.hazlosano.feature.movement.presentation.MovementDestination
 import com.hazlosano.feature.movement.presentation.MovementNavState
+import com.hazlosano.feature.movement.presentation.MovementTransition
+import com.hazlosano.feature.movement.presentation.movementTransition
 import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import com.hazlosano.feature.pillar.ui.PillarInfoScreen
@@ -239,8 +241,21 @@ fun MainScreen(
                     targetState = step,
                     modifier = Modifier.fillMaxSize(),
                     transitionSpec = {
+                        // Qué clase de viaje es, y no cuánto mide la pila. Los tres sitios del
+                        // pilar se apilan igual que los detalles, así que preguntarle a la pila
+                        // hacía que ir de Grabar a Rutas —dos hermanos con la misma barra abajo— se
+                        // animara como entrar más adentro.
+                        val kind = movementTransition(
+                            from = initialState.destination,
+                            to = targetState.destination,
+                            goingDeeper = targetState.depth >= initialState.depth,
+                        )
                         with(HazloTransitions) {
-                            depth(goingDeeper = targetState.depth >= initialState.depth)
+                            when (kind) {
+                                MovementTransition.Siblings -> siblings()
+                                MovementTransition.Deeper -> depth(goingDeeper = true)
+                                MovementTransition.Back -> depth(goingDeeper = false)
+                            }
                         }
                     },
                     label = "pilar de movimiento",
