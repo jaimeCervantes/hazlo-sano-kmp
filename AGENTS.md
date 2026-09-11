@@ -152,7 +152,9 @@ It is currently used in about a third of the places it should be.
 - `.\gradlew.bat :core:check`
 - `.\gradlew.bat :app:shared:check`
 - `.\gradlew.bat :server:test`
-- `.\gradlew.bat :app:androidApp:assembleDebug`
+- `.\gradlew.bat :app:androidApp:assembleDebug` — **escribe ~65 MB** en `~/HazloSano-apks`: su
+  finalizador `archiveDebugApk` archiva el APK con fecha y commit, y lo sube si hay destino de
+  `rclone`. Ver `docs/SETUP.md`, sección 5.
 - `.\gradlew.bat :app:desktopApp:check`
 - `.\gradlew.bat :app:webApp:check`
 - `.\gradlew.bat :server:run`

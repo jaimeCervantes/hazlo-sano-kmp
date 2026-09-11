@@ -103,6 +103,56 @@ adb logcat -c; adb logcat *:E                # ver errores en runtime
 
 ---
 
+## 5. Cada APK de debug se archiva solo
+
+`assembleDebug` tiene un finalizador, `archiveDebugApk`, que **guarda una copia del APK con un
+nombre que dice de dónde salió**:
+
+```
+C:\Users\<tú>\HazloSano-apks\hazlosano-1.0-2026-09-10-3cb368f-sucio.apk
+                                       │   │          │        └ hay cambios sin commitear
+                                       │   │          └ commit
+                                       │   └ fecha
+                                       └ versionName
+```
+
+Existe porque Gradle escribe siempre `androidApp-debug.apk` y lo sobrescribe, y `versionName` lleva
+fijo en `1.0` desde el primer día: **dos APK cualesquiera eran indistinguibles.**
+
+- **Lleva la fecha y no la hora a propósito.** Compilar dos veces el mismo commit el mismo día
+  produce el mismo nombre y sobrescribe, en vez de dejar dos copias de 65 MB del mismo código.
+- **`-sucio` cuando el árbol de trabajo no está limpio.** Un APK etiquetado con un commit que no
+  contiene lo que lleva dentro engaña más que uno sin etiqueta.
+- **Nunca rompe la compilación.** Sin `rclone`, sin configurar o sin red, avisa y sigue.
+
+### Subirlo a Google Drive
+
+La copia local no necesita nada. Para que además suba, una sola vez:
+
+```powershell
+winget install Rclone.Rclone
+rclone config     # n → nómbralo "gdrive" → tipo "drive" → client_id y secret en blanco → scope 1
+```
+
+Y el destino en `gradle.properties` (o en `~\.gradle\gradle.properties`, si prefieres que no viaje
+en el repositorio):
+
+```properties
+hazlosano.apk.rcloneRemote=gdrive:HazloSano/apks
+```
+
+### Lo que hay que saber
+
+| | |
+|---|---|
+| Carpeta local | `~\HazloSano-apks`; se cambia con `hazlosano.apk.archiveDir` |
+| Tamaño | ~65 MB por APK, y **`assembleDebug` está en la validación de siempre** |
+| Limpieza | **No hay.** Se guarda un APK por commit y día, para siempre, local y en Drive |
+
+Va fuera del repositorio a propósito: 65 MB de binario no entran en git.
+
+---
+
 ## Nota técnica: workaround de recursos de Compose (crash al abrir)
 
 ### Síntoma
