@@ -171,7 +171,7 @@
     <string name="publication_list_failed">Publications could not be loaded.</string>
     <string name="publication_list_stale">Offline: this may be out of date.</string>
     <string name="publication_list_no_more">No more publications.</string>
-    <string name="search_hint">Search publications…</string>
+    <string name="search_hint">Jam, donut, a hike…</string>
     <string name="search_no_results">Nothing found for that term.</string>
     <string name="search_clear">Clear the search</string>
     <string name="movement_metric_distance">Distance</string>
