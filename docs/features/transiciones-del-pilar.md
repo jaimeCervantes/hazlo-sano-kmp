@@ -65,11 +65,74 @@ parpadea — tanto, que hubo que añadir un `scaleIn` para disimularlo.
 **Lo que no se puede afirmar con un escenario:** que 450 ms sea el número, y que encenderse encima se
 vea mejor que relevarse. Eso es de mirarlo en un teléfono.
 
+## Lo que faltaba, visto al probarlo (2026-09-12)
+
+El slice 1 arregló **qué** transición se usa. Seguía sin sentirse fluido, y al mirar la estructura
+aparecieron dos causas que ninguna curva arregla.
+
+### El cromo se anima con el contenido
+
+Las tres pantallas del pilar están montadas igual:
+
+```kotlin
+Column {
+    HazloTopAppBar(...)      // ← se desvanece
+    <contenido>
+    MovementBottomBar(...)   // ← se desvanece
+}
+```
+
+y ese `Column` entero vive **dentro** del `AnimatedContent`. Así que ir de «Mis rutas» a «Mis
+salidas» no cambia el contenido: **parpadean también las dos barras**.
+
+Las cinco pestañas de pilar, que sí se sienten bien, hacen lo contrario: el `Scaffold` con su
+`NavigationBar` está **fuera** del `AnimatedContent` y sólo el cuerpo se funde. La barra no se mueve
+ni un píxel. Esa es toda la diferencia.
+
+### Volver al tracker reconstruye el mapa
+
+`MovementMap.android.kt` guarda la vista con `remember(context) { MapView(context, options) }`, **dentro
+del composable**. Al salir de la composición se descarta; al volver se crea otra vista, se vuelve a
+bajar el estilo y se rehacen las capas. Ir a «Mis rutas» y volver a «Empezar una salida» paga eso
+entero.
+
+## Slice 2 — el cromo sale de la animación
+
+**Alcance.**
+
+- Las barras de arriba y de abajo del pilar se pintan **una vez, fuera** del `AnimatedContent`, en la
+  rama de Movimiento de `MainScreen`. Las tres pantallas dejan de dibujarlas.
+- Qué título lleva la barra y qué sitio está marcado abajo sale de una función pura sobre el
+  destino, con su tabla de pruebas — como `movementTransition`.
+- La barra de abajo se pinta **sólo en los tres sitios**. Los dos detalles no la llevan, que es lo
+  que `MovementBottomBar` ya dice de sí misma.
+
+**Criterios de aceptación.**
+
+- Al cambiar de sitio, sólo se funde el cuerpo: las dos barras no parpadean.
+- Ninguna de las tres pantallas dibuja su propio cromo.
+- El detalle de una ruta y el de una salida siguen sin barra inferior, y con su flecha de volver.
+
+## Slice 3 — el mapa sobrevive a salir y volver
+
+**Alcance.** Que la `MapView` del tracker no se destruya al navegar dentro del pilar.
+
+**El riesgo está dicho de antemano:** `MovementMap.android.kt` es un archivo con historia — modo
+textura, callbacks de estilo, dibujar en el `update` y no en efectos. Cada uno de esos comentarios es
+un fallo que costó encontrar. Retener la vista toca justo eso, así que este slice se mide antes y
+después en un dispositivo, y si no se puede medir, no se da por bueno.
+
+**Criterios de aceptación.** Volver a «Empezar una salida» desde otro sitio del pilar no vuelve a
+bajar el estilo ni a recrear las capas. Se comprueba por el log que el propio archivo ya escribe
+(`style loaded, layers=…`): hoy aparece cada vez; después, una sola.
+
 ## Estado
 
 | Slice | Estado |
 |---|---|
 | 1 — la transición la elige qué clase de viaje es | **Hecho** — ver la [bitácora](transiciones-del-pilar-bitacora.md) |
+| 2 — el cromo sale de la animación | **Hecho** — ver la [bitácora](transiciones-del-pilar-bitacora.md) |
+| 3 — el mapa sobrevive a salir y volver | **Aparte**, por decisión del usuario (2026-09-12): se analiza y se hace con más cuidado, no en esta tanda |
 
 **Pendiente de verlo en un teléfono:** si 450 ms sigue pareciendo más seco que el hermano, el número
 está en `HazloMotion.DURATION_SCREEN_MILLIS` y el del hermano es 700.

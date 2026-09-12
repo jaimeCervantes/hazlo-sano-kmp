@@ -55,12 +55,7 @@ import com.hazlosano.feature.sleep.presentation.SleepHistoryViewModel
 import com.hazlosano.feature.sleep.presentation.SleepUiState
 import com.hazlosano.feature.sleep.presentation.SleepViewModel
 import com.hazlosano.feature.home.ui.HomeScreen
-import com.hazlosano.feature.movement.detail.ui.SessionDetailScreen
-import com.hazlosano.feature.movement.history.ui.MovementHistoryScreen
-import com.hazlosano.feature.movement.presentation.MovementDestination
 import com.hazlosano.feature.movement.presentation.MovementNavState
-import com.hazlosano.feature.movement.presentation.MovementTransition
-import com.hazlosano.feature.movement.presentation.movementTransition
 import com.hazlosano.feature.movement.routes.presentation.rememberRoutesViewModel
 import com.hazlosano.feature.pillar.presentation.rememberPillarHighlightsViewModel
 import com.hazlosano.feature.pillar.ui.PillarInfoScreen
@@ -68,10 +63,8 @@ import com.hazlosano.feature.search.presentation.rememberSearchViewModel
 import com.hazlosano.feature.search.ui.SearchResultsScreen
 import com.hazlosano.feature.search.ui.SearchTags
 import com.hazlosano.feature.settings.ui.SettingsScreen
-import com.hazlosano.feature.movement.routes.ui.RouteDetailScreen
-import com.hazlosano.feature.movement.routes.ui.RoutesScreen
+import com.hazlosano.feature.movement.ui.MovementPillar
 import com.hazlosano.feature.movement.ui.MovementPillarActions
-import com.hazlosano.feature.movement.tracker.ui.TrackerScreen
 import com.hazlosano.feature.sleep.ui.SleepHistoryScreen
 import com.hazlosano.feature.sleep.ui.SleepScreen
 import hazlosano.app.shared.generated.resources.Res
@@ -230,88 +223,12 @@ fun MainScreen(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            AppLayer.Movement -> {
-                // El pilar tiene su propia pila, asi que su profundidad es la de esa pila y no la de
-                // la capa: entrar al detalle de una ruta es ir mas adentro **dentro** del pilar,
-                // mientras que desde fuera el pilar entero sigue siendo una sola capa.
-                // `lastPlace` y no `destination`: al cerrar el pilar la pila se vacia de
-                // inmediato, pero esta pantalla sigue compuesta hasta que termina de irse.
-                val step = MovementStep(movementNav.lastPlace, movementNav.depth)
-                AnimatedContent(
-                    targetState = step,
-                    modifier = Modifier.fillMaxSize(),
-                    transitionSpec = {
-                        // Qué clase de viaje es, y no cuánto mide la pila. Los tres sitios del
-                        // pilar se apilan igual que los detalles, así que preguntarle a la pila
-                        // hacía que ir de Grabar a Rutas —dos hermanos con la misma barra abajo— se
-                        // animara como entrar más adentro.
-                        val kind = movementTransition(
-                            from = initialState.destination,
-                            to = targetState.destination,
-                            goingDeeper = targetState.depth >= initialState.depth,
-                        )
-                        with(HazloTransitions) {
-                            when (kind) {
-                                MovementTransition.Siblings -> siblings()
-                                MovementTransition.Deeper -> depth(goingDeeper = true)
-                                MovementTransition.Back -> depth(goingDeeper = false)
-                            }
-                        }
-                    },
-                    label = "pilar de movimiento",
-                ) { (destination, _) ->
-                    when (destination) {
-                        is MovementDestination.Tracker -> TrackerScreen(
-                            onBack = { movementNav.back() },
-                            onOpenHistory = { movementNav.openHistory() },
-                            onOpenRoutes = { movementNav.openRoutes() },
-                            onOpenSettings = openSettings,
-                            followRouteId = destination.followRouteId,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        MovementDestination.History -> MovementHistoryScreen(
-                            onBack = { movementNav.back() },
-                            onOpenSession = { id -> movementNav.openSessionDetail(id) },
-                            onOpenRoutes = { movementNav.openRoutes() },
-                            onOpenRecord = { movementNav.openTracker() },
-                            onOpenSettings = openSettings,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        MovementDestination.Routes -> RoutesScreen(
-                            viewModel = routesViewModel,
-                            onBack = { movementNav.back() },
-                            onOpenRoute = { id -> movementNav.openRouteDetail(id) },
-                            onOpenRecord = { movementNav.openTracker() },
-                            onOpenOutings = { movementNav.openHistory() },
-                            onOpenSettings = openSettings,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        is MovementDestination.RouteDetail -> RouteDetailScreen(
-                            routeId = destination.routeId,
-                            onBack = { movementNav.back() },
-                            onStartOuting = {
-                                movementNav.openTrackerFollowing(destination.routeId)
-                            },
-                            onOpenSettings = openSettings,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        is MovementDestination.SessionDetail -> SessionDetailScreen(
-                            sessionId = destination.sessionId,
-                            onBack = { movementNav.back() },
-                            onOpenSettings = openSettings,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        // `lastPlace` nunca es Closed, asi que esta rama no se pinta nunca; esta
-                        // porque el `when` es sobre un sellado y tiene que ser exhaustivo.
-                        MovementDestination.Closed -> Unit
-                    }
-                }
-            }
+            AppLayer.Movement -> MovementPillar(
+                nav = movementNav,
+                routesViewModel = routesViewModel,
+                onOpenSettings = openSettings,
+                modifier = Modifier.fillMaxSize(),
+            )
 
             AppLayer.PillarInfo -> pillarInfo?.let { pillar ->
                 PillarInfoScreen(
@@ -517,5 +434,3 @@ fun MainScreen(
     }
 }
 
-/** Un sitio del pilar de Movimiento junto a lo adentro que esta, para saber hacia donde animar. */
-private data class MovementStep(val destination: MovementDestination, val depth: Int)

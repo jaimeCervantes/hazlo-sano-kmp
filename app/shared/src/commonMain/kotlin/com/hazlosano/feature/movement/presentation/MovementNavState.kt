@@ -55,6 +55,17 @@ class MovementNavState {
     var lastPlace: MovementDestination = MovementDestination.Tracker()
         private set
 
+    /**
+     * El último de **los tres sitios** en el que se estuvo, que sobrevive a abrir un detalle.
+     *
+     * [lastPlace] no sirve para esto: al abrir el detalle de una ruta pasa a ser ese detalle, y la
+     * mitad del pilar que se está yendo —los tres sitios, con su cromo— se quedaría pintando nada
+     * mientras se desliza. Es el mismo problema que [lastPlace] resuelve un nivel más afuera, una
+     * vez que los sitios y los detalles se animan por separado.
+     */
+    var lastVisitedPlace: MovementDestination = MovementDestination.Tracker()
+        private set
+
     val isOpen: Boolean
         get() = backStack.isNotEmpty()
 
@@ -104,7 +115,18 @@ class MovementNavState {
         backStack.removeLastOrNull()
         // Al salir del pilar no se toca: `lastPlace` tiene que seguir siendo la pantalla de la que
         // se viene mientras esta se va de la pantalla.
-        backStack.lastOrNull()?.let { lastPlace = it }
+        backStack.lastOrNull()?.let { remember(it) }
+    }
+
+    /**
+     * Deja constancia de dónde estamos, para que las dos animaciones sepan de dónde se viene.
+     *
+     * Son dos memorias y no una porque son dos niveles: [lastPlace] es la pantalla anterior sea cual
+     * sea, y [lastVisitedPlace] sólo cambia al pisar uno de los tres sitios.
+     */
+    private fun remember(destination: MovementDestination) {
+        lastPlace = destination
+        if (movementPlaceOf(destination) != null) lastVisitedPlace = destination
     }
 
     /** Sale del pilar de una vez, sin recorrer la pila hacia atrás. */
@@ -119,7 +141,7 @@ class MovementNavState {
      * salir del pilar costaría un *volver* por cada visita.
      */
     private fun push(destination: MovementDestination) {
-        lastPlace = destination
+        remember(destination)
         val existing = backStack.indexOf(destination)
         if (existing >= 0) {
             while (backStack.size > existing + 1) backStack.removeLast()

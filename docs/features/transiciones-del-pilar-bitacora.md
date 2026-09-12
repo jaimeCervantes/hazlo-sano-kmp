@@ -110,3 +110,131 @@ parpadeaba sin adoptar el cruzado que enturbia: lo que llega se enciende encima.
 **Próximos pasos (opciones).** (1) Verlo en el teléfono y mover los 450 ms si hace falta; (2)
 [`mapas-mas-fluidos.md`](mapas-mas-fluidos.md), que salió de la misma comparación y tiene tres
 hallazgos con más peso que éste; (3) lo que quedaba pendiente de la búsqueda.
+
+---
+
+## Slice 2 — El cromo sale de la animación (2026-09-12)
+
+**El usuario volvió a pedir que las pantallas del pilar fueran más fluidas** —«al abrir Mis rutas,
+Mis salidas, Empezar una salida»— después del slice 1. No consta si llegó a verlo compilado; lo que
+sí se puede afirmar es lo que el código decía, y decía que el slice 1 había arreglado **qué**
+transición se usa sin tocar **qué** se estaba animando.
+
+### Las barras se animaban con el contenido
+
+Las tres pantallas del pilar estaban montadas así:
+
+```kotlin
+Column {
+    HazloTopAppBar(...)      // ← se desvanecía
+    <contenido>
+    MovementBottomBar(...)   // ← se desvanecía
+}
+```
+
+y ese `Column` entero vivía dentro del `AnimatedContent`. Ir de «Mis rutas» a «Mis salidas»
+parpadeaba las dos barras además del cuerpo.
+
+Las cinco pestañas de pilar —las que sí se sentían bien— hacen lo contrario: su `NavigationBar` vive
+fuera del `AnimatedContent` de `MainScreen`. **Ésa era toda la diferencia**, y ninguna curva la
+arregla.
+
+### Dos niveles, y la regla pasa a estar en la forma
+
+El arreglo no es mover las barras: es que el pilar tenga **dos animaciones anidadas**.
+
+- **Fuera**, `MovementSection` distingue «los tres sitios» de «un detalle». Sólo cambia al abrir o
+  cerrar un detalle, y eso sí es entrar y salir: se desliza.
+- **Dentro de los sitios**, el cromo se pinta una vez y sólo se funde el cuerpo.
+
+Y de ahí sale lo mejor del slice: **`movementTransition` sobra**. La función que el slice 1 añadió
+para decidir «hermanos o profundidad» contestaba una pregunta que la estructura ya no hace —entre
+hermanos no hay nada que animar salvo el cuerpo, porque los hermanos viven dentro del mismo cromo—.
+Se borra ella y sus cinco pruebas. El conocimiento que sí hacía falta sobrevive en mejor sitio:
+`movementPlaceOf`, que es **una sola definición** de qué cuenta como sitio y de la que salen las tres
+cosas que dependen de eso.
+
+### Un enum que estaba encerrado
+
+`MovementPlace` vivía dentro de `MovementBottomBar`, que es sólo uno de los dos que necesitan la
+distinción. El otro es la navegación. Se mueve a `presentation` — movimiento, no copia.
+
+### El pilar sale de `MainScreen`
+
+Eran ochenta líneas que obligaban a `MainScreen` a conocer los cinco destinos y sus argumentos.
+Ahora es `MovementPillar(nav, routesViewModel, onOpenSettings)`, y con él se fueron seis imports de
+pantallas que la principal no tiene por qué conocer.
+
+### Dos fallos que me habría colado, vistos releyendo
+
+**El primero habría anulado el slice entero.** El estado del nivel de fuera era
+`MovementStep(section, depth)` — copiado de lo que había—, y **la profundidad de la pila cambia al
+pasar de un sitio a otro**: ir a «Mis rutas» la hace crecer, volver a «Grabar» la corta. Con la
+profundidad dentro, el nivel de fuera habría cambiado también entre hermanos y habría vuelto a animar
+el cromo. Fuera la profundidad: `Places` es un `data object`, así que cambiar de sitio no lo mueve y
+ahí no ocurre nada. La dirección tampoco sale ya de la pila — hacia un detalle se entra, hacia los
+sitios se vuelve, y eso lo dice el propio destino.
+
+**El segundo, el panel en blanco.**
+
+`Places` leía `nav.lastPlace`. Al abrir un detalle, `lastPlace` **ya es ese detalle**, así que la
+mitad que se desliza hacia fuera se habría quedado **pintando nada** mientras se va. Es exactamente
+el problema que `lastPlace` existía para resolver un nivel más afuera, reaparecido un nivel más
+adentro al partir la animación en dos.
+
+De ahí `lastVisitedPlace`: la última de las tres pantallas que son un sitio, que sobrevive a abrir un
+detalle. Son dos memorias porque son dos niveles, y tiene sus cuatro pruebas.
+
+### Lo que **no** se pudo probar, dicho en vez de fingido
+
+Que el cromo no se anime no lo puede afirmar un escenario: es una garantía de forma. Lo que la
+sostiene es el compilador — las tres pantallas ya no aceptan a dónde ir, así que no pueden volver a
+dibujarse un cromo.
+
+Y componerlas en un test sigue sin poder ser: cada una construye su propio ViewModel, que necesita la
+persistencia real. Es la misma razón por la que `MainScreen` tampoco se compone. Se dejó escrito en
+la spec en lugar de escribir una prueba que mire otra cosa y parezca cubrirlo.
+
+### Una decisión pequeña que se conserva a propósito
+
+Arriba, el tracker dice «Movimiento» y abajo dice «Grabar». Al juntar los tres títulos en una tabla
+la tentación es unificarlos; se dejó como estaba, con su prueba, porque es la clase de detalle que un
+refactor cambia creyendo que arregla una inconsistencia.
+
+### Archivos tocados
+
+- **Presentación:** `MovementPlace.kt` (nuevo: el enum movido y `movementPlaceOf`),
+  `MovementNavState.kt` (`lastVisitedPlace`), `MovementTransition.kt` (borrado).
+- **UI:** `MovementPillar.kt` (nuevo: los dos niveles y el cromo), `MovementBottomBar.kt` (pierde el
+  enum), las tres pantallas (pierden cromo y los callbacks de navegación), `MainScreen.kt` (delega).
+- **Tests:** `MovementPlaceTest` (nuevo), `MovementPillarTitleTest` (nuevo),
+  `MovementNavStateTest` (+4), `MovementTransitionTest` (borrado).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :app:shared:jvmTest` → **484 pruebas, 0 fallos** (venían 479: +10 nuevas, −5 las de
+  `MovementTransitionTest` al borrarse).
+- `.\gradlew.bat :core:jvmTest` → **153 pruebas, 0 fallos**.
+- `.\gradlew.bat :core:check`, `:app:shared:check` → BUILD SUCCESSFUL.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check`,
+  `:app:shared:compileIosMainKotlinMetadata` → BUILD SUCCESSFUL los cuatro.
+
+### Dos incidencias del entorno, no del código
+
+- **El daemon de Kotlin se cayó** a mitad de una tanda («Backend Internal error: Exception during IR
+  lowering», y detrás una cascada de referencias sin resolver en `PublicationPagerTest`, que no se
+  había tocado). Con `--stop` y repetir, BUILD SUCCESSFUL.
+- **`PublicationPagerTest.starting another list while one is in flight asks anyway` falló una vez en
+  `js, browser`** y pasó al repetir. Es **intermitente**, y queda anotado como tal: ese archivo no se
+  tocó hoy y el `check` completo había pasado dos veces esta semana. Vale la pena mirarlo cuando se
+  vuelva al buscador — una prueba que falla una de cada tres veces acaba enseñando a ignorar el rojo.
+
+**Recap.** El cromo del pilar se pinta fuera de la animación que cambia de sitio, así que al ir de
+«Mis rutas» a «Mis salidas» sólo se funde el cuerpo. Lo que lo hizo posible fue partir el pilar en
+dos niveles —los sitios y los detalles—, y de ahí salió que la función que el slice 1 había añadido
+para decidir la transición sobraba: la estructura ya lo dice. Dos fallos propios se cazaron
+releyendo, y uno de ellos habría anulado el slice entero.
+
+**Próximos pasos (opciones).** (1) Verlo en el teléfono, que es lo único que falta; (2) el slice 3
+—que el mapa sobreviva a salir y volver—, dejado aparte a propósito para analizarlo con cuidado; (3)
+`mapas-mas-fluidos.md`, con el gesto que suelta la cámara como primero.

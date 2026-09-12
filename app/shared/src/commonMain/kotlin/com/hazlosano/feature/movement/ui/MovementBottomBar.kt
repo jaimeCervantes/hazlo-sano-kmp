@@ -18,18 +18,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.domain.model.PillarType
+import com.hazlosano.feature.movement.presentation.MovementPlace
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.movement_place_record
 import hazlosano.app.shared.generated.resources.outings_title
 import hazlosano.app.shared.generated.resources.routes_title
 import org.jetbrains.compose.resources.stringResource
-
-/** Los tres sitios del pilar. Un detalle no está aquí: no es un sitio, es algo que abriste. */
-enum class MovementPlace {
-    Record,
-    Routes,
-    Outings,
-}
 
 /** Etiquetas de prueba: la barra se afirma por aquí y no por su redacción. */
 object MovementBottomBarTags {

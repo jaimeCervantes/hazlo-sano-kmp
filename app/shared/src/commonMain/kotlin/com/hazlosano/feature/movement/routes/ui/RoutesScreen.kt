@@ -45,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.feature.movement.ui.MovementBottomBar
-import com.hazlosano.feature.movement.ui.MovementPlace
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -101,11 +100,7 @@ object RoutesTags {
 @Composable
 fun RoutesScreen(
     viewModel: RoutesViewModel,
-    onBack: () -> Unit,
     onOpenRoute: (Long) -> Unit,
-    onOpenRecord: () -> Unit = {},
-    onOpenOutings: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val routes by viewModel.allRoutes.collectAsState()
@@ -137,21 +132,6 @@ fun RoutesScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(
-            title = stringResource(Res.string.routes_title),
-            showBackButton = true,
-            onBackClick = onBack,
-            backContentDescription = stringResource(Res.string.top_app_bar_back),
-            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
-            menuContent = { dismiss ->
-                AppSettingsMenuItem(
-                    onClick = {
-                        dismiss()
-                        onOpenSettings()
-                    },
-                )
-            },
-        )
 
         state.message?.let { message ->
             Text(
@@ -203,12 +183,6 @@ fun RoutesScreen(
             }
         }
 
-        MovementBottomBar(
-            current = MovementPlace.Routes,
-            onGoToRecord = onOpenRecord,
-            onGoToRoutes = {},
-            onGoToOutings = onOpenOutings,
-        )
     }
 
     renaming?.let { route ->

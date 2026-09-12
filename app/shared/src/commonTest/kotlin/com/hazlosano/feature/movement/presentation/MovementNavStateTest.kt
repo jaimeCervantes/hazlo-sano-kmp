@@ -174,4 +174,66 @@ class MovementNavStateTest {
         assertEquals(MovementDestination.Closed, nav.destination)
         assertEquals(MovementDestination.History, nav.lastPlace)
     }
+
+    // ─────────── El último sitio, que no es lo mismo que la última pantalla ───────────
+
+    /**
+     * Abrir un detalle no cambia en qué sitio estábamos.
+     *
+     * De esto depende que la mitad del pilar que se desliza hacia fuera siga pintando lo que había:
+     * con `lastPlace` —que ya es el detalle— se quedaría en blanco mientras se va.
+     */
+    @Test
+    fun `opening a detail does not change which place we were in`() {
+        val nav = MovementNavState()
+        nav.openRoutes()
+
+        nav.openRouteDetail(routeId = 3)
+
+        assertEquals(MovementDestination.RouteDetail(routeId = 3), nav.lastPlace)
+        assertEquals(MovementDestination.Routes, nav.lastVisitedPlace, "perdió el sitio de origen")
+    }
+
+    @Test
+    fun `moving between places does move it`() {
+        val nav = MovementNavState()
+        nav.openTracker()
+        assertEquals(MovementDestination.Tracker(), nav.lastVisitedPlace)
+
+        nav.openHistory()
+
+        assertEquals(MovementDestination.History, nav.lastVisitedPlace)
+    }
+
+    /** Y volver de un detalle lo deja donde ya estaba, sin sobresaltos. */
+    @Test
+    fun `coming back from a detail leaves it where it was`() {
+        val nav = MovementNavState()
+        nav.openHistory()
+        nav.openSessionDetail(sessionId = 9)
+
+        nav.back()
+
+        assertEquals(MovementDestination.History, nav.lastVisitedPlace)
+    }
+
+    /**
+     * Empezar una salida desde el detalle de una ruta sí lo mueve: el tracker es uno de los tres.
+     *
+     * Es el único camino que entra a un sitio **desde** un detalle, y el cromo tiene que seguirlo —
+     * abajo se marca Grabar y arriba dice «Movimiento».
+     */
+    @Test
+    fun `starting an outing from a route detail moves it to the tracker`() {
+        val nav = MovementNavState()
+        nav.openRoutes()
+        nav.openRouteDetail(routeId = 3)
+
+        nav.openTrackerFollowing(routeId = 3)
+
+        assertEquals(
+            MovementDestination.Tracker(followRouteId = 3),
+            nav.lastVisitedPlace,
+        )
+    }
 }

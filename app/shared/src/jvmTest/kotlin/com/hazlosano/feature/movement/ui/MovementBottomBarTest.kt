@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
+import com.hazlosano.feature.movement.presentation.MovementPlace
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

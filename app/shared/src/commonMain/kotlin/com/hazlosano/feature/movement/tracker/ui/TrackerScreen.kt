@@ -55,7 +55,6 @@ import com.hazlosano.feature.movement.tracker.presentation.createTrackerViewMode
 import com.hazlosano.feature.movement.tracker.presentation.trackerDistance
 import com.hazlosano.feature.movement.ui.MovementBottomBar
 import com.hazlosano.feature.movement.ui.MovementMap
-import com.hazlosano.feature.movement.ui.MovementPlace
 import hazlosano.app.shared.generated.resources.Res
 import hazlosano.app.shared.generated.resources.movement_metric_distance
 import hazlosano.app.shared.generated.resources.movement_metric_moving_time
@@ -93,10 +92,6 @@ private const val SAVED_CONFIRMATION_MILLIS = 5_000L
  */
 @Composable
 fun TrackerScreen(
-    onBack: () -> Unit,
-    onOpenHistory: () -> Unit,
-    onOpenRoutes: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
     /** La ruta con la que se llega, cuando se llega desde el detalle de una. */
     followRouteId: Long? = null,
     modifier: Modifier = Modifier,
@@ -132,21 +127,6 @@ fun TrackerScreen(
     }
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(
-            title = stringResource(Res.string.tracker_title),
-            showBackButton = true,
-            onBackClick = onBack,
-            backContentDescription = stringResource(Res.string.top_app_bar_back),
-            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
-            menuContent = { dismiss ->
-                AppSettingsMenuItem(
-                    onClick = {
-                        dismiss()
-                        onOpenSettings()
-                    },
-                )
-            },
-        )
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             MovementMap(
@@ -203,12 +183,6 @@ fun TrackerScreen(
             isRecording = isRecording,
             onStart = viewModel::startRecording,
             onStop = viewModel::stopRecording,
-        )
-        MovementBottomBar(
-            current = MovementPlace.Record,
-            onGoToRecord = {},
-            onGoToRoutes = onOpenRoutes,
-            onGoToOutings = onOpenHistory,
         )
     }
 }

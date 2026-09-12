@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import com.hazlosano.core.ui.components.AppSettingsMenuItem
 import com.hazlosano.core.ui.components.atomic.HazloTopAppBar
 import com.hazlosano.feature.movement.ui.MovementBottomBar
-import com.hazlosano.feature.movement.ui.MovementPlace
 import com.hazlosano.core.ui.components.atomic.LeafCard
 import com.hazlosano.core.ui.model.palette
 import com.hazlosano.core.ui.theme.HazloSpaces
@@ -60,32 +59,13 @@ object MovementHistoryTags {
 /** Lists the sessions recorded with the tracker, newest first. */
 @Composable
 fun MovementHistoryScreen(
-    onBack: () -> Unit,
     onOpenSession: (Long) -> Unit,
-    onOpenRoutes: () -> Unit,
-    onOpenRecord: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember { createMovementHistoryViewModel() }
     val state by viewModel.state.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        HazloTopAppBar(
-            title = stringResource(Res.string.outings_title),
-            showBackButton = true,
-            onBackClick = onBack,
-            backContentDescription = stringResource(Res.string.top_app_bar_back),
-            menuContentDescription = stringResource(Res.string.top_app_bar_menu),
-            menuContent = { dismiss ->
-                AppSettingsMenuItem(
-                    onClick = {
-                        dismiss()
-                        onOpenSettings()
-                    },
-                )
-            },
-        )
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (val current = state) {
@@ -108,12 +88,6 @@ fun MovementHistoryScreen(
             }
         }
 
-        MovementBottomBar(
-            current = MovementPlace.Outings,
-            onGoToRecord = onOpenRecord,
-            onGoToRoutes = onOpenRoutes,
-            onGoToOutings = {},
-        )
     }
 }
 

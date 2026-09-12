@@ -61,6 +61,65 @@ Feature: Moverse por el pilar de Movimiento se ve como lo que es
     Then la transición es hacia adentro
     And no un fundido, porque no vengo de un sitio hermano
 
+  # ─────── Slice 2 — el cromo no se anima con el contenido ───────
+
+  Note: las tres pantallas del pilar llevan su `HazloTopAppBar` y su `MovementBottomBar` **dentro**
+  del `Column` que el `AnimatedContent` anima, así que al cambiar de sitio parpadean las dos barras
+  además del contenido. Las cinco pestañas de pilar hacen lo contrario —su `NavigationBar` está fuera
+  del `AnimatedContent`— y por eso ésas sí se sienten bien.
+
+  @slice-2
+  Scenario: Cambiar de sitio no mueve las barras
+    Given que estoy en «Mis rutas»
+    When voy a «Mis salidas»
+    Then sólo se funde el cuerpo
+    And la barra de arriba y la de abajo se quedan donde están
+
+  @slice-2
+  Scenario Outline: Cada sitio dice cómo se llama y cuál está marcado
+    Given el pilar abierto en <destino>
+    Then la barra de arriba dice <título>
+    And abajo está marcado <sitio>
+
+    Examples:
+      | destino               | título       | sitio    |
+      | Grabar                | Grabar       | Grabar   |
+      | Mis rutas             | Mis rutas    | Rutas    |
+      | Mis salidas           | Mis salidas  | Salidas  |
+
+  @slice-2
+  Scenario Outline: Un detalle no lleva barra de abajo
+    Given el pilar abierto en <destino>
+    Then no hay barra de abajo
+    And la de arriba lleva su flecha de volver
+
+    Examples:
+      | destino              |
+      | detalle de una ruta  |
+      | detalle de una salida|
+
+  Note: **que el cromo no se anime no lo puede afirmar un escenario, y no se finge que sí.** Es una
+  garantía de forma: las barras se pintan fuera del `AnimatedContent` que cambia de sitio, así que no
+  hay estado en el que puedan animarse. Lo que sostiene esa forma es el compilador — las tres
+  pantallas ya no aceptan a dónde ir, así que no pueden volver a dibujarse un cromo — y lo que sí se
+  prueba es la tabla de arriba: de qué destino sale qué sitio y qué título.
+
+  Note: componer las tres pantallas en un test no se puede hoy: cada una construye su propio
+  ViewModel, que necesita la persistencia real. Es la misma razón por la que `MainScreen` tampoco se
+  compone. Queda dicho en vez de escribir una prueba que mire otra cosa y parezca cubrirlo.
+
+  # ─────── Slice 3 — el mapa sobrevive a salir y volver ───────
+
+  Note: `MovementMap.android.kt` guarda la vista con `remember(context) { MapView(...) }` **dentro**
+  del composable, así que salir de la composición la descarta y volver la reconstruye: otra vista,
+  otra descarga del estilo, otras capas.
+
+  @slice-3 @future
+  Scenario: Volver al tracker no reconstruye el mapa
+
+  @slice-3 @future
+  Scenario: Y lo que se estaba grabando sigue dibujado al volver
+
   # ─────── Lo que cambia en el motor, y no se puede afirmar con un escenario ───────
 
   Note: el fundido de hermanos deja de ser un **relevo** —apagar lo viejo y luego encender lo nuevo—
