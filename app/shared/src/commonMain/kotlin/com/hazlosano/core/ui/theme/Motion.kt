@@ -2,6 +2,7 @@ package com.hazlosano.core.ui.theme
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
@@ -9,7 +10,6 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 
 /**
  * Las curvas y las duraciones del sitio (`layout.css`).
@@ -82,14 +82,33 @@ object HazloTransitions {
         } else {
             AnimatedContentTransitionScope.SlideDirection.End
         }
-        return (
-            slideIntoContainer(towards, slideSpec()) + fadeIn(enteringFade())
-            ) togetherWith (
-            slideOutOfContainer(towards, slideSpec()) { full -> full / RECEDING_FRACTION } +
-                fadeOut(leavingFade())
-            // El tamaño no se anima: son dos pantallas completas y miden lo mismo. Interpolarlo era
-            // el brinco que se veía en el contenido.
-            ) using null
+
+        // **Sólo se mueve una de las dos, y siempre la que está encima.** Entrando, la que llega se
+        // desliza sobre la que estaba, que aguanta quieta y opaca debajo; volviendo, la que se va se
+        // aparta y descubre a la que había detrás, que ya está en su sitio.
+        //
+        // Ninguna se atenúa, y ahí estaba el parpadeo: esto animaba las dos a la vez y además con el
+        // relevo —apagar la vieja en 150 ms y encender la nueva 110 ms después—, que deja un
+        // instante sin ninguna entera. Es el mismo fallo que [siblings] ya había dejado atrás; aquí
+        // se quedó puesto una versión de más.
+        return if (goingDeeper) {
+            ContentTransform(
+                targetContentEnter = slideIntoContainer(towards, screenSlide()),
+                initialContentExit = fadeOut(snap(delayMillis = HazloMotion.DURATION_SCREEN_MILLIS)),
+                targetContentZIndex = ARRIVING_ON_TOP,
+                // El tamaño no se anima: son dos pantallas completas y miden lo mismo. Interpolarlo
+                // era el brinco que se veía en el contenido.
+                sizeTransform = null,
+            )
+        } else {
+            ContentTransform(
+                // La que vuelve no entra: ya estaba ahí, sólo se descubre.
+                targetContentEnter = EnterTransition.None,
+                initialContentExit = slideOutOfContainer(towards, screenSlide()),
+                targetContentZIndex = REVEALED_BELOW,
+                sizeTransform = null,
+            )
+        }
     }
 
     /**
@@ -126,27 +145,23 @@ object HazloTransitions {
         sizeTransform = null,
     )
 
-    /** Lo que se va se apaga rápido, para dejar sitio antes de que llegue lo que viene. */
-    private fun <T> leavingFade(): FiniteAnimationSpec<T> =
-        tween(HazloMotion.DURATION_FAST_MILLIS, easing = HazloMotion.standard)
-
-    /** Y lo que llega enciende después, sin solaparse con lo que todavía se está yendo. */
-    private fun <T> enteringFade(): FiniteAnimationSpec<T> = tween(
-        durationMillis = HazloMotion.DURATION_BASE_MILLIS - HazloMotion.DURATION_FAST_MILLIS,
-        delayMillis = HazloMotion.DURATION_FAST_MILLIS,
-        easing = HazloMotion.standard,
-    )
-
     /** Lo que tarda una pantalla entera en llegar. Ver [HazloMotion.DURATION_SCREEN_MILLIS]. */
     private fun <T> screenFade(): FiniteAnimationSpec<T> =
         tween(HazloMotion.DURATION_SCREEN_MILLIS, easing = HazloMotion.standard)
 
-    private fun <T> slideSpec(): FiniteAnimationSpec<T> =
-        tween(HazloMotion.DURATION_BASE_MILLIS, easing = HazloMotion.standard)
-
-    /** Cuánto se retira la pantalla que se va: una cuarta parte, no entera. */
-    private const val RECEDING_FRACTION = 4
+    /**
+     * Y lo que tarda en recorrer la pantalla, que es lo mismo.
+     *
+     * Eran 260 ms mientras el fundido duraba 450, y por eso el deslizamiento se leía como un tirón
+     * al lado de un cambio de pilar. Las dos formas de pasar de una pantalla a otra duran lo mismo
+     * porque son la misma cosa vista de dos maneras.
+     */
+    private fun <T> screenSlide(): FiniteAnimationSpec<T> =
+        tween(HazloMotion.DURATION_SCREEN_MILLIS, easing = HazloMotion.natural)
 
     /** Por encima de la que se va, que es lo que hace que no se vea el fondo entre las dos. */
     private const val ARRIVING_ON_TOP = 1f
+
+    /** Y por debajo de la que se aparta, cuando lo que se hace es volver. */
+    private const val REVEALED_BELOW = 0f
 }

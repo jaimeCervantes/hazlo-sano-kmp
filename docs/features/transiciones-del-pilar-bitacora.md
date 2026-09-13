@@ -296,3 +296,63 @@ por un cambio en otro archivo — que es literalmente lo que pasó, tres días d
 no era estado de Compose, y sólo funcionaba porque al lado se leía algo que sí lo era. Al quitar esa
 lectura —por una razón buena— el pilar se quedó sordo. Ahora se observa, y hay tres pruebas que sólo
 pueden fallar si alguien vuelve a convertirlo en un `var`.
+
+---
+
+## Slice 2, segunda corrección — el deslizamiento también parpadeaba (2026-09-13)
+
+**Reportado probando el app:** ya funciona todo, pero algunas pantallas «hacen un slide muy rápido y
+parpadean mucho».
+
+### Era una inconsistencia que dejé a medias
+
+El slice 1 diagnosticó el parpadeo —el **relevo**: apagar la vieja en 150 ms y encender la nueva
+110 ms después, con un instante sin ninguna entera— y lo arregló **sólo en `siblings()`**. `depth()`
+se quedó con el relevo puesto. Y con 260 ms de deslizamiento mientras el fundido pasaba a durar 450,
+así que al lado de un cambio de pilar se leía como un tirón.
+
+`depth()` lo usan la capa de `MainScreen` —ajustes, el pilar de Movimiento, la búsqueda, la ficha de
+un pilar— y el nivel de fuera del pilar. Justo «algunas pantallas».
+
+### Sólo se mueve una de las dos, y siempre la de encima
+
+- **Entrando:** la que llega se desliza **sobre** la que estaba, que aguanta quieta y opaca debajo.
+- **Volviendo:** la que se va se aparta y descubre a la que había detrás, que ya está en su sitio y
+  no entra de ninguna parte (`EnterTransition.None`).
+
+Ninguna se atenúa, así que no hay instante sin nada. Es la misma idea que `siblings()` —lo que se
+mueve va encima y lo de debajo nunca deja de ser opaco— aplicada al deslizamiento, con el z-index
+siguiendo la dirección: `ARRIVING_ON_TOP` al entrar, `REVEALED_BELOW` al volver.
+
+Se fue también el retroceso de un cuarto de la pantalla saliente. Con las dos opacas y una sola
+moviéndose, apartar la de debajo sólo podía abrir un hueco por donde se viera el fondo.
+
+### Y las dos duraciones pasan a ser una
+
+`DURATION_SCREEN_MILLIS` para el fundido **y** para el deslizamiento. Eran 260 y 450: las dos formas
+de pasar de una pantalla a otra son la misma cosa vista de dos maneras, y no había razón para que una
+fuera casi el doble de rápida que la otra.
+
+El deslizamiento usa la curva `natural` —arranca rápido y frena largo— en vez de `standard`, que es
+lo que el propio archivo dice de ella: así se mueve algo que tiene peso.
+
+### Archivos tocados
+
+- **Motion:** `Motion.kt` (`depth()` reescrito, `screenSlide()`, fuera `enteringFade`, `leavingFade`,
+  `slideSpec` y `RECEDING_FRACTION`).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :app:shared:jvmTest` → **487 pruebas, 0 fallos**.
+- `.\gradlew.bat :app:androidApp:assembleDebug`, `:app:desktopApp:check`, `:app:webApp:check` →
+  BUILD SUCCESSFUL.
+
+### Sin comprobar
+
+**Nada de esto lo mira una prueba**, y no puede: una transición se ve o no se ve. Lo que hay es la
+forma —una sola pantalla en movimiento, ninguna translúcida— y el hecho de que ahora las dos
+transiciones del app siguen la misma regla en vez de dos.
+
+**Recap.** El deslizamiento llevaba el parpadeo que el fundido ya no tenía, y la mitad de duración.
+Ahora las dos formas duran lo mismo y ninguna de las dos deja ver el fondo entre pantallas: se mueve
+una sola, y siempre la que está encima.
