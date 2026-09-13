@@ -1,6 +1,9 @@
 package com.hazlosano.feature.movement.presentation
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
  * Where the movement pillar currently is. A sealed hierarchy (instead of an enum) so a destination
@@ -51,8 +54,15 @@ class MovementNavState {
      *
      * Es informacion de navegacion —donde estabamos— y no un apaño de la animacion: la pregunta
      * «de donde vengo» la tiene que contestar quien lleva la cuenta de por donde se ha ido.
+     *
+     * **Es estado de Compose, y tiene que serlo.** Fue un `var` corriente durante meses y funcionaba
+     * de carambola: la pantalla leía además `depth`, que sale de `backStack` y sí es observable, así
+     * que cualquier navegación la recomponía y de paso se releía esto. El día que esa lectura
+     * desapareció, tocar una ruta dejó de abrir nada — la pila cambiaba y nadie se enteraba. Lo que
+     * la interfaz lee para decidir qué pintar se observa; si no, funciona hasta que deja de hacerlo
+     * por un cambio en otro archivo.
      */
-    var lastPlace: MovementDestination = MovementDestination.Tracker()
+    var lastPlace: MovementDestination by mutableStateOf(MovementDestination.Tracker())
         private set
 
     /**
@@ -63,7 +73,7 @@ class MovementNavState {
      * mientras se desliza. Es el mismo problema que [lastPlace] resuelve un nivel más afuera, una
      * vez que los sitios y los detalles se animan por separado.
      */
-    var lastVisitedPlace: MovementDestination = MovementDestination.Tracker()
+    var lastVisitedPlace: MovementDestination by mutableStateOf(MovementDestination.Tracker())
         private set
 
     val isOpen: Boolean

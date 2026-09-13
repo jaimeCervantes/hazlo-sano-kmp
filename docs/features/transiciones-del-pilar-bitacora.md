@@ -238,3 +238,61 @@ releyendo, y uno de ellos habría anulado el slice entero.
 **Próximos pasos (opciones).** (1) Verlo en el teléfono, que es lo único que falta; (2) el slice 3
 —que el mapa sobreviva a salir y volver—, dejado aparte a propósito para analizarlo con cuidado; (3)
 `mapas-mas-fluidos.md`, con el gesto que suelta la cámara como primero.
+
+---
+
+## Slice 2, corrección — dentro del pilar no se podía tocar nada (2026-09-13)
+
+**Reportado probando el app:** los tres sitios se abren, pero dentro no responde nada. Sólo la flecha
+de volver, el botón de editar una ruta y los tres puntos.
+
+### La pista estaba en qué sí funcionaba
+
+Editar una ruta abre un **diálogo**, que es estado local de `RoutesScreen`. Abrir la ruta llama a
+`nav.openRouteDetail`. Todo lo que cambiaba estado local funcionaba; todo lo que tocaba la navegación
+no hacía nada.
+
+### `lastPlace` nunca fue estado de Compose
+
+Era un `var` corriente. Llevaba meses así y funcionaba **de carambola**: la pantalla del pilar leía
+también `nav.depth`, que sale de `backStack` —un `mutableStateListOf`, observable—, así que cualquier
+navegación recomponía ese trozo y de paso se releía todo lo demás.
+
+El slice 2 sacó la profundidad del estado de la animación, porque incluirla hacía que el nivel de
+fuera cambiara al pasar de un sitio a otro y volviera a animar el cromo. **Con ella se fue la única
+lectura observable**, y el pilar dejó de enterarse de la navegación: la pila cambiaba y nadie miraba.
+
+Eso explica exactamente lo reportado, incluido lo que seguía vivo: entrar al pilar desde la pestaña
+de Movimiento funciona porque cambia `isOpen`, que `MainScreen` sí lee; y la última vuelta atrás
+funciona por lo mismo.
+
+### Lo que ninguna prueba podía ver
+
+Las dieciséis de `MovementNavStateTest` llaman a los métodos y leen las propiedades desde Kotlin
+normal, donde un `var` se lee igual de bien que un estado. **La observabilidad no se ve desde fuera de
+una composición.**
+
+`MovementNavStateObservabilityTest` compone un `Text` que lee la propiedad y afirma que cambia sola
+al navegar. Se comprobó contra el código roto: **fallan las tres**.
+
+### La lección, escrita en el KDoc
+
+Lo que la interfaz lee para decidir qué pintar se observa. Si no, funciona hasta que deja de hacerlo
+por un cambio en otro archivo — que es literalmente lo que pasó, tres días después y en otro sitio.
+
+### Archivos tocados
+
+- **Presentación:** `MovementNavState.kt` (las dos memorias pasan a `mutableStateOf`, y el porqué).
+- **Tests:** `MovementNavStateObservabilityTest` (nuevo, 3).
+
+### Comandos y resultados
+
+- `.\gradlew.bat :app:shared:jvmTest --tests "...MovementNavStateObservabilityTest"` contra el código
+  **roto** → **3 pruebas, 3 fallos** (comprobación deliberada).
+- `.\gradlew.bat :app:shared:jvmTest` → **487 pruebas, 0 fallos** (venían 484).
+- `.\gradlew.bat :app:androidApp:assembleDebug` → BUILD SUCCESSFUL.
+
+**Recap.** El slice 2 destapó un fallo que llevaba meses dormido: la memoria de por dónde va el pilar
+no era estado de Compose, y sólo funcionaba porque al lado se leía algo que sí lo era. Al quitar esa
+lectura —por una razón buena— el pilar se quedó sordo. Ahora se observa, y hay tres pruebas que sólo
+pueden fallar si alguien vuelve a convertirlo en un `var`.
